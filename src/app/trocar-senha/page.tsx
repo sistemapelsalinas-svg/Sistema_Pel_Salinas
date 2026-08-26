@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { Shield, KeyRound, Check, AlertCircle, Lock } from 'lucide-react';
+import { KeyRound, Check, AlertCircle, Lock } from 'lucide-react';
 
 export default function TrocarSenhaPage() {
   const { user, updatePassword } = useAuth();
@@ -39,58 +39,60 @@ export default function TrocarSenhaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center p-4 text-slate-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0C111D] flex flex-col justify-center p-4 text-gray-900 dark:text-gray-100">
       
-      <div className="max-w-md w-full mx-auto z-10">
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8 shadow-2xl shadow-black/50">
+      <div className="max-w-md w-full mx-auto">
+        <div className="untitled-card p-8 shadow-md">
           
           <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 mx-auto flex items-center justify-center text-amber-400 mb-3">
-              <Lock className="w-7 h-7" />
+            <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800 mx-auto flex items-center justify-center mb-3">
+              <Lock className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-bold text-white">Primeiro Acesso — Troca de Senha</h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Olá, <span className="text-emerald-400 font-bold">{user?.graduacao} {user?.nome_guerra}</span>. Para garantir a segurança operacional, cadastre sua nova senha de uso pessoal.
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">
+              Definir Nova Senha
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Olá, <span className="text-brand-600 dark:text-brand-400 font-semibold">{user?.graduacao} {user?.nome_guerra}</span>. Por segurança, cadastre sua senha pessoal de acesso.
             </p>
           </div>
 
           {error && (
-            <div className="mb-5 p-3.5 bg-red-950/60 border border-red-800 rounded-xl flex items-center gap-3 text-xs text-red-300">
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <div className="mb-5 p-3 bg-error-50 dark:bg-error-950/50 border border-error-200 dark:border-error-800 rounded-xl flex items-center gap-2.5 text-xs text-error-700 dark:text-error-300">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-error-600" />
               <span>{error}</span>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                Nova Senha Pessoal
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Nova Senha
               </label>
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
                   placeholder="Mínimo 6 caracteres"
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                  className="untitled-input pl-10"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Confirmar Nova Senha
               </label>
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
                   placeholder="Repita a nova senha"
                   value={confirmacao}
                   onChange={(e) => setConfirmacao(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                  className="untitled-input pl-10"
                   required
                 />
               </div>
@@ -99,14 +101,14 @@ export default function TrocarSenhaPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition-all mt-3"
+              className="btn-primary w-full py-2.5 mt-2"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Definir Senha e Acessar o Sistema</span>
+                  <span>Salvar Senha e Acessar</span>
                 </>
               )}
             </button>

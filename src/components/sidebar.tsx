@@ -8,25 +8,25 @@ import { UserRole } from '@/lib/types';
 import { 
   Shield, 
   Compass, 
-  LayoutDashboard, 
+  LayoutGrid, 
   Target, 
-  PlusCircle, 
   AlertTriangle, 
-  CalendarDays, 
+  Calendar, 
   UserCheck, 
   Users, 
-  BarChart3, 
+  BarChart2, 
   LogOut, 
+  ChevronDown,
+  Sparkles,
   SlidersHorizontal,
-  ChevronRight,
-  Sparkles
+  ChevronRight
 } from 'lucide-react';
 import { RoleBadge } from './role-badge';
 import { EgressosModal } from './egressos-modal';
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, logout, switchUserRole, switchActiveUser } = useAuth();
+  const { user, logout, switchUserRole } = useAuth();
   const [showEgressosModal, setShowEgressosModal] = useState(false);
   const [showRoleTester, setShowRoleTester] = useState(false);
 
@@ -34,7 +34,6 @@ export function Sidebar() {
 
   const isAdmin = user.role === 'ADMIN';
   const isSofOrAdmin = user.role === 'ADMIN' || user.role === 'SOF';
-  const isAlertaOrAdmin = user.role === 'ADMIN' || user.role === 'ALERTA_HOMICIDIO';
 
   const navItems = [
     {
@@ -42,12 +41,12 @@ export function Sidebar() {
       href: '/dashboard/missao-do-dia',
       icon: Compass,
       highlight: true,
-      badge: 'PRIORIDADE'
+      badge: 'Plantão'
     },
     {
-      title: 'Painel Geral',
+      title: 'Visão Geral',
       href: '/dashboard',
-      icon: LayoutDashboard
+      icon: LayoutGrid
     },
     {
       title: 'Operações & Metas',
@@ -60,32 +59,32 @@ export function Sidebar() {
       ]
     },
     {
-      title: 'Alerta de Homicídios',
+      title: 'Alertas de Homicídios',
       href: '/dashboard/alertas-homicidio',
       icon: AlertTriangle,
-      badge: 'PREVENÇÃO'
+      badge: 'Prevenção'
     },
     {
-      title: 'Escala de Serviço',
+      title: 'Escala Mensal',
       href: '/dashboard/escala',
-      icon: CalendarDays
+      icon: Calendar
     },
     {
       title: 'Fiscalização de Egressos',
       href: '#',
       icon: UserCheck,
       onClick: () => setShowEgressosModal(true),
-      badge: 'EM BREVE'
+      badge: 'Em Breve'
     },
     ...(isAdmin ? [{
-      title: 'Militares & Usuários',
+      title: 'Militares & Acessos',
       href: '/dashboard/usuarios',
       icon: Users
     }] : []),
     {
-      title: 'Relatórios & Produtividade',
+      title: 'Relatórios & BI',
       href: '/dashboard/relatorios',
-      icon: BarChart3
+      icon: BarChart2
     }
   ];
 
@@ -93,26 +92,26 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="w-72 bg-slate-900 text-slate-200 flex flex-col flex-shrink-0 border-r border-slate-800 select-none min-h-screen">
-        {/* Header da Fração PM */}
-        <div className="p-5 border-b border-slate-800 flex items-center gap-3.5 bg-slate-950/70">
-          <div className="w-11 h-11 rounded-xl bg-emerald-700/30 border border-emerald-500/40 flex items-center justify-center flex-shrink-0 shadow-inner">
-            <Shield className="w-6 h-6 text-emerald-400" />
+      <aside className="w-64 bg-white dark:bg-[#0C111D] text-gray-700 dark:text-gray-200 flex flex-col flex-shrink-0 border-r border-gray-200 dark:border-[#1F242F] select-none min-h-screen">
+        
+        {/* Header / Brand */}
+        <div className="p-5 border-b border-gray-100 dark:border-[#1F242F] flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-brand-600 dark:bg-brand-500 flex items-center justify-center flex-shrink-0 text-white shadow-xs">
+            <Shield className="w-5 h-5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold text-sm tracking-wider text-white">SGP SALINAS</span>
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="font-bold text-sm text-gray-900 dark:text-white tracking-tight">SGP Salinas</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
                 PMMG
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 truncate">2º Pel / 2ª Cia PM Ind</p>
-            <p className="text-[10px] text-emerald-400/80 font-medium">11ª RPM — Norte de Minas</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">2º Pel / 2ª Cia PM Ind</p>
           </div>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+        {/* Navigation Items */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item, idx) => {
             const isActive = pathname === item.href || (item.subItems && item.subItems.some(s => pathname === s.href));
             const Icon = item.icon;
@@ -122,14 +121,14 @@ export function Sidebar() {
                 <button
                   key={idx}
                   onClick={item.onClick}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all text-left group"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white transition-all text-left group"
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors" />
+                    <Icon className="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
                     <span>{item.title}</span>
                   </div>
                   {item.badge && (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
                       {item.badge}
                     </span>
                   )}
@@ -142,39 +141,39 @@ export function Sidebar() {
                 <Link
                   key={idx}
                   href={item.href}
-                  className={`flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all shadow-md ${
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all mb-2 ${
                     pathname === item.href
-                      ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-emerald-900/30 ring-1 ring-emerald-400/50'
-                      : 'bg-emerald-950/40 text-emerald-300 border border-emerald-800/60 hover:bg-emerald-900/50 hover:text-white'
+                      ? 'bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 shadow-xs'
+                      : 'bg-gray-50 dark:bg-gray-900/60 text-gray-700 dark:text-gray-300 hover:bg-brand-50/60 dark:hover:bg-brand-950/30'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-5 h-5 text-emerald-400" />
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                     <span>{item.title}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-400/20 text-emerald-200 border border-emerald-400/40 animate-pulse">
-                    HOJE
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-100 dark:bg-brand-900/60 text-brand-800 dark:text-brand-200 border border-brand-200 dark:border-brand-800">
+                    {item.badge}
                   </span>
                 </Link>
               );
             }
 
             return (
-              <div key={idx} className="space-y-1">
+              <div key={idx} className="space-y-0.5">
                 <Link
                   href={item.href}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                     isActive && !item.subItems
-                      ? 'bg-slate-800 text-white font-bold border-l-4 border-emerald-500'
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                      ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400'}`} />
                     <span>{item.title}</span>
                   </div>
                   {item.badge && (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                       {item.badge}
                     </span>
                   )}
@@ -182,17 +181,17 @@ export function Sidebar() {
 
                 {/* Sub-items */}
                 {item.subItems && (
-                  <div className="pl-9 pr-2 py-1 space-y-1">
+                  <div className="pl-9 pr-2 py-1 space-y-0.5">
                     {item.subItems.map((sub, sIdx) => {
                       const isSubActive = pathname === sub.href;
                       return (
                         <Link
                           key={sIdx}
                           href={sub.href}
-                          className={`block px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                          className={`block px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                             isSubActive
-                              ? 'bg-emerald-600/20 text-emerald-300 font-bold border border-emerald-500/30'
-                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                              ? 'text-brand-600 dark:text-brand-400 font-semibold bg-brand-50/50 dark:bg-brand-950/30'
+                              : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                           }`}
                         >
                           {sub.title}
@@ -206,32 +205,31 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Simulador de Papéis (Tester de Perfis) */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950/40 text-xs">
+        {/* Simulador de Perfil */}
+        <div className="p-3 border-t border-gray-100 dark:border-[#1F242F]">
           <button
             type="button"
             onClick={() => setShowRoleTester(!showRoleTester)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-800/60 text-slate-400 hover:text-slate-200 text-[11px] font-medium"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-900/60 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-400 transition-colors"
           >
-            <div className="flex items-center gap-1.5">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
-              <span>Simulador de Perfil (Demo)</span>
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-warning-500" />
+              <span>Simular Perfil</span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showRoleTester ? 'rotate-90' : ''}`} />
           </button>
 
           {showRoleTester && (
-            <div className="mt-2 p-2 bg-slate-900 rounded-lg border border-slate-800 space-y-1.5 animate-in fade-in">
-              <p className="text-[10px] text-slate-400 font-bold uppercase">Alternar Perfil Atual:</p>
+            <div className="mt-2 p-2 bg-gray-50 dark:bg-[#161B26] rounded-xl border border-gray-200 dark:border-gray-800 space-y-1 animate-in fade-in">
               <div className="grid grid-cols-2 gap-1">
                 {rolesList.map(r => (
                   <button
                     key={r}
                     onClick={() => switchUserRole(r)}
-                    className={`px-2 py-1 rounded text-[10px] font-bold truncate transition-colors ${
+                    className={`px-2 py-1 rounded-md text-[11px] font-semibold truncate transition-colors ${
                       user.role === r 
-                        ? 'bg-emerald-600 text-white' 
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        ? 'bg-brand-600 text-white shadow-xs' 
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 border border-gray-200 dark:border-gray-700'
                     }`}
                   >
                     {r}
@@ -242,14 +240,19 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Perfil do Usuário & Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
+        {/* Untitled UI User Profile Footer */}
+        <div className="p-3.5 border-t border-gray-100 dark:border-[#1F242F] flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold text-xs flex-shrink-0">
-              {user.nome_guerra.slice(0, 2).toUpperCase()}
+            <div className="relative">
+              <div className="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 flex items-center justify-center font-bold text-xs border border-brand-200 dark:border-brand-800 flex-shrink-0">
+                {user.nome_guerra.slice(0, 2).toUpperCase()}
+              </div>
+              <span className="w-2.5 h-2.5 rounded-full bg-brand-500 ring-2 ring-white dark:ring-[#0C111D] absolute bottom-0 right-0" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-white truncate">{user.graduacao} {user.nome_guerra}</p>
+              <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                {user.graduacao} {user.nome_guerra}
+              </p>
               <div className="mt-0.5">
                 <RoleBadge role={user.role} />
               </div>
@@ -257,12 +260,13 @@ export function Sidebar() {
           </div>
           <button
             onClick={logout}
-            title="Sair do Sistema"
-            className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+            title="Encerrar Sessão"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-error-600 hover:bg-error-50 dark:hover:bg-error-950/40 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+
       </aside>
 
       <EgressosModal

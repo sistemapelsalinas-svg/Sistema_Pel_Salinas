@@ -14,11 +14,8 @@ import {
   Trash2, 
   CheckCircle, 
   Users, 
-  FileSpreadsheet,
-  Settings,
-  Sparkles,
-  Info,
-  Calendar
+  Calendar,
+  Info
 } from 'lucide-react';
 
 export default function EscalaPage() {
@@ -50,7 +47,7 @@ export default function EscalaPage() {
   const handleSaveSchedule = () => {
     if (!schedule) return;
     storage.saveSchedule(schedule);
-    showToast('Escala salva com sucesso no sistema!');
+    showToast('Escala salva com sucesso.');
   };
 
   const handleExportPdf = () => {
@@ -146,11 +143,10 @@ export default function EscalaPage() {
     if (!teams.includes(clean)) {
       setTeams([...teams, clean]);
       setNewTeamName('');
-      showToast(`Equipe "${clean}" adicionada com sucesso!`);
+      showToast(`Equipe "${clean}" criada com sucesso.`);
     }
   };
 
-  // Agrupa os itens da escala por militar único
   const distinctMilitaryList = Array.from(
     new Set(schedule?.itens.map(i => i.militar_id) || [])
   );
@@ -173,39 +169,33 @@ export default function EscalaPage() {
       
       {/* Toast */}
       {notification && (
-        <div className="p-4 rounded-2xl bg-emerald-900 text-white border border-emerald-600 flex items-center gap-2 text-xs font-bold shadow-lg animate-in slide-in-from-top-2">
-          <CheckCircle className="w-4 h-4 text-emerald-300" />
+        <div className="p-4 rounded-xl bg-brand-50 text-brand-800 border border-brand-200 dark:bg-brand-950/60 dark:text-brand-300 dark:border-brand-800 flex items-center gap-2 text-xs font-semibold shadow-xs animate-in slide-in-from-top-2">
+          <CheckCircle className="w-4 h-4 text-brand-600" />
           <span>{notification}</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1 border-b border-gray-200 dark:border-[#1F242F]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/40">
-              PLANEJAMENTO & RECURSOS HUMANOS
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">2º Pelotão Salinas</span>
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 mt-1">
-            <CalendarDays className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+            <CalendarDays className="w-6 h-6 text-brand-600 dark:text-brand-400" />
             <span>Escala Operacional Mensal</span>
           </h1>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Matriz inteligente de alocação por equipe, militar, Nº PM e preenchimento de legendas de serviço.
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Matriz de serviço por militar, equipe e legenda com exportação em PDF oficial.
           </p>
         </div>
 
-        {/* Botões de Ação */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Seletor Mês/Ano */}
-          <div className="flex items-center gap-2 bg-white dark:bg-gray-900 p-1.5 rounded-xl border border-slate-200 dark:border-gray-800 text-xs">
-            <Calendar className="w-4 h-4 text-slate-400" />
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Mês/Ano */}
+          <div className="flex items-center gap-2 bg-white dark:bg-[#161B26] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs text-xs">
+            <Calendar className="w-4 h-4 text-gray-400" />
             <select
               value={mes}
               onChange={(e) => setMes(Number(e.target.value))}
-              className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+              className="bg-transparent font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
             >
               <option value={1}>01 - Janeiro</option>
               <option value={2}>02 - Fevereiro</option>
@@ -220,39 +210,32 @@ export default function EscalaPage() {
               <option value={11}>11 - Novembro</option>
               <option value={12}>12 - Dezembro</option>
             </select>
-            <select
-              value={ano}
-              onChange={(e) => setAno(Number(e.target.value))}
-              className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none border-l pl-2 border-slate-200 dark:border-gray-800"
-            >
-              <option value={2025}>2025</option>
-              <option value={2026}>2026</option>
-              <option value={2027}>2027</option>
-            </select>
+            <span className="text-gray-300 dark:text-gray-600">/</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{ano}</span>
           </div>
 
           <button
             onClick={handleExportPdf}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all border border-slate-700 shadow-sm"
-            title="Gerar PDF oficial formatado no padrão PMMG"
+            className="btn-secondary"
+            title="Exportar PDF oficial da PMMG"
           >
-            <Download className="w-4 h-4 text-emerald-400" />
-            <span>Exportar em PDF</span>
+            <Download className="w-4 h-4 text-gray-500" />
+            <span>Exportar PDF</span>
           </button>
 
           {isAdmin && (
             <>
               <button
                 onClick={handleAddRow}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors shadow-sm"
+                className="btn-secondary"
               >
                 <Plus className="w-4 h-4" />
-                <span>Adicionar Militar</span>
+                <span>Adicionar Linha</span>
               </button>
 
               <button
                 onClick={handleSaveSchedule}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-colors shadow-md"
+                className="btn-primary"
               >
                 <Save className="w-4 h-4" />
                 <span>Salvar Escala</span>
@@ -262,82 +245,81 @@ export default function EscalaPage() {
         </div>
       </div>
 
-      {/* Barra de Criação de Novas Equipes */}
+      {/* Criação de Equipes */}
       {isAdmin && (
-        <div className="tactical-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div className="untitled-card p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-500" />
-            <span className="font-bold text-slate-700 dark:text-slate-300">
-              Personalização de Equipes do Pelotão:
+            <Users className="w-4 h-4 text-gray-500" />
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              Personalização de Equipes:
             </span>
           </div>
           <form onSubmit={handleAddCustomTeam} className="flex items-center gap-2 w-full sm:w-auto">
             <input
               type="text"
-              placeholder="Nome da nova equipe (ex: GEPMOR)"
+              placeholder="Nome da equipe (ex: GEPMOR)"
               value={newTeamName}
               onChange={(e) => setNewTeamName(e.target.value)}
-              className="p-1.5 px-3 bg-slate-50 dark:bg-gray-800 border border-slate-300 dark:border-gray-700 rounded-xl text-slate-900 dark:text-white uppercase font-bold text-xs"
+              className="untitled-input py-1 px-3 text-xs uppercase"
             />
             <button
               type="submit"
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-colors"
+              className="btn-secondary py-1.5 px-3 text-xs"
             >
-              Criar Equipe
+              Adicionar
             </button>
           </form>
         </div>
       )}
 
-      {/* Grade / Matriz da Escala (Spreadsheet Interativa) */}
-      <div className="tactical-card overflow-hidden shadow-lg border border-slate-200 dark:border-gray-800">
+      {/* Grade da Escala (Untitled UI Table) */}
+      <div className="untitled-card overflow-hidden">
         <div className="overflow-x-auto max-w-full">
           <table className="w-full text-left border-collapse text-xs select-none min-w-[1200px]">
             
-            {/* Cabeçalho da Tabela */}
+            {/* Header */}
             <thead>
-              <tr className="bg-emerald-800 text-white text-[11px] font-bold">
-                <th className="p-3 sticky left-0 z-20 bg-emerald-900 w-36 border-r border-emerald-700">
+              <tr className="bg-gray-50 dark:bg-[#0C111D] text-gray-600 dark:text-gray-400 font-semibold text-[11px] border-b border-gray-200 dark:border-[#1F242F]">
+                <th className="p-3 sticky left-0 z-20 bg-gray-50 dark:bg-[#0C111D] w-36 border-r border-gray-200 dark:border-gray-800">
                   EQUIPE
                 </th>
-                <th className="p-3 sticky left-36 z-20 bg-emerald-900 w-44 border-r border-emerald-700">
+                <th className="p-3 sticky left-36 z-20 bg-gray-50 dark:bg-[#0C111D] w-44 border-r border-gray-200 dark:border-gray-800">
                   MILITAR
                 </th>
-                <th className="p-3 text-center w-24 border-r border-emerald-700">
+                <th className="p-3 text-center w-24 border-r border-gray-200 dark:border-gray-800">
                   Nº PM
                 </th>
                 
-                {/* Colunas dos Dias 1 a 31 */}
                 {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                   const weekend = isWeekendDay(day);
                   return (
                     <th 
                       key={day} 
-                      className={`p-1.5 text-center font-mono border-r border-emerald-700 w-9 ${
-                        weekend ? 'bg-emerald-950 text-amber-300' : ''
+                      className={`p-1.5 text-center font-mono border-r border-gray-200 dark:border-gray-800 w-9 ${
+                        weekend ? 'bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 font-bold' : ''
                       }`}
                     >
-                      <div className="text-[10px] font-bold">{day.toString().padStart(2, '0')}</div>
-                      <div className="text-[8px] font-normal uppercase opacity-80">{getDayOfWeekAbbr(day)}</div>
+                      <div className="text-[11px]">{day.toString().padStart(2, '0')}</div>
+                      <div className="text-[9px] font-normal uppercase opacity-70">{getDayOfWeekAbbr(day)}</div>
                     </th>
                   );
                 })}
 
-                <th className="p-2 text-center w-16 bg-emerald-900">
+                <th className="p-2 text-center w-16 bg-gray-50 dark:bg-[#0C111D]">
                   TOTAL
                 </th>
 
                 {isAdmin && (
-                  <th className="p-2 text-center w-10 bg-emerald-900">
+                  <th className="p-2 text-center w-10 bg-gray-50 dark:bg-[#0C111D]">
                     AÇÃO
                   </th>
                 )}
               </tr>
             </thead>
 
-            {/* Linhas da Grade por Militar */}
-            <tbody className="divide-y divide-slate-200 dark:divide-gray-800 bg-white dark:bg-gray-900 text-slate-800 dark:text-slate-200">
-              {distinctMilitaryList.map((militarId, rIdx) => {
+            {/* Linhas */}
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-[#161B26] text-gray-800 dark:text-gray-200">
+              {distinctMilitaryList.map((militarId) => {
                 const userItems = schedule.itens.filter(i => i.militar_id === militarId);
                 const firstItem = userItems[0];
                 if (!firstItem) return null;
@@ -345,7 +327,6 @@ export default function EscalaPage() {
                 const currentMilitar = users.find(u => u.id === militarId);
                 const numeroPm = currentMilitar ? currentMilitar.numero_pm : firstItem.militar_numero_pm || '-';
                 
-                // Contagem de serviços no mês
                 const totalServicos = userItems.filter(i => {
                   const leg = legends.find(l => l.codigo === i.legenda_codigo);
                   return leg ? leg.conta_como_servico : false;
@@ -354,32 +335,32 @@ export default function EscalaPage() {
                 return (
                   <tr 
                     key={militarId}
-                    className="hover:bg-slate-50 dark:hover:bg-gray-800/60 transition-colors"
+                    className="hover:bg-gray-50/50 dark:hover:bg-gray-800/40 transition-colors"
                   >
-                    {/* Dropdown de Equipe */}
-                    <td className="p-2 sticky left-0 z-10 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800">
+                    {/* Equipe */}
+                    <td className="p-2 sticky left-0 z-10 bg-white dark:bg-[#161B26] border-r border-gray-200 dark:border-gray-800">
                       {isAdmin ? (
                         <select
                           value={firstItem.equipe}
                           onChange={(e) => handleTeamChange(militarId, e.target.value)}
-                          className="w-full p-1 bg-slate-100 dark:bg-gray-800 border border-slate-300 dark:border-gray-700 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none"
+                          className="w-full p-1 bg-gray-50 dark:bg-[#0C111D] border border-gray-300 dark:border-gray-700 rounded-md text-xs font-semibold text-brand-700 dark:text-brand-300 focus:outline-none"
                         >
                           {teams.map((t) => (
                             <option key={t} value={t}>{t}</option>
                           ))}
                         </select>
                       ) : (
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{firstItem.equipe}</span>
+                        <span className="font-semibold text-brand-700 dark:text-brand-300">{firstItem.equipe}</span>
                       )}
                     </td>
 
-                    {/* Dropdown do Militar */}
-                    <td className="p-2 sticky left-36 z-10 bg-white dark:bg-gray-900 border-r border-slate-200 dark:border-gray-800">
+                    {/* Militar */}
+                    <td className="p-2 sticky left-36 z-10 bg-white dark:bg-[#161B26] border-r border-gray-200 dark:border-gray-800">
                       {isAdmin ? (
                         <select
                           value={militarId}
                           onChange={(e) => handleMilitaryChange(militarId, e.target.value)}
-                          className="w-full p-1 bg-slate-100 dark:bg-gray-800 border border-slate-300 dark:border-gray-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                          className="w-full p-1 bg-gray-50 dark:bg-[#0C111D] border border-gray-300 dark:border-gray-700 rounded-md text-xs font-medium text-gray-900 dark:text-white focus:outline-none"
                         >
                           {users.map((u) => (
                             <option key={u.id} value={u.id}>
@@ -388,31 +369,31 @@ export default function EscalaPage() {
                           ))}
                         </select>
                       ) : (
-                        <span className="font-bold">{firstItem.militar_nome}</span>
+                        <span className="font-medium">{firstItem.militar_nome}</span>
                       )}
                     </td>
 
-                    {/* Nº PM (Preenchimento Automático) */}
-                    <td className="p-2 text-center font-mono font-bold text-[11px] text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-gray-800">
+                    {/* Nº PM */}
+                    <td className="p-2 text-center font-mono font-medium text-xs text-gray-500 border-r border-gray-200 dark:border-gray-800">
                       {numeroPm}
                     </td>
 
-                    {/* Células de Dias do Mês */}
+                    {/* Dias */}
                     {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                       const item = userItems.find(it => it.dia_mes === day);
                       const currentCode = item ? item.legenda_codigo : 'F';
                       const weekend = isWeekendDay(day);
 
                       let cellBg = '';
-                      if (currentCode === 'S') cellBg = 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold';
-                      else if (currentCode === 'SN') cellBg = 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold';
-                      else if (currentCode === 'FA' || currentCode === 'L') cellBg = 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold';
-                      else if (currentCode === 'F') cellBg = weekend ? 'bg-slate-100/80 dark:bg-gray-800/40 text-slate-400' : 'text-slate-400';
+                      if (currentCode === 'S') cellBg = 'bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 font-bold';
+                      else if (currentCode === 'SN') cellBg = 'bg-primary-50 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300 font-bold';
+                      else if (currentCode === 'FA' || currentCode === 'L') cellBg = 'bg-warning-50 dark:bg-warning-950/60 text-warning-700 dark:text-warning-300 font-bold';
+                      else if (currentCode === 'F') cellBg = weekend ? 'bg-gray-50/80 dark:bg-gray-800/30 text-gray-400' : 'text-gray-400';
 
                       return (
                         <td 
                           key={day}
-                          className={`p-1 text-center border-r border-slate-200 dark:border-gray-800 ${cellBg}`}
+                          className={`p-1 text-center border-r border-gray-200 dark:border-gray-800 ${cellBg}`}
                         >
                           {isAdmin ? (
                             <input
@@ -420,29 +401,29 @@ export default function EscalaPage() {
                               maxLength={4}
                               value={currentCode}
                               onChange={(e) => handleDayCodeChange(militarId, day, e.target.value)}
-                              className="w-full text-center bg-transparent font-mono text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded"
+                              className="w-full text-center bg-transparent font-mono text-xs font-semibold uppercase focus:outline-none focus:ring-1 focus:ring-brand-500 rounded"
                             />
                           ) : (
-                            <span className="font-mono text-xs font-bold">{currentCode}</span>
+                            <span className="font-mono text-xs font-semibold">{currentCode}</span>
                           )}
                         </td>
                       );
                     })}
 
-                    {/* Total de Serviços */}
-                    <td className="p-2 text-center font-bold text-xs bg-slate-50 dark:bg-gray-800/50">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-mono">
+                    {/* Total */}
+                    <td className="p-2 text-center font-semibold text-xs bg-gray-50/50 dark:bg-[#0C111D]/50">
+                      <span className="px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 font-mono">
                         {totalServicos}
                       </span>
                     </td>
 
-                    {/* Excluir Linha */}
+                    {/* Ação */}
                     {isAdmin && (
                       <td className="p-2 text-center">
                         <button
                           onClick={() => handleRemoveMilitary(militarId)}
-                          className="p-1 text-slate-400 hover:text-red-500 rounded"
-                          title="Remover militar da escala"
+                          className="p-1 text-gray-400 hover:text-error-600 rounded"
+                          title="Remover militar"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -458,22 +439,22 @@ export default function EscalaPage() {
         </div>
       </div>
 
-      {/* Legenda dos Códigos da Escala */}
-      <div className="tactical-card p-5 space-y-3">
-        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-          <Info className="w-4 h-4 text-emerald-500" />
+      {/* Legenda dos Códigos (Untitled UI Pill Tags) */}
+      <div className="untitled-card p-5 space-y-3">
+        <h4 className="font-semibold text-xs text-gray-700 dark:text-gray-300 flex items-center gap-2">
+          <Info className="w-4 h-4 text-gray-400" />
           <span>Legenda Oficial dos Códigos de Escala:</span>
         </h4>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
           {legends.map((l) => (
             <div
               key={l.codigo}
-              className="p-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-center space-y-1"
+              className="p-2 rounded-xl bg-gray-50 dark:bg-[#0C111D]/60 border border-gray-200 dark:border-gray-800 text-center space-y-1"
             >
               <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold font-mono ${l.cor_badge}`}>
                 {l.codigo}
               </span>
-              <p className="text-[10px] text-slate-600 dark:text-slate-300 leading-tight">
+              <p className="text-[10px] text-gray-500 leading-tight">
                 {l.descricao}
               </p>
             </div>

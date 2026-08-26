@@ -12,71 +12,71 @@ export function EgressosModal({ isOpen, onClose }: EgressosModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+      <div className="w-full max-w-md bg-white dark:bg-[#161B26] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden">
         
         {/* Header */}
-        <div className="bg-slate-900 dark:bg-black p-5 text-white flex items-center justify-between border-b border-gray-800">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-emerald-400" />
+            <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center justify-center">
+              <UserCheck className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base">Fiscalização de Egressos</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                  EM BREVE
+                <h3 className="font-semibold text-base text-gray-900 dark:text-white">Fiscalização de Egressos</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-warning-50 text-warning-700 dark:bg-warning-950/60 dark:text-warning-300 border border-warning-200 dark:border-warning-800">
+                  Em Breve
                 </span>
               </div>
-              <p className="text-xs text-slate-400">2º Pelotão PM / Salinas</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">2º Pelotão PM / Salinas</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-4 text-sm text-slate-600 dark:text-slate-300">
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+        <div className="p-6 space-y-4 text-xs text-gray-600 dark:text-gray-400">
+          <div className="p-3.5 bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-800/60 rounded-xl flex items-start gap-3">
+            <Sparkles className="w-4 h-4 text-brand-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-emerald-900 dark:text-emerald-300 text-xs uppercase tracking-wide">
-                Módulo em Fase de Planejamento
+              <p className="font-semibold text-brand-900 dark:text-brand-300">
+                Módulo em Desenvolvimento
               </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                Este módulo está reservado para a gestão e fiscalização de apenados e egressos do sistema prisional na área de Salinas.
+              <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
+                Destinado à fiscalização de apenados em livramento condicional e medidas cautelares em Salinas.
               </p>
             </div>
           </div>
 
-          <div className="space-y-2.5 text-xs">
-            <p className="font-bold text-slate-800 dark:text-slate-200">Recursos que serão integrados na próxima versão:</p>
+          <div className="space-y-2 text-xs">
+            <p className="font-semibold text-gray-900 dark:text-white">Recursos da Versão 2.0:</p>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                <span>Cadastro e fotos de indivíduos em prisão domiciliar / livramento condicional.</span>
+                <ShieldAlert className="w-4 h-4 text-error-500 flex-shrink-0" />
+                <span>Cadastro e fotos de indivíduos com restrição de liberdade.</span>
               </li>
               <li className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                <span>Controle de horários de recolhimento noturno e restrições judiciais.</span>
+                <Clock className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                <span>Controle de recolhimento noturno e medidas cautelares.</span>
               </li>
               <li className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                <span>Registro fotográfico e georreferenciado das visitas de fiscalização na rua.</span>
+                <Calendar className="w-4 h-4 text-brand-500 flex-shrink-0" />
+                <span>Registro georreferenciado e assinatura eletrônica na rua.</span>
               </li>
             </ul>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-50 dark:bg-gray-900/80 border-t border-slate-200 dark:border-gray-800 flex justify-end">
+        <div className="p-4 bg-gray-50 dark:bg-[#0C111D]/60 border-t border-gray-200 dark:border-gray-800 flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-sm"
+            className="btn-primary py-2 px-4 text-xs"
           >
             Entendido
           </button>

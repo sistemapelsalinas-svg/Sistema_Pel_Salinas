@@ -7,19 +7,18 @@ import { storage } from '@/lib/storage';
 import { 
   Target, 
   AlertTriangle, 
-  CalendarDays, 
+  Calendar, 
   Compass, 
   TrendingUp, 
   ShieldCheck, 
-  ArrowUpRight, 
   Clock, 
   Flame,
-  ExternalLink,
   ChevronRight,
-  PlusCircle
+  Plus,
+  ArrowUpRight,
+  MoreVertical
 } from 'lucide-react';
 import { RiskBadge } from '@/components/risk-badge';
-import { RoleBadge } from '@/components/role-badge';
 
 export default function DashboardOverviewPage() {
   const { user } = useAuth();
@@ -49,210 +48,197 @@ export default function DashboardOverviewPage() {
   return (
     <div className="space-y-6">
       
-      {/* Banner Principal de Boas-Vindas */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 border border-emerald-900/60 p-6 sm:p-8 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                COMANDO OPERACIONAL
-              </span>
-              <span className="text-xs text-slate-400">2º Pel / 2ª Cia PM Ind / 11ª RPM - Salinas</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Olá, {user?.graduacao} {user?.nome_guerra}!
-            </h1>
-            <p className="text-sm text-slate-300 max-w-2xl">
-              Sistema integrado de metas operacionais, prevenção qualificada de homicídios e direcionamento do policiamento ostensivo.
-            </p>
-          </div>
+      {/* Untitled UI Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-gray-200 dark:border-[#1F242F]">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight">
+            Painel Operacional — 2º Pelotão
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Gestão estratégica de metas, prevenção criminal e direcionamento tático das equipes em Salinas.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard/missao-do-dia"
-              className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 text-sm font-black shadow-lg shadow-emerald-950/40 transition-all hover:scale-105"
-            >
-              <Compass className="w-5 h-5 text-slate-950" />
-              <span>Ver Minha Missão do Dia</span>
-            </Link>
-          </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/missao-do-dia"
+            className="btn-primary"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Minha Missão do Dia</span>
+          </Link>
         </div>
       </div>
 
-      {/* Grid de Métricas Principais (Cards) */}
+      {/* Untitled UI Metric Cards (4 colunas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Card 1: Execução x Metas */}
-        <div className="tactical-card p-5 space-y-3">
+        {/* Card 1: Operações Executadas */}
+        <div className="untitled-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
-              Operações Realizadas
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Operações no Mês
             </span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
-              <Target className="w-5 h-5" />
-            </div>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+              <TrendingUp className="w-3 h-3" />
+              {percentualGeral}%
+            </span>
           </div>
+
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">{totalExecutadas}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">/ meta de {totalMetas}</span>
-            </div>
-            <div className="mt-2.5 w-full bg-slate-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+            <h3 className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
+              {totalExecutadas} <span className="text-sm font-normal text-gray-500">/ {totalMetas}</span>
+            </h3>
+          </div>
+
+          <div className="space-y-1.5 pt-1">
+            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
               <div 
-                className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
+                className="bg-brand-600 dark:bg-brand-500 h-2 rounded-full transition-all duration-500" 
                 style={{ width: `${percentualGeral}%` }}
               />
             </div>
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-            <span>Progresso Geral</span>
-            <span className="font-bold text-emerald-600 dark:text-emerald-400">{percentualGeral}% cumprido</span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Meta global da fração em cumprimento
+            </p>
           </div>
         </div>
 
         {/* Card 2: Alertas de Homicídio */}
-        <div className="tactical-card p-5 space-y-3">
+        <div className="untitled-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
-              Alertas Ativos
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Alertas de Homicídios
             </span>
-            <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 flex items-center justify-center">
-              <Flame className="w-5 h-5" />
-            </div>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-error-50 text-error-700 dark:bg-error-950/60 dark:text-error-300 border border-error-200 dark:border-error-800">
+              <Flame className="w-3 h-3" />
+              {alertasCriticos.length} críticos
+            </span>
           </div>
+
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-red-600 dark:text-red-400">{alerts.filter(a => a.status === 'ATIVO').length}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">em monitoramento</span>
-            </div>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
-              {alertasCriticos.length} de Alto Risco / Críticos
-            </p>
+            <h3 className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
+              {alerts.filter(a => a.status === 'ATIVO').length}
+            </h3>
           </div>
-          <Link
-            href="/dashboard/alertas-homicidio"
-            className="flex items-center justify-between text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline pt-1"
-          >
-            <span>Ver ocorrências filtradas</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
+
+          <div className="pt-1">
+            <Link
+              href="/dashboard/alertas-homicidio"
+              className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
+            >
+              <span>Ver triagem de ocorrências</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
-        {/* Card 3: Efetivo no Plantão Hoje */}
-        <div className="tactical-card p-5 space-y-3">
+        {/* Card 3: Efetivo no Plantão */}
+        <div className="untitled-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
-              Militares de Serviço Hoje
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Efetivo Escalado Hoje
             </span>
-            <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400 flex items-center justify-center">
-              <CalendarDays className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-500">
+              <Calendar className="w-4 h-4" />
             </div>
           </div>
+
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">{escalaHoje.length}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">escalados no dia</span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
-              Turnos: Normal, Noturno e Expediente
-            </p>
+            <h3 className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
+              {escalaHoje.length} <span className="text-sm font-normal text-gray-500">militares</span>
+            </h3>
           </div>
-          <Link
-            href="/dashboard/escala"
-            className="flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline pt-1"
-          >
-            <span>Consultar escala completa</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
+
+          <div className="pt-1">
+            <Link
+              href="/dashboard/escala"
+              className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
+            >
+              <span>Consultar grade da escala</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
-        {/* Card 4: Prevenção & Proximidade */}
-        <div className="tactical-card p-5 space-y-3">
+        {/* Card 4: Interações Comunitárias */}
+        <div className="untitled-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Interações Comunitárias
             </span>
-            <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-500">
+              <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
+
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">
-                {logs.filter(l => {
-                  const op = operations.find(o => o.id === l.tipo_operacao_id);
-                  return op?.grupo === 'INTERACOES_COMUNITARIAS';
-                }).length}
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">visitas / reuniões</span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              VCP, VT Furto e Reuniões
+            <h3 className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
+              {logs.filter(l => {
+                const op = operations.find(o => o.id === l.tipo_operacao_id);
+                return op?.grupo === 'INTERACOES_COMUNITARIAS';
+              }).length}
+            </h3>
+          </div>
+
+          <div className="pt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              VCP, Visitas Tranquilizadoras e Reuniões
             </p>
           </div>
-          <Link
-            href="/dashboard/operacoes"
-            className="flex items-center justify-between text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline pt-1"
-          >
-            <span>Ver regras e naturezas</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
         </div>
 
       </div>
 
-      {/* Seção Central Dividida: Alertas Urgentes + Últimas Operações */}
+      {/* Seção Central Untitled UI (2 Colunas: Alertas & Histórico Recente) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Coluna 1 & 2: Alertas de Homicídio com Risco Alto/Crítico */}
-        <div className="lg:col-span-2 tactical-card p-6 space-y-4">
+        {/* Coluna 1 & 2: Ocorrências de Prevenção a Homicídios */}
+        <div className="lg:col-span-2 untitled-card p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <h2 className="font-bold text-base text-slate-900 dark:text-white">
-                Ocorrências com Potencial de Homicídio / Feminicídio (Salinas)
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                Ocorrências com Potencial de Evolução (Salinas)
               </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Acompanhamento qualificado para contenção de homicídios e feminicídios
+              </p>
             </div>
             <Link
               href="/dashboard/alertas-homicidio"
-              className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+              className="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
             >
-              <span>Gerenciar Alertas</span>
+              <span>Ver todos</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100 dark:divide-gray-800/80">
             {alerts.slice(0, 3).map((alerta) => (
-              <div 
-                key={alerta.id}
-                className="p-4 rounded-2xl bg-slate-50 dark:bg-gray-800/60 border border-slate-200 dark:border-gray-800 space-y-2 hover:border-slate-300 dark:hover:border-gray-700 transition-all"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              <div key={alerta.id} className="py-3.5 first:pt-0 last:pb-0 space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <RiskBadge risk={alerta.grau_risco} />
-                    <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{alerta.reds_numero}</span>
+                    <span className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      {alerta.reds_numero}
+                    </span>
                   </div>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    Bairro: <strong className="text-slate-800 dark:text-slate-200">{alerta.bairro}</strong> ({alerta.municipio})
+                  <span className="text-xs text-gray-500">
+                    Bairro: <strong className="text-gray-900 dark:text-gray-200">{alerta.bairro}</strong>
                   </span>
                 </div>
 
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   {alerta.natureza_ocorrencia}
                 </p>
 
-                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
                   {alerta.avaliacao_cenario}
                 </p>
 
-                <div className="pt-2 border-t border-slate-200 dark:border-gray-700/60 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    Autores: <strong className="text-slate-700 dark:text-slate-300">{alerta.autores}</strong>
-                  </span>
-                  <span className="text-slate-500 dark:text-slate-400">
-                    Vítimas: <strong className="text-slate-700 dark:text-slate-300">{alerta.vitimas}</strong>
-                  </span>
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                  <span>Autor: <strong className="text-gray-800 dark:text-gray-300">{alerta.autores}</strong></span>
+                  <span>Vítima: <strong className="text-gray-800 dark:text-gray-300">{alerta.vitimas}</strong></span>
                 </div>
               </div>
             ))}
@@ -260,49 +246,48 @@ export default function DashboardOverviewPage() {
         </div>
 
         {/* Coluna 3: Últimas Operações Lançadas */}
-        <div className="tactical-card p-6 space-y-4">
+        <div className="untitled-card p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-emerald-500" />
-              <h2 className="font-bold text-base text-slate-900 dark:text-white">
-                Últimos Registros
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                Últimos Lançamentos
               </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Registros enviados pela SOF
+              </p>
             </div>
             {(user?.role === 'ADMIN' || user?.role === 'SOF') && (
               <Link
                 href="/dashboard/operacoes/lancamento"
-                className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 transition-colors"
-                title="Lançar Nova Operação"
+                className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 transition-colors"
+                title="Lançar Operação"
               >
-                <PlusCircle className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
               </Link>
             )}
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100 dark:divide-gray-800/80">
             {logs.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4 text-center">Nenhum registro recente.</p>
+              <p className="text-xs text-gray-500 py-6 text-center">Nenhum registro recente.</p>
             ) : (
               logs.slice(0, 4).map((log) => {
                 const op = operations.find(o => o.id === log.tipo_operacao_id);
                 return (
-                  <div 
-                    key={log.id} 
-                    className="p-3 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-slate-200 dark:border-gray-800 text-xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                        {op?.codigo_natureza} — {op?.titulo}
+                  <div key={log.id} className="py-3 first:pt-0 last:pb-0 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-xs text-gray-900 dark:text-white truncate">
+                        {op?.titulo}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[10px] text-slate-700 dark:text-slate-300">
+                      <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-[10px] font-semibold text-gray-700 dark:text-gray-300 font-mono flex-shrink-0">
                         {log.equipe}
                       </span>
                     </div>
-                    <p className="text-slate-600 dark:text-slate-400 line-clamp-1">
-                      {log.local_fato || log.bairro || 'Salinas/MG'}
+                    <p className="text-xs text-gray-500 truncate">
+                      {log.local_fato || log.bairro || 'Salinas'}
                     </p>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
-                      <span>Data: {log.data_execucao}</span>
+                    <div className="flex items-center justify-between text-[11px] text-gray-400 pt-0.5">
+                      <span>{log.data_execucao}</span>
                       <span>Resp: {log.militar_responsavel_nome || 'SOF'}</span>
                     </div>
                   </div>

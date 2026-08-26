@@ -6,30 +6,30 @@ export function RoleBadge({ role }: { role: UserRole }) {
   switch (role) {
     case 'ADMIN':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300 border border-red-300 dark:border-red-900">
-          <Shield className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-          ADMINISTRADOR
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-error-50 dark:bg-error-950/40 text-error-700 dark:text-error-300 border border-error-200 dark:border-error-800/60 shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-error-500" />
+          Admin
         </span>
       );
     case 'SOF':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-900">
-          <Radio className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-          S.O.F. (SALA DE OPS)
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800/60 shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+          SOF Central
         </span>
       );
     case 'ALERTA_HOMICIDIO':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-900">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-          ALERTA DE HOMICÍDIO
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-warning-50 dark:bg-warning-950/40 text-warning-700 dark:text-warning-300 border border-warning-200 dark:border-warning-800/60 shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
+          Alerta Homicídios
         </span>
       );
     case 'EQUIPE':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-900">
-          <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          EQUIPE OPERACIONAL
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800/60 shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+          Equipe Rua
         </span>
       );
     default:

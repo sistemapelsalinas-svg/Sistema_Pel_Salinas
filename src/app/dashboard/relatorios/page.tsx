@@ -5,16 +5,11 @@ import { storage } from '@/lib/storage';
 import { TARGET_TEAMS } from '@/lib/mock-data';
 import { OperationType, MonthlyTarget, OperationExecutionLog } from '@/lib/types';
 import { 
-  BarChart3, 
-  Download, 
+  BarChart2, 
   Calendar, 
   Target, 
-  CheckCircle2, 
-  TrendingUp, 
-  ShieldCheck, 
   Users,
-  Printer,
-  FileSpreadsheet
+  Printer
 } from 'lucide-react';
 
 export default function RelatoriosPage() {
@@ -34,7 +29,6 @@ export default function RelatoriosPage() {
   const totalExecutadas = logs.length;
   const percentualGeral = totalMetas > 0 ? Math.min(100, Math.round((totalExecutadas / totalMetas) * 100)) : 0;
 
-  // Produtividade por Grupo
   const groupsSummary = [
     { key: 'POG', label: 'Operações POG' },
     { key: 'PROXIMIDADE', label: 'Policiamento de Proximidade' },
@@ -54,7 +48,6 @@ export default function RelatoriosPage() {
     };
   });
 
-  // Produtividade por Equipe
   const teamStats = TARGET_TEAMS.map(team => {
     const teamLogs = logs.filter(l => l.equipe.toUpperCase().includes(team));
     const teamTargetCount = targets.reduce((acc, t) => {
@@ -80,68 +73,62 @@ export default function RelatoriosPage() {
     <div className="space-y-6">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-gray-200 dark:border-[#1F242F]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-              PRODUTIVIDADE & BI
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">2º Pelotão Salinas</span>
-          </div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 mt-1">
-            <BarChart3 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+            <BarChart2 className="w-6 h-6 text-brand-600 dark:text-brand-400" />
             <span>Relatório de Produtividade Operacional</span>
           </h1>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Acompanhamento de metas vs execução, desempenho por grupos e cumprimento de ordens de serviço.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Seletor Mês/Ano */}
-          <div className="flex items-center gap-2 bg-white dark:bg-gray-900 p-1.5 rounded-xl border border-slate-200 dark:border-gray-800 text-xs">
-            <Calendar className="w-4 h-4 text-slate-400" />
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 bg-white dark:bg-[#161B26] px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs text-xs">
+            <Calendar className="w-4 h-4 text-gray-400" />
             <select
               value={mes}
               onChange={(e) => setMes(Number(e.target.value))}
-              className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+              className="bg-transparent font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
             >
               <option value={8}>Agosto</option>
               <option value={9}>Setembro</option>
               <option value={10}>Outubro</option>
             </select>
-            <span className="font-bold text-slate-800 dark:text-slate-200">{ano}</span>
+            <span className="text-gray-300 dark:text-gray-600">/</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{ano}</span>
           </div>
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all shadow-sm"
+            className="btn-secondary"
           >
-            <Printer className="w-4 h-4 text-emerald-400" />
+            <Printer className="w-4 h-4 text-gray-500" />
             <span>Imprimir Relatório</span>
           </button>
         </div>
       </div>
 
       {/* Visão Geral (Progresso Geral) */}
-      <div className="tactical-card p-6 space-y-4">
+      <div className="untitled-card p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Meta Global da Fração</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Meta Global da Fração</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-4xl font-black text-slate-900 dark:text-white">{totalExecutadas}</span>
-              <span className="text-sm text-slate-500">operações executadas de <strong>{totalMetas}</strong> planejadas</span>
+              <span className="text-3xl font-bold text-gray-900 dark:text-white">{totalExecutadas}</span>
+              <span className="text-sm text-gray-500">operações executadas de <strong>{totalMetas}</strong></span>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{percentualGeral}%</span>
-            <span className="block text-xs text-slate-400">Atingimento da Meta</span>
+            <span className="text-3xl font-bold text-brand-600 dark:text-brand-400">{percentualGeral}%</span>
+            <span className="block text-xs text-gray-500">Atingimento da Meta</span>
           </div>
         </div>
 
-        <div className="w-full bg-slate-100 dark:bg-gray-800 rounded-full h-3.5 overflow-hidden p-0.5">
+        <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-3 overflow-hidden">
           <div 
-            className="bg-emerald-500 h-full rounded-full transition-all duration-700"
+            className="bg-brand-600 dark:bg-brand-500 h-full rounded-full transition-all duration-700"
             style={{ width: `${percentualGeral}%` }}
           />
         </div>
@@ -151,10 +138,10 @@ export default function RelatoriosPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Desempenho por Grupos */}
-        <div className="tactical-card p-6 space-y-4">
+        <div className="untitled-card p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-emerald-500" />
-            <h3 className="font-bold text-base text-slate-900 dark:text-white">
+            <Target className="w-5 h-5 text-brand-600 dark:text-brand-400" />
+            <h3 className="font-semibold text-base text-gray-900 dark:text-white">
               Produtividade por Grupo Operacional
             </h3>
           </div>
@@ -163,14 +150,14 @@ export default function RelatoriosPage() {
             {groupsSummary.map((g) => (
               <div key={g.key} className="space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{g.label}</span>
-                  <span className="font-bold text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">{g.label}</span>
+                  <span className="font-medium text-gray-500">
                     {g.realizado} / {g.meta} ({g.percentual}%)
                   </span>
                 </div>
-                <div className="w-full bg-slate-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-emerald-500 h-2 rounded-full transition-all"
+                    className="bg-brand-600 dark:bg-brand-500 h-2 rounded-full transition-all"
                     style={{ width: `${g.percentual}%` }}
                   />
                 </div>
@@ -180,26 +167,26 @@ export default function RelatoriosPage() {
         </div>
 
         {/* Desempenho por Equipe */}
-        <div className="tactical-card p-6 space-y-4">
+        <div className="untitled-card p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-500" />
-            <h3 className="font-bold text-base text-slate-900 dark:text-white">
+            <Users className="w-5 h-5 text-primary-600" />
+            <h3 className="font-semibold text-base text-gray-900 dark:text-white">
               Cumprimento de Metas por Equipe
             </h3>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {teamStats.map((t) => (
-              <div key={t.team} className="p-3 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-slate-200 dark:border-gray-800 text-xs flex items-center justify-between">
+              <div key={t.team} className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200 dark:border-gray-800 text-xs flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-slate-900 dark:text-white text-sm">{t.team}</span>
-                  <span className="block text-[11px] text-slate-400">
-                    {t.realizado} ops realizadas / meta: {t.meta}
+                  <span className="font-semibold text-gray-900 dark:text-white text-sm">{t.team}</span>
+                  <span className="block text-xs text-gray-500">
+                    {t.realizado} ops / meta: {t.meta}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-base">{t.percentual}%</span>
-                  <span className="block text-[10px] text-slate-400">cumprido</span>
+                  <span className="font-bold text-brand-600 dark:text-brand-400 text-base">{t.percentual}%</span>
+                  <span className="block text-[11px] text-gray-400">cumprido</span>
                 </div>
               </div>
             ))}
