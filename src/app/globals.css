@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: #FFFFFF;
-    --foreground: #101828;
+    --background: #F4F5F7;
+    --foreground: #111827;
     --card: #FFFFFF;
-    --card-foreground: #101828;
-    --border: #EAECF0;
-    --border-subtle: #F2F4F7;
-    --input: #D0D5DD;
-    --ring: #039855;
-    --radius: 0.75rem;
+    --card-foreground: #111827;
+    --border: #E5E7EB;
+    --border-subtle: #F3F4F6;
+    --input: #E5E7EB;
+    --ring: #10B981;
+    --radius: 1rem;
   }
 
   .dark {
-    --background: #0C111D;
+    --background: #0B0E14;
     --foreground: #F9FAFB;
-    --card: #161B26;
+    --card: #151A23;
     --card-foreground: #F9FAFB;
-    --border: #1F242F;
-    --border-subtle: #161B26;
-    --input: #344054;
-    --ring: #12B76A;
+    --border: #222938;
+    --border-subtle: #19202D;
+    --input: #2D3748;
+    --ring: #10B981;
   }
 }
 
@@ -31,56 +31,67 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  letter-spacing: -0.011em;
+  letter-spacing: -0.015em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Untitled UI Card Container */
+/* Untitled UI / Figma Style Card */
 .untitled-card {
-  @apply bg-white dark:bg-[#161B26] border border-gray-200 dark:border-[#1F242F] rounded-2xl shadow-xs transition-all;
+  @apply bg-white dark:bg-[#151A23] border border-gray-200/90 dark:border-[#222938] rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all;
 }
 
 .untitled-card-hover {
-  @apply untitled-card hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-md;
+  @apply untitled-card hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md;
 }
 
 /* Untitled UI Input */
 .untitled-input {
-  @apply w-full px-3.5 py-2.5 bg-white dark:bg-[#0C111D] border border-gray-300 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 shadow-xs focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all;
+  @apply w-full px-3.5 py-2.5 bg-white dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 shadow-xs focus:outline-none focus:border-gray-900 dark:focus:border-white focus:ring-2 focus:ring-gray-900/5 dark:focus:ring-white/10 transition-all;
 }
 
-/* Untitled UI Buttons */
+/* Segmented Control Pill */
+.segmented-control {
+  @apply inline-flex items-center p-1 bg-gray-200/70 dark:bg-[#19202D] rounded-xl border border-gray-200/80 dark:border-[#222938];
+}
+
+.segmented-control-btn {
+  @apply px-3 py-1.5 rounded-lg text-xs font-semibold transition-all;
+}
+
+.segmented-control-btn-active {
+  @apply bg-white dark:bg-[#252D3D] text-gray-900 dark:text-white shadow-xs;
+}
+
+.segmented-control-btn-inactive {
+  @apply text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white;
+}
+
+/* Buttons */
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-xs ring-1 ring-inset ring-brand-700/20 focus:outline-none focus:ring-4 focus:ring-brand-500/20 transition-all disabled:opacity-50 disabled:pointer-events-none;
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-gray-950 hover:bg-gray-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-xs active:scale-[0.98] transition-all disabled:opacity-50;
 }
 
 .btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-[#161B26] hover:bg-gray-50 dark:hover:bg-gray-800 active:bg-gray-100 border border-gray-300 dark:border-gray-700 shadow-xs focus:outline-none focus:ring-4 focus:ring-gray-400/10 transition-all disabled:opacity-50 disabled:pointer-events-none;
+  @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-[#151A23] hover:bg-gray-50 dark:hover:bg-[#1D2432] border border-gray-200 dark:border-[#222938] shadow-xs active:scale-[0.98] transition-all;
 }
 
 .btn-destructive {
-  @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-white bg-error-600 hover:bg-error-700 active:bg-error-800 shadow-xs focus:outline-none focus:ring-4 focus:ring-error-500/20 transition-all;
+  @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm text-white bg-rose-600 hover:bg-rose-700 shadow-xs active:scale-[0.98] transition-all;
 }
 
 /* Sleek Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D0D5DD;
+  background: #D1D5DB;
   border-radius: 9999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #344054;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #98A2B3;
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #475467;
+  background: #374151;
 }
