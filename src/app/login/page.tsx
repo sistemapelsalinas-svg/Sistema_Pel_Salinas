@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { Shield, KeyRound, User, ArrowRight, AlertCircle, UserPlus, Phone, Lock } from 'lucide-react';
+import { Shield, ArrowRight, AlertCircle, UserPlus } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserRole } from '@/lib/types';
 
@@ -72,7 +72,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] flex items-center justify-center p-4 text-gray-900 dark:text-gray-100 font-sans relative">
       
-      {/* Botão de Tema Flutuante Absoluto (Não empurra o quadro para baixo) */}
+      {/* Botão de Tema Flutuante Absoluto */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
         <ThemeToggle />
       </div>
@@ -129,42 +129,36 @@ export default function LoginPage() {
           )}
 
           {activeTab === 'LOGIN' ? (
-            /* Formulário de Login Limpo */
+            /* Formulário de Login Limpo (Sem sobreposição de ícones) */
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Número de Polícia (Nº PM)
                 </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Digite seu Nº de PM"
-                    value={numeroPm}
-                    onChange={(e) => setNumeroPm(e.target.value)}
-                    className="untitled-input pl-10 font-mono"
-                    required
-                    autoComplete="username"
-                  />
-                </div>
+                <input
+                  type="text"
+                  placeholder="Digite seu Nº de PM"
+                  value={numeroPm}
+                  onChange={(e) => setNumeroPm(e.target.value)}
+                  className="untitled-input font-mono"
+                  required
+                  autoComplete="username"
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Senha
                 </label>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    placeholder="Digite sua senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="untitled-input pl-10"
-                    required
-                    autoComplete="current-password"
-                  />
-                </div>
+                <input
+                  type="password"
+                  placeholder="Digite sua senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="untitled-input"
+                  required
+                  autoComplete="current-password"
+                />
               </div>
 
               <button
@@ -183,7 +177,7 @@ export default function LoginPage() {
               </button>
             </form>
           ) : (
-            /* Formulário de Novo Cadastro (Sem especificação de equipe) */
+            /* Formulário de Novo Cadastro */
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-3 gap-2">
                 <div>
