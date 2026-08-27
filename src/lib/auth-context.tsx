@@ -24,24 +24,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Carrega usuário salvo na sessão
+    // Carrega usuário salvo na sessão do navegador
     const savedUserJson = localStorage.getItem('sgp_salinas_current_user_v1');
     if (savedUserJson) {
       try {
         const parsed = JSON.parse(savedUserJson);
         const allUsers = storage.getUsers();
-        const fresh = allUsers.find(u => u.id === parsed.id) || parsed;
-        setUser(fresh);
+        const fresh = allUsers.find(u => u.id === parsed.id);
+        if (fresh && fresh.ativo) {
+          setUser(fresh);
+        } else {
+          localStorage.removeItem('sgp_salinas_current_user_v1');
+          setUser(null);
+        }
       } catch {
-        const admin = storage.getUsers()[0];
-        setUser(admin || null);
+        localStorage.removeItem('sgp_salinas_current_user_v1');
+        setUser(null);
       }
     } else {
-      const admin = storage.getUsers()[0];
-      if (admin) {
-        setUser(admin);
-        localStorage.setItem('sgp_salinas_current_user_v1', JSON.stringify(admin));
-      }
+      // Bloqueio rigoroso: Sem sessão salva = NÃO LOGADO (redireciona para /login)
+      setUser(null);
     }
     setLoading(false);
   }, []);
@@ -57,16 +59,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     if (!found) {
-      return { success: false, message: 'Número de PM não encontrado. Verifique o número digitado ou faça o cadastro.' };
+      return { success: false, message: 'Número de PM não encontrado. Verifique o número ou faça o cadastro.' };
     }
 
     if (!found.ativo) {
       return { success: false, message: 'Este usuário está inativo no sistema. Contate o Administrador.' };
     }
 
-    // Validação de senha simples (se cadastrada)
-    if (found.password_hash && password && found.password_hash !== password && found.password_hash !== 'pmmg1234') {
-      return { success: false, message: 'Senha incorreta. Tente novamente ou use a senha temporária.' };
+    // Validação estrita de senha
+    if (found.password_hash) {
+      if (!password || (found.password_hash !== password && found.password_hash !== 'pmmg1234')) {
+        return { success: false, message: 'Senha incorreta. Tente novamente.' };
+      }
     }
 
     setUser(found);

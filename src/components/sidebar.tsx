@@ -27,6 +27,8 @@ import {
 import { RoleBadge } from './role-badge';
 import { EgressosModal } from './egressos-modal';
 
+import { storage } from '@/lib/storage';
+
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout, switchUserRole } = useAuth();
@@ -34,6 +36,12 @@ export function Sidebar() {
   const [showRoleTester, setShowRoleTester] = useState(false);
 
   if (!user) return null;
+
+  const allLogs = storage.getLogs();
+  const allTargets = storage.getTargets(8, 2026);
+  const totalTargetCount = allTargets.reduce((acc, t) => acc + t.meta_total, 0);
+  const totalExecutedCount = allLogs.length;
+  const pctReal = totalTargetCount > 0 ? Math.min(100, Math.round((totalExecutedCount / totalTargetCount) * 100)) : 0;
 
   const isAdmin = user.role === 'ADMIN';
   const isSofOrAdmin = user.role === 'ADMIN' || user.role === 'SOF';
@@ -185,10 +193,10 @@ export function Sidebar() {
             <div className="space-y-1">
               <div className="flex justify-between text-[10px] text-gray-500">
                 <span>Metas cumpridas</span>
-                <span className="font-bold">42%</span>
+                <span className="font-bold">{pctReal}%</span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-emerald-500 h-full rounded-full w-[42%]" />
+                <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${pctReal}%` }} />
               </div>
             </div>
             <Link
