@@ -2,34 +2,32 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { Shield, KeyRound, User, ArrowRight, AlertCircle, Sparkles, UserPlus, Phone, Lock } from 'lucide-react';
+import { Shield, KeyRound, User, ArrowRight, AlertCircle, UserPlus, Phone, Lock } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { DEFAULT_TEAMS } from '@/lib/mock-data';
 import { UserRole } from '@/lib/types';
 
 export default function LoginPage() {
   const { login, register } = useAuth();
   const [activeTab, setActiveTab] = useState<'LOGIN' | 'CADASTRO'>('LOGIN');
 
-  // Login Form
-  const [numeroPm, setNumeroPm] = useState('1578426');
-  const [password, setPassword] = useState('pmmg1234');
+  // Login Form (100% limpo, sem pré-preenchimento)
+  const [numeroPm, setNumeroPm] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Cadastro Form
+  // Cadastro Form (Sem especificação de equipe)
   const [cadGraduacao, setCadGraduacao] = useState('Sd');
   const [cadNomeGuerra, setCadNomeGuerra] = useState('');
   const [cadNomeCompleto, setCadNomeCompleto] = useState('');
   const [cadNumeroPm, setCadNumeroPm] = useState('');
   const [cadWhatsapp, setCadWhatsapp] = useState('');
-  const [cadEquipe, setCadEquipe] = useState('ALFA 1');
   const [cadPassword, setCadPassword] = useState('');
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!numeroPm.trim()) {
-      setError('Por favor, informe seu Número de PM.');
+      setError('Por favor, informe seu Número de Polícia.');
       return;
     }
 
@@ -61,7 +59,6 @@ export default function LoginPage() {
       whatsapp: cadWhatsapp.trim() || '38999990000',
       password_hash: cadPassword.trim(),
       role: 'EQUIPE' as UserRole,
-      equipe_padrao: cadEquipe,
       primeiro_acesso: false,
       ativo: true
     });
@@ -73,24 +70,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] flex flex-col justify-between p-4 sm:p-6 text-gray-900 dark:text-gray-100 relative">
+    <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] flex flex-col justify-between p-4 sm:p-6 text-gray-900 dark:text-gray-100 font-sans relative">
       
-      {/* Top Bar */}
-      <div className="flex items-center justify-between z-10 max-w-5xl mx-auto w-full">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gray-950 dark:bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-            <Shield className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="font-bold text-sm tracking-tight text-gray-900 dark:text-white">SGP Salinas</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">2º Pel / 2ª Cia PM Ind / 11ª RPM</p>
-          </div>
-        </div>
+      {/* Top Bar Limpo (Apenas Alternador de Tema) */}
+      <div className="flex items-center justify-end z-10 max-w-md mx-auto w-full">
         <ThemeToggle />
       </div>
 
-      {/* Main Card (Untitled UI Style) */}
-      <div className="max-w-md w-full mx-auto my-8 z-10">
+      {/* Main Card */}
+      <div className="max-w-md w-full mx-auto my-auto py-6 z-10">
         <div className="untitled-card p-8 shadow-sm">
           
           <div className="text-center mb-6">
@@ -98,12 +86,12 @@ export default function LoginPage() {
               <Shield className="w-6 h-6" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              {activeTab === 'LOGIN' ? 'Acesse o Sistema' : 'Novo Cadastro Militar'}
+              {activeTab === 'LOGIN' ? 'Acesse o Sistema' : 'Novo Cadastro'}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {activeTab === 'LOGIN' 
                 ? 'Informe seu Número de Polícia e senha para acessar'
-                : 'Cadastre seus dados para acesso ao 2º Pelotão de Salinas'}
+                : 'Preencha seus dados para criar sua conta de acesso'}
             </p>
           </div>
 
@@ -141,7 +129,7 @@ export default function LoginPage() {
           )}
 
           {activeTab === 'LOGIN' ? (
-            /* Formulário de Login */
+            /* Formulário de Login Limpo */
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -151,22 +139,20 @@ export default function LoginPage() {
                   <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Ex: 1578426"
+                    placeholder="Digite seu Nº de PM"
                     value={numeroPm}
                     onChange={(e) => setNumeroPm(e.target.value)}
                     className="untitled-input pl-10 font-mono"
                     required
+                    autoComplete="username"
                   />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Senha
-                  </label>
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Padrão: pmmg1234</span>
-                </div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Senha
+                </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -175,6 +161,8 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="untitled-input pl-10"
+                    required
+                    autoComplete="current-password"
                   />
                 </div>
               </div>
@@ -193,32 +181,10 @@ export default function LoginPage() {
                   </>
                 )}
               </button>
-
-              {/* Card Conta Inicial Admin */}
-              <div className="mt-6 pt-5 border-t border-gray-100 dark:border-[#222938]">
-                <button
-                  type="button"
-                  onClick={() => { setNumeroPm('1578426'); setPassword('pmmg1234'); }}
-                  className="w-full p-3 rounded-xl bg-emerald-50/70 hover:bg-emerald-100/70 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-left transition-all flex items-center justify-between"
-                >
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
-                      Conta Administrador Inicial
-                    </span>
-                    <p className="text-xs font-bold text-gray-900 dark:text-white">
-                      Sgt André Santos (PM 1578426)
-                    </p>
-                  </div>
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-white dark:bg-gray-900 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 shadow-xs">
-                    Entrar como Admin
-                  </span>
-                </button>
-              </div>
-
             </form>
           ) : (
-            /* Formulário de Cadastro */
-            <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
+            /* Formulário de Novo Cadastro (Sem especificação de equipe) */
+            <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Graduação *</label>
@@ -284,30 +250,16 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Equipe</label>
-                  <select
-                    value={cadEquipe}
-                    onChange={(e) => setCadEquipe(e.target.value)}
-                    className="untitled-input"
-                  >
-                    {DEFAULT_TEAMS.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Senha de Acesso *</label>
-                  <input
-                    type="password"
-                    placeholder="Crie uma senha"
-                    value={cadPassword}
-                    onChange={(e) => setCadPassword(e.target.value)}
-                    className="untitled-input"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Senha de Acesso *</label>
+                <input
+                  type="password"
+                  placeholder="Crie uma senha de acesso"
+                  value={cadPassword}
+                  onChange={(e) => setCadPassword(e.target.value)}
+                  className="untitled-input"
+                  required
+                />
               </div>
 
               <button
@@ -331,8 +283,8 @@ export default function LoginPage() {
       </div>
 
       {/* Footer */}
-      <div className="text-center text-xs text-gray-500 dark:text-gray-400 z-10">
-        <p>Polícia Militar de Minas Gerais — 2º Pelotão de Salinas (11ª RPM)</p>
+      <div className="text-center text-xs text-gray-400 dark:text-gray-500 py-3 z-10">
+        <p>Polícia Militar de Minas Gerais</p>
       </div>
 
     </div>

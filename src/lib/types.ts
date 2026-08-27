@@ -15,7 +15,7 @@ export interface UserProfile {
   whatsapp: string;
   password_hash?: string;
   role: UserRole;
-  equipe_padrao: string;
+  equipe_padrao?: string;
   primeiro_acesso: boolean;
   ativo: boolean;
   created_at: string;

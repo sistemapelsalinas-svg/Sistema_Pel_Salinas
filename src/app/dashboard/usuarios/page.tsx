@@ -105,7 +105,7 @@ export default function GestaoUsuariosPage() {
     u.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.nome_guerra.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.numero_pm.includes(searchTerm) ||
-    u.equipe_padrao.toLowerCase().includes(searchTerm.toLowerCase())
+    (u.equipe_padrao || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
