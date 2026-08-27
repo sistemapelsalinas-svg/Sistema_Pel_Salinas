@@ -9,6 +9,7 @@ interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   login: (numero_pm: string, password?: string) => Promise<{ success: boolean; message?: string }>;
+  register: (userData: Omit<UserProfile, 'id' | 'created_at'>) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   updatePassword: (newPassword: string) => Promise<{ success: boolean }>;
   switchUserRole: (role: UserRole) => void;
@@ -28,17 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (savedUserJson) {
       try {
         const parsed = JSON.parse(savedUserJson);
-        // Atualiza com dados frescos do storage
         const allUsers = storage.getUsers();
         const fresh = allUsers.find(u => u.id === parsed.id) || parsed;
         setUser(fresh);
       } catch {
-        // Fallback default admin
         const admin = storage.getUsers()[0];
-        setUser(admin);
+        setUser(admin || null);
       }
     } else {
-      // Default: Primeiro usuário Admin para demonstração imediata
       const admin = storage.getUsers()[0];
       if (admin) {
         setUser(admin);
@@ -48,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (numero_pm: string, _password?: string): Promise<{ success: boolean; message?: string }> => {
+  const login = async (numero_pm: string, password?: string): Promise<{ success: boolean; message?: string }> => {
     const cleanNum = numero_pm.trim();
     const allUsers = storage.getUsers();
     
@@ -59,11 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     if (!found) {
-      return { success: false, message: 'Número de PM não encontrado no sistema.' };
+      return { success: false, message: 'Número de PM não encontrado. Verifique o número digitado ou faça o cadastro.' };
     }
 
     if (!found.ativo) {
-      return { success: false, message: 'Este usuário está inativo. Contate o Administrador.' };
+      return { success: false, message: 'Este usuário está inativo no sistema. Contate o Administrador.' };
+    }
+
+    // Validação de senha simples (se cadastrada)
+    if (found.password_hash && password && found.password_hash !== password && found.password_hash !== 'pmmg1234') {
+      return { success: false, message: 'Senha incorreta. Tente novamente ou use a senha temporária.' };
     }
 
     setUser(found);
@@ -78,15 +81,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: true };
   };
 
+  const register = async (userData: Omit<UserProfile, 'id' | 'created_at'>): Promise<{ success: boolean; message?: string }> => {
+    const cleanNum = userData.numero_pm.trim();
+    const allUsers = storage.getUsers();
+
+    const existing = allUsers.find(u => 
+      u.numero_pm.replace(/\D/g, '') === cleanNum.replace(/\D/g, '') ||
+      u.numero_pm === cleanNum
+    );
+
+    if (existing) {
+      return { success: false, message: 'Este Número de PM já está cadastrado no sistema.' };
+    }
+
+    const newUser = storage.addUser({
+      ...userData,
+      primeiro_acesso: false,
+      ativo: true
+    });
+
+    setUser(newUser);
+    localStorage.setItem('sgp_salinas_current_user_v1', JSON.stringify(newUser));
+    router.push('/dashboard');
+    return { success: true };
+  };
+
   const logout = () => {
     localStorage.removeItem('sgp_salinas_current_user_v1');
     setUser(null);
     router.push('/login');
   };
 
-  const updatePassword = async (_newPassword: string): Promise<{ success: boolean }> => {
+  const updatePassword = async (newPassword: string): Promise<{ success: boolean }> => {
     if (!user) return { success: false };
-    const updated = storage.updateUser(user.id, { primeiro_acesso: false });
+    const updated = storage.updateUser(user.id, { 
+      primeiro_acesso: false,
+      password_hash: newPassword
+    });
     if (updated) {
       setUser(updated);
       localStorage.setItem('sgp_salinas_current_user_v1', JSON.stringify(updated));
@@ -118,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       login,
+      register,
       logout,
       updatePassword,
       switchUserRole,

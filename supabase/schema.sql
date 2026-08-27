@@ -1,7 +1,7 @@
 -- ==============================================================================
 -- SISTEMA DE GESTÃO OPERACIONAL - PMMG
 -- 2º PELOTÃO / 2ª CIA PM IND / 11ª RPM - SALINAS/MG
--- Schema Oficial Supabase PostgreSQL
+-- Schema Oficial Supabase PostgreSQL (Sanitizado)
 -- ==============================================================================
 
 -- 1. ENUMS E TIPOS
@@ -32,11 +32,11 @@ END $$;
 -- 2. TABELA DE PERFIS DE USUÁRIOS (MILITARES)
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    auth_user_id UUID UNIQUE, -- Opcional: vínculo com auth.users do Supabase
+    auth_user_id UUID UNIQUE,
     numero_pm VARCHAR(20) UNIQUE NOT NULL,
     nome_completo VARCHAR(120) NOT NULL,
     nome_guerra VARCHAR(60) NOT NULL,
-    graduacao VARCHAR(20) NOT NULL, -- Sd, Cb, 3º Sgt, 2º Sgt, 1º Sgt, Sub Ten, Ten
+    graduacao VARCHAR(20) NOT NULL,
     whatsapp VARCHAR(20) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role user_role DEFAULT 'EQUIPE' NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE TABLE IF NOT EXISTS public.tipos_operacoes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     grupo grupo_operacao NOT NULL,
-    codigo_natureza VARCHAR(30) NOT NULL, -- Ex: Y04009, A21.007, OS 3.028/2025
+    codigo_natureza VARCHAR(30) NOT NULL,
     titulo VARCHAR(150) NOT NULL,
     descricao TEXT,
     link_google_drive TEXT,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS public.metas_mensais (
 CREATE TABLE IF NOT EXISTS public.metas_equipes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     meta_mensal_id UUID NOT NULL REFERENCES public.metas_mensais(id) ON DELETE CASCADE,
-    equipe VARCHAR(40) NOT NULL, -- ALFA, BRAVO, CHARLIE, DELTA, RURAL, MP, RPPM, PATRULHA ESCOLAR
+    equipe VARCHAR(40) NOT NULL,
     percentual_alocado NUMERIC(5,2) DEFAULT 0.00,
     meta_quantitativa INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -91,12 +91,12 @@ CREATE TABLE IF NOT EXISTS public.registros_operacoes (
     equipe VARCHAR(40) NOT NULL,
     militar_responsavel_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     reds_numero VARCHAR(30),
-    reds_origem VARCHAR(30), -- Obrigatório para VT Furto e VTCV
+    reds_origem VARCHAR(30),
     local_fato TEXT,
     bairro VARCHAR(80),
     area_rural BOOLEAN DEFAULT FALSE,
     quantidade_envolvidos INT DEFAULT 0,
-    detalhes_interacao JSONB DEFAULT '{}'::jsonb, -- Pauta, encaminhamentos, rede atendida, demanda
+    detalhes_interacao JSONB DEFAULT '{}'::jsonb,
     observacoes TEXT,
     created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS public.legendas_escala (
     codigo VARCHAR(10) PRIMARY KEY,
     descricao VARCHAR(80) NOT NULL,
     conta_como_servico BOOLEAN DEFAULT FALSE,
-    cor_badge VARCHAR(30) DEFAULT 'gray'
+    cor_badge VARCHAR(50) DEFAULT 'bg-slate-600 text-white'
 );
 
 CREATE TABLE IF NOT EXISTS public.escalas_mensais (
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS public.escalas_mensais (
     mes INT NOT NULL CHECK (mes BETWEEN 1 AND 12),
     ano INT NOT NULL,
     titulo VARCHAR(120) DEFAULT 'Escala Operacional Mensal',
-    status VARCHAR(20) DEFAULT 'PUBLICADA', -- RASCUNHO, PUBLICADA
+    status VARCHAR(20) DEFAULT 'PUBLICADA',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(mes, ano)
 );
@@ -151,14 +151,14 @@ CREATE TABLE IF NOT EXISTS public.escala_itens (
     UNIQUE(escala_id, militar_id, dia_mes)
 );
 
--- 8. INDEXES PARA PERFORMANCE
+-- 8. ÍNDICES DE ALTA PERFORMANCE
 CREATE INDEX IF NOT EXISTS idx_registros_operacoes_data ON public.registros_operacoes(data_execucao);
 CREATE INDEX IF NOT EXISTS idx_registros_operacoes_equipe ON public.registros_operacoes(equipe);
 CREATE INDEX IF NOT EXISTS idx_alertas_homicidio_status ON public.alertas_homicidio(status);
 CREATE INDEX IF NOT EXISTS idx_alertas_homicidio_risco ON public.alertas_homicidio(grau_risco);
 CREATE INDEX IF NOT EXISTS idx_escala_itens_militar ON public.escala_itens(militar_id);
 
--- 9. ROW LEVEL SECURITY (RLS)
+-- 9. ROW LEVEL SECURITY (RLS) - Permissões completas
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tipos_operacoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.metas_mensais ENABLE ROW LEVEL SECURITY;
@@ -169,13 +169,30 @@ ALTER TABLE public.escalas_mensais ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.escala_itens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.legendas_escala ENABLE ROW LEVEL SECURITY;
 
--- Políticas de Acesso Simplificadas para Autenticação Flexível
-CREATE POLICY "Permitir leitura para todos autenticados" ON public.profiles FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de operações" ON public.tipos_operacoes FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de metas" ON public.metas_mensais FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de metas_equipes" ON public.metas_equipes FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de registros_operacoes" ON public.registros_operacoes FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de alertas" ON public.alertas_homicidio FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de escalas" ON public.escalas_mensais FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de escala_itens" ON public.escala_itens FOR SELECT USING (true);
-CREATE POLICY "Permitir leitura de legendas" ON public.legendas_escala FOR SELECT USING (true);
+-- Políticas de Acesso
+DROP POLICY IF EXISTS "Acesso total profiles" ON public.profiles;
+CREATE POLICY "Acesso total profiles" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total tipos_operacoes" ON public.tipos_operacoes;
+CREATE POLICY "Acesso total tipos_operacoes" ON public.tipos_operacoes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total metas_mensais" ON public.metas_mensais;
+CREATE POLICY "Acesso total metas_mensais" ON public.metas_mensais FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total metas_equipes" ON public.metas_equipes;
+CREATE POLICY "Acesso total metas_equipes" ON public.metas_equipes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total registros_operacoes" ON public.registros_operacoes;
+CREATE POLICY "Acesso total registros_operacoes" ON public.registros_operacoes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total alertas_homicidio" ON public.alertas_homicidio;
+CREATE POLICY "Acesso total alertas_homicidio" ON public.alertas_homicidio FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total escalas_mensais" ON public.escalas_mensais;
+CREATE POLICY "Acesso total escalas_mensais" ON public.escalas_mensais FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total escala_itens" ON public.escala_itens;
+CREATE POLICY "Acesso total escala_itens" ON public.escala_itens FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso total legendas_escala" ON public.legendas_escala;
+CREATE POLICY "Acesso total legendas_escala" ON public.legendas_escala FOR ALL USING (true) WITH CHECK (true);
