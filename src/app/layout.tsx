@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "SGP Salinas — 2º Pel / 2ª Cia PM Ind / 11ª RPM",
-  description: "Sistema de Gestão e Planejamento Operacional do 2º Pelotão de Salinas - PMMG",
+  description: "Sistema de Gestão e Planejamento Operacional do 2º Pelotão de Salinas",
 };
 
 export default function RootLayout({

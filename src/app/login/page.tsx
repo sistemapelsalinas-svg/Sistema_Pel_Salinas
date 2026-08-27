@@ -70,16 +70,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] flex flex-col justify-between p-4 sm:p-6 text-gray-900 dark:text-gray-100 font-sans relative">
+    <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] flex items-center justify-center p-4 text-gray-900 dark:text-gray-100 font-sans relative">
       
-      {/* Top Bar Limpo (Apenas Alternador de Tema) */}
-      <div className="flex items-center justify-end z-10 max-w-md mx-auto w-full">
+      {/* Botão de Tema Flutuante Absoluto (Não empurra o quadro para baixo) */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
         <ThemeToggle />
       </div>
 
-      {/* Main Card */}
-      <div className="max-w-md w-full mx-auto my-auto py-6 z-10">
-        <div className="untitled-card p-8 shadow-sm">
+      {/* Main Card Perfeitamente Centralizado */}
+      <div className="max-w-md w-full z-10">
+        <div className="untitled-card p-7 sm:p-8 shadow-sm">
           
           <div className="text-center mb-6">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 mx-auto flex items-center justify-center mb-3">
@@ -280,11 +280,6 @@ export default function LoginPage() {
           )}
 
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="text-center text-xs text-gray-400 dark:text-gray-500 py-3 z-10">
-        <p>Polícia Militar de Minas Gerais</p>
       </div>
 
     </div>

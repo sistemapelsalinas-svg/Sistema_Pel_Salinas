@@ -95,8 +95,8 @@ export function WhatsAppInviteModal({
               Pré-visualização da Mensagem:
             </label>
             <div className="p-3.5 bg-gray-50 dark:bg-[#0C111D]/80 border border-gray-200 dark:border-gray-800 rounded-xl text-xs text-gray-700 dark:text-gray-300 font-sans space-y-1.5 max-h-44 overflow-y-auto leading-relaxed">
-              <p className="font-semibold text-brand-700 dark:text-brand-400">👮‍♂️ POLÍCIA MILITAR DE MINAS GERAIS</p>
-              <p className="text-gray-500">2º PEL / 2ª CIA PM IND / 11ª RPM - SALINAS/MG</p>
+              <p className="font-semibold text-brand-700 dark:text-brand-400">SGP SALINAS — 2º PELOTÃO</p>
+              <p className="text-gray-500">2ª Cia PM Ind / 11ª RPM</p>
               <p>Olá, <span className="font-semibold">{user.nome_guerra}</span>! Seu acesso ao SGP-Salinas foi liberado.</p>
               <p>👤 <strong>Login:</strong> {user.numero_pm}</p>
               <p>🔑 <strong>Senha Temporária:</strong> {tempPassword}</p>

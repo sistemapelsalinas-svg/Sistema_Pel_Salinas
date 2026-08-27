@@ -37,8 +37,8 @@ export function generateWhatsAppInviteUrl(
       break;
   }
 
-  const message = `👮‍♂️ *POLÍCIA MILITAR DE MINAS GERAIS*
-*2º PEL / 2ª CIA PM IND / 11ª RPM - SALINAS/MG*
+  const message = `*SGP SALINAS — 2º PELOTÃO*
+_2ª Cia PM Ind / 11ª RPM_*
 *Sistema de Gestão e Planejamento Operacional (SGP-Salinas)*
 
 Olá, *${nomeGuerra}*!
