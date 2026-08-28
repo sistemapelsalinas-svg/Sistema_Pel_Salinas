@@ -17,25 +17,25 @@ export function Header() {
   if (!user) return null;
 
   return (
-    <header className="h-14 sm:h-16 bg-white dark:bg-[#151A23] border-b border-gray-200/90 dark:border-[#222938] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 transition-colors">
+    <header className="h-14 sm:h-16 bg-white dark:bg-[#151A23] border-b border-gray-200/90 dark:border-[#222938] px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 w-full max-w-full transition-colors">
       
-      {/* Unit Title & Date */}
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white tracking-tight">
+      {/* Unit Title & Date (Clean & Never Overflows) */}
+      <div className="min-w-0 flex-1 pr-2">
+        <div className="flex items-baseline gap-2 truncate">
+          <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white tracking-tight truncate">
             2º Pelotão Salinas
           </span>
-          <span className="text-[11px] sm:text-xs text-gray-400 font-normal">
+          <span className="text-[10px] sm:text-xs text-gray-400 font-normal hidden sm:inline truncate">
             {formattedDate}
           </span>
         </div>
-        <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 hidden sm:block">
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 hidden md:block">
           11ª RPM · 2ª Cia PM Ind
         </p>
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
         
         {/* Segmented Control (Apenas no Desktop) */}
         <div className="hidden lg:flex segmented-control">
@@ -68,7 +68,7 @@ export function Header() {
           <span>Minha Missão</span>
         </Link>
 
-        {/* Theme Switcher */}
+        {/* Theme Switcher Compacto */}
         <ThemeToggle />
 
       </div>
