@@ -159,10 +159,10 @@ export default function DashboardOverviewPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Visão Geral Operacional
+            Visão Geral
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Agosto 2026 · {totalExecutadas} ops · {percentualGeral}% da meta · {alertasCriticos.length} alertas críticos · {escalaHoje.length} no plantão
+            Agosto 2026 · {totalExecutadas} Op · {percentualGeral}% da meta · {alerts.filter(a => a.status === 'ATIVO').length} alertas de homicídio · {escalaHoje.length} no plantão
           </p>
         </div>
       </div>
