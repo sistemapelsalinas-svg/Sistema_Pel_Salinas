@@ -123,6 +123,14 @@ class StorageService {
     return ops[idx];
   }
 
+  deleteOperation(id: string): boolean {
+    const ops = this.getOperations();
+    const filtered = ops.filter(o => o.id !== id);
+    if (filtered.length === ops.length) return false;
+    this.saveOperations(filtered);
+    return true;
+  }
+
   // --- METAS MENSAIS ---
   getTargets(mes: number = 8, ano: number = 2026): MonthlyTarget[] {
     if (!this.isBrowser()) return INITIAL_MONTHLY_TARGETS;
