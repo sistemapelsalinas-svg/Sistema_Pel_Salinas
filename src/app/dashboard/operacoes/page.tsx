@@ -110,7 +110,7 @@ export default function OperacoesCatalogoPage() {
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       
-      {/* Header Limpo (Sem o subtítulo longo) */}
+      {/* Header Limpo */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-gray-200 dark:border-[#1F242F]">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
@@ -129,11 +129,13 @@ export default function OperacoesCatalogoPage() {
         )}
       </div>
 
-      {/* Segmented Control / Tabs */}
+      {/* Segmented Control / Tabs com Naturezas / Cadastradas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {groups.map((g) => {
           const Icon = g.icon;
           const isActive = activeGroup === g.key;
+          const countText = g.key === 'ORDENS_SERVICO' ? `${g.count} cadastradas` : `${g.count} naturezas`;
+
           return (
             <button
               key={g.key}
@@ -155,7 +157,7 @@ export default function OperacoesCatalogoPage() {
                 <div className="min-w-0">
                   <p className="text-xs font-bold truncate">{g.label}</p>
                   <p className="text-[11px] text-gray-400">
-                    {g.count} cadastradas
+                    {countText}
                   </p>
                 </div>
               </div>
@@ -164,7 +166,7 @@ export default function OperacoesCatalogoPage() {
         })}
       </div>
 
-      {/* Grid de Cards das Operações com Opções de Editar e Excluir */}
+      {/* Grid de Cards das Operações */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredOps.map((op) => (
           <div
@@ -254,17 +256,18 @@ export default function OperacoesCatalogoPage() {
         ))}
       </div>
 
-      {/* Modal de Criação / Edição de Operação */}
+      {/* Modal de Criação / Edição Responsivo (Nunca corta no celular ou desktop) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="w-full max-w-lg bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
             
-            <div className="p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between">
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
               <div>
-                <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
                   {editingOpId ? 'Editar Operação / Ordem de Serviço' : 'Nova Operação / Ordem de Serviço'}
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">2º Pelotão Salinas</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">2º Pelotão Salinas</p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -274,122 +277,126 @@ export default function OperacoesCatalogoPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-5 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Grupo Operacional *
-                </label>
-                <select
-                  value={formData.grupo}
-                  onChange={(e) => setFormData({ ...formData, grupo: e.target.value as OperationGroup })}
-                  className="untitled-input"
-                >
-                  <option value="POG">Operações POG</option>
-                  <option value="ORDENS_SERVICO">Ordens de Serviço (OS)</option>
-                  <option value="INTERACOES_COMUNITARIAS">Interações Comunitárias</option>
-                  <option value="PROXIMIDADE">Policiamento de Proximidade</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            {/* Formulário com Scroll Interno Seguro */}
+            <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
                 <div>
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Código / Natureza *
+                    Grupo Operacional *
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Y07001 ou OS 3.038"
-                    value={formData.codigo_natureza}
-                    onChange={(e) => setFormData({ ...formData, codigo_natureza: e.target.value })}
-                    className="untitled-input font-mono font-medium"
-                    required
-                  />
+                  <select
+                    value={formData.grupo}
+                    onChange={(e) => setFormData({ ...formData, grupo: e.target.value as OperationGroup })}
+                    className="untitled-input"
+                  >
+                    <option value="POG">Operações POG</option>
+                    <option value="ORDENS_SERVICO">Ordens de Serviço (OS)</option>
+                    <option value="INTERACOES_COMUNITARIAS">Interações Comunitárias</option>
+                    <option value="PROXIMIDADE">Policiamento de Proximidade</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Código / Natureza *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Y07001 ou OS 3.038"
+                      value={formData.codigo_natureza}
+                      onChange={(e) => setFormData({ ...formData, codigo_natureza: e.target.value })}
+                      className="untitled-input font-mono font-medium"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Título da Operação *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Batida Policial"
+                      value={formData.titulo}
+                      onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+                      className="untitled-input font-medium"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Título da Operação *
+                    Descrição & Objetivo Tático
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Batida Policial"
-                    value={formData.titulo}
-                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                    className="untitled-input font-medium"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Descrição & Objetivo Tático
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Orientações essenciais para a tropa na rua..."
-                  value={formData.descricao}
-                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                  className="untitled-input"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Link da Diretriz no Google Drive
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={formData.link_google_drive}
-                  onChange={(e) => setFormData({ ...formData, link_google_drive: e.target.value })}
-                  className="untitled-input font-mono"
-                />
-              </div>
-
-              <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] space-y-2">
-                <span className="font-bold text-gray-900 dark:text-white block text-[11px]">
-                  Regras Específicas de Lançamento
-                </span>
-
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.requer_reds_origem}
-                      onChange={(e) => setFormData({ ...formData, requer_reds_origem: e.target.checked })}
-                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                    />
-                    <span className="text-gray-700 dark:text-gray-300">Exige REDS de Origem</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.area_rural_obrigatoria}
-                      onChange={(e) => setFormData({ ...formData, area_rural_obrigatoria: e.target.checked })}
-                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                    />
-                    <span className="text-gray-700 dark:text-gray-300">Exclusiva Área Rural</span>
-                  </label>
-                </div>
-
-                <div className="pt-2">
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Mínimo de Pessoas Envolvidas
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="50"
-                    value={formData.min_envolvidos}
-                    onChange={(e) => setFormData({ ...formData, min_envolvidos: parseInt(e.target.value) || 0 })}
+                  <textarea
+                    rows={2}
+                    placeholder="Orientações essenciais para a tropa na rua..."
+                    value={formData.descricao}
+                    onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     className="untitled-input"
                   />
                 </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Link da Diretriz no Google Drive
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://drive.google.com/..."
+                    value={formData.link_google_drive}
+                    onChange={(e) => setFormData({ ...formData, link_google_drive: e.target.value })}
+                    className="untitled-input font-mono"
+                  />
+                </div>
+
+                <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] space-y-2">
+                  <span className="font-bold text-gray-900 dark:text-white block text-[11px]">
+                    Regras Específicas de Lançamento
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.requer_reds_origem}
+                        onChange={(e) => setFormData({ ...formData, requer_reds_origem: e.target.checked })}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                      />
+                      <span className="text-gray-700 dark:text-gray-300">Exige REDS de Origem</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.area_rural_obrigatoria}
+                        onChange={(e) => setFormData({ ...formData, area_rural_obrigatoria: e.target.checked })}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                      />
+                      <span className="text-gray-700 dark:text-gray-300">Exclusiva Área Rural</span>
+                    </label>
+                  </div>
+
+                  <div className="pt-2">
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Mínimo de Pessoas Envolvidas
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={formData.min_envolvidos}
+                      onChange={(e) => setFormData({ ...formData, min_envolvidos: parseInt(e.target.value) || 0 })}
+                      className="untitled-input"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="pt-3 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2">
+              {/* Footer Fixo com Botões Visíveis */}
+              <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2 flex-shrink-0 bg-gray-50/50 dark:bg-[#0E121A]">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
