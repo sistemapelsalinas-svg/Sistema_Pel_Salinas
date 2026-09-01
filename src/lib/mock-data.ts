@@ -32,16 +32,7 @@ export const DEFAULT_TEAMS = [
   'CPU'
 ];
 
-export const TARGET_TEAMS = [
-  'ALFA',
-  'BRAVO',
-  'CHARLIE',
-  'DELTA',
-  'RURAL',
-  'MP',
-  'RPPM',
-  'PATRULHA ESCOLAR'
-];
+export const TARGET_TEAMS = DEFAULT_TEAMS;
 
 export const DEFAULT_LEGENDS: ScheduleLegend[] = [
   { codigo: 'S', descricao: 'Serviço Operacional / Turno Normal', conta_como_servico: true, cor_badge: 'bg-emerald-600 text-white' },

@@ -121,15 +121,15 @@ export default function DashboardOverviewPage() {
 
   const teamDistributionStats = TARGET_TEAMS.map(team => {
     const teamTargetCount = targets.reduce((acc, t) => {
-      const dist = t.distribuicoes?.find(d => d.equipe.toUpperCase() === team);
+      const dist = t.distribuicoes?.find(d => d.equipe.toUpperCase() === team.toUpperCase());
       return acc + (dist ? dist.meta_quantitativa : 0);
     }, 0);
 
-    const teamLogs = logs.filter(l => l.equipe.toUpperCase().includes(team));
+    const teamLogs = logs.filter(l => l.equipe.toUpperCase() === team.toUpperCase());
     const pct = teamTargetCount > 0 ? Math.min(100, Math.round((teamLogs.length / teamTargetCount) * 100)) : 0;
 
     return {
-      team: `Equipe ${team}`,
+      team: team,
       meta: teamTargetCount,
       realizado: teamLogs.length,
       percentual: pct
