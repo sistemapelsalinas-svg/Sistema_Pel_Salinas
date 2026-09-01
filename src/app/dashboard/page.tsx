@@ -15,15 +15,14 @@ import {
   Clock, 
   Flame, 
   ChevronRight, 
-  ChevronDown,
-  Download,
-  Shield,
-  FileText,
-  Users,
-  CheckCircle2,
-  Bookmark,
-  SlidersHorizontal,
-  Info
+  Download, 
+  Shield, 
+  FileText, 
+  Users, 
+  CheckCircle2, 
+  Bookmark, 
+  SlidersHorizontal, 
+  Info 
 } from 'lucide-react';
 import { RiskBadge } from '@/components/risk-badge';
 
@@ -48,43 +47,55 @@ export default function DashboardOverviewPage() {
   const percentualGeral = totalMetas > 0 ? Math.min(100, Math.round((totalExecutadas / totalMetas) * 100)) : 0;
   
   const alertasCriticos = alerts.filter(a => a.status === 'ATIVO' && (a.grau_risco === 'CRITICO' || a.grau_risco === 'ALTO'));
-
   const today = new Date().getDate();
   const escalaHoje = schedule?.itens ? schedule.itens.filter(i => i.dia_mes === today && (i.legenda_codigo === 'S' || i.legenda_codigo === 'SN')) : [];
 
-  // Grupos Operacionais Calculados Dinamicamente
+  // 1. Contagens dos 4 Grupos Operacionais para os 4 Cards do Topo
+  const countPog = logs.filter(l => operations.find(o => o.id === l.tipo_operacao_id)?.grupo === 'POG').length;
+  const targetPog = targets.filter(t => operations.find(o => o.id === t.tipo_operacao_id)?.grupo === 'POG').reduce((a, b) => a + b.meta_total, 0);
+  const pctPog = targetPog > 0 ? Math.min(100, Math.round((countPog / targetPog) * 100)) : 0;
+
+  const countOs = logs.filter(l => operations.find(o => o.id === l.tipo_operacao_id)?.grupo === 'ORDENS_SERVICO').length;
+  const targetOs = targets.filter(t => operations.find(o => o.id === t.tipo_operacao_id)?.grupo === 'ORDENS_SERVICO').reduce((a, b) => a + b.meta_total, 0);
+  const pctOs = targetOs > 0 ? Math.min(100, Math.round((countOs / targetOs) * 100)) : 0;
+
+  const countInteracoes = logs.filter(l => operations.find(o => o.id === l.tipo_operacao_id)?.grupo === 'INTERACOES_COMUNITARIAS').length;
+  const targetInteracoes = targets.filter(t => operations.find(o => o.id === t.tipo_operacao_id)?.grupo === 'INTERACOES_COMUNITARIAS').reduce((a, b) => a + b.meta_total, 0);
+  const pctInteracoes = targetInteracoes > 0 ? Math.min(100, Math.round((countInteracoes / targetInteracoes) * 100)) : 0;
+
+  const countProximidade = logs.filter(l => operations.find(o => o.id === l.tipo_operacao_id)?.grupo === 'PROXIMIDADE').length;
+  const targetProximidade = targets.filter(t => operations.find(o => o.id === t.tipo_operacao_id)?.grupo === 'PROXIMIDADE').reduce((a, b) => a + b.meta_total, 0);
+  const pctProximidade = targetProximidade > 0 ? Math.min(100, Math.round((countProximidade / targetProximidade) * 100)) : 0;
+
+  // Grupos Operacionais para a Tabela
   const groupConfigs = [
     {
       key: 'POG',
-      title: 'POG — Batida & Presença',
+      title: 'POG — Patrulhamento Ostensivo Geral',
       icon: Bookmark,
       iconColor: 'bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300',
-      natureza: 'Y07001, Y07002...',
-      nota: 'Saturação e ZQC'
-    },
-    {
-      key: 'PROXIMIDADE',
-      title: 'Proximidade & Rural',
-      icon: ShieldCheck,
-      iconColor: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
-      natureza: 'Rural, Escolar, BSC...',
-      nota: 'Comunidade e prevenção'
-    },
-    {
-      key: 'INTERACOES_COMUNITARIAS',
-      title: 'Interações Comunitárias',
-      icon: Users,
-      iconColor: 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300',
-      natureza: 'VCP, RC, RCR, MRPP, VT...',
-      nota: 'Aproximação social'
+      natureza: 'Y07001, Y07002, Y04009...'
     },
     {
       key: 'ORDENS_SERVICO',
       title: 'Ordens de Serviço (OS)',
       icon: FileText,
       iconColor: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300',
-      natureza: 'OS 3.028, OS 3.038...',
-      nota: 'Diretrizes da fração'
+      natureza: 'OS 3.028 Visibilidade, OS 3.038 Bares...'
+    },
+    {
+      key: 'INTERACOES_COMUNITARIAS',
+      title: 'Interações Comunitárias (VCP & Visitas)',
+      icon: Users,
+      iconColor: 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300',
+      natureza: 'VCP, RC, RCR, MRPP, VT Furto/VTCV'
+    },
+    {
+      key: 'PROXIMIDADE',
+      title: 'Policiamento de Proximidade',
+      icon: ShieldCheck,
+      iconColor: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
+      natureza: 'Patrulha Rural, Escolar, BSC...'
     }
   ];
 
@@ -92,7 +103,7 @@ export default function DashboardOverviewPage() {
     const opsInGroup = operations.filter(o => o.grupo === cfg.key);
     const countLogs = logs.filter(l => opsInGroup.some(o => o.id === l.tipo_operacao_id)).length;
     const targetGroup = targets.filter(t => opsInGroup.some(o => o.id === t.tipo_operacao_id)).reduce((acc, t) => acc + t.meta_total, 0);
-    const pct = targetGroup > 0 ? Math.min(100, Math.round((countLogs / targetGroup) * 100)) : (countLogs > 0 ? 100 : 0);
+    const pct = targetGroup > 0 ? Math.min(100, Math.round((countLogs / targetGroup) * 100)) : 0;
 
     const teamCounts: { [team: string]: number } = {};
     logs.filter(l => opsInGroup.some(o => o.id === l.tipo_operacao_id)).forEach(l => {
@@ -104,8 +115,7 @@ export default function DashboardOverviewPage() {
       ...cfg,
       realizado: `${countLogs} ops`,
       percent: `${pct}%`,
-      equipe: topTeam,
-      temRegistros: countLogs > 0
+      equipe: topTeam
     };
   });
 
@@ -126,6 +136,22 @@ export default function DashboardOverviewPage() {
     };
   }).filter(t => t.meta > 0 || totalMetas === 0);
 
+  // Helper para nome limpo do grupo nas atividades recentes
+  const getCleanGroupName = (grupo?: string) => {
+    switch (grupo) {
+      case 'POG':
+        return 'POG';
+      case 'PROXIMIDADE':
+        return 'Policiamento de Proximidade';
+      case 'INTERACOES_COMUNITARIAS':
+        return 'Interações Comunitárias';
+      case 'ORDENS_SERVICO':
+        return 'Ordens de Serviço';
+      default:
+        return 'POG';
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
       
@@ -141,65 +167,74 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
-      {/* Top 4 KPI Cards (Grid 2x2 no mobile para visual ultra-organizado) */}
+      {/* Top 4 Cards Exatos: POG, Ordens de Serviço, Interações Comunitárias e Policiamento de Proximidade */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
-        {/* Card 1 */}
+        {/* Card 1: POG */}
         <div className="untitled-card p-3.5 sm:p-5 space-y-1 sm:space-y-2">
-          <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
-            Operações (Mês)
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider truncate">
+              POG
+            </p>
+            <Bookmark className="w-3.5 h-3.5 text-purple-500" />
+          </div>
           <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-            {totalExecutadas}
+            {countPog}
+          </div>
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-purple-600 dark:text-purple-400 pt-0.5">
+            <TrendingUp className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{pctPog}% atingido (meta {targetPog})</span>
+          </div>
+        </div>
+
+        {/* Card 2: Ordens de Serviço */}
+        <div className="untitled-card p-3.5 sm:p-5 space-y-1 sm:space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider truncate">
+              Ordens de Serviço
+            </p>
+            <FileText className="w-3.5 h-3.5 text-blue-500" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+            {countOs}
+          </div>
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 pt-0.5">
+            <TrendingUp className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{pctOs}% atingido (meta {targetOs})</span>
+          </div>
+        </div>
+
+        {/* Card 3: Interações Comunitárias */}
+        <div className="untitled-card p-3.5 sm:p-5 space-y-1 sm:space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider truncate">
+              Interações Comunitárias
+            </p>
+            <Users className="w-3.5 h-3.5 text-amber-500" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+            {countInteracoes}
+          </div>
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 pt-0.5">
+            <TrendingUp className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{pctInteracoes}% atingido (meta {targetInteracoes})</span>
+          </div>
+        </div>
+
+        {/* Card 4: Policiamento de Proximidade */}
+        <div className="untitled-card p-3.5 sm:p-5 space-y-1 sm:space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider truncate">
+              Policiamento de Proximidade
+            </p>
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+            {countProximidade}
           </div>
           <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5">
             <TrendingUp className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{percentualGeral}% vs meta {totalMetas}</span>
-          </div>
-        </div>
-
-        {/* Card 2 */}
-        <div className="untitled-card p-3.5 sm:p-5 space-y-1 sm:space-y-2">
-          <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
-            Alertas de Homicídios
-          </p>
-          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-            {alerts.filter(a => a.status === 'ATIVO').length}
-          </div>
-          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 pt-0.5">
-            <Flame className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{alertasCriticos.length} críticos em Salinas</span>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="untitled-card p-3.5 sm:p-5 space-y-1 sm:space-y-2">
-          <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
-            Efetivo no Plantão
-          </p>
-          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-            {escalaHoje.length}
-          </div>
-          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5">
-            <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{escalaHoje.length > 0 ? 'Plantão ativo' : 'Sem escala'}</span>
-          </div>
-        </div>
-
-        {/* Card 4 */}
-        <div className="untitled-card p-3.5 sm:p-5 space-y-1 sm:space-y-2">
-          <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
-            Interações Comunitárias
-          </p>
-          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-            {logs.filter(l => {
-              const op = operations.find(o => o.id === l.tipo_operacao_id);
-              return op?.grupo === 'INTERACOES_COMUNITARIAS';
-            }).length}
-          </div>
-          <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5">
-            <ShieldCheck className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">VCP e Visitas</span>
+            <span className="truncate">{pctProximidade}% atingido (meta {targetProximidade})</span>
           </div>
         </div>
 
@@ -211,14 +246,14 @@ export default function DashboardOverviewPage() {
         {/* Left / Wide Column (2 cols) */}
         <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           
-          {/* Card 1: Main Data Table */}
+          {/* Quadro: Operações (mês corrente) - sem coluna de observações */}
           <div className="untitled-card p-4 sm:p-6 space-y-4">
             
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-gray-400 uppercase">
-                  ATIVIDADE OPERACIONAL (MÊS CORRENTE)
+                  OPERAÇÕES (MÊS CORRENTE)
                 </span>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
@@ -236,16 +271,15 @@ export default function DashboardOverviewPage() {
               </div>
             </div>
 
-            {/* Table com Scroll Horizontal Seguro */}
+            {/* Tabela de Operações (Sem a coluna de Observações) */}
             <div className="overflow-x-auto -mx-1 sm:mx-0">
-              <table className="min-w-[480px] w-full text-left border-collapse text-xs">
+              <table className="min-w-[440px] w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-[#222938] text-gray-400 dark:text-gray-500 font-semibold text-[11px]">
                     <th className="pb-3 font-medium">Grupo / Natureza</th>
                     <th className="pb-3 font-medium">Executado</th>
                     <th className="pb-3 font-medium">% Meta</th>
-                    <th className="pb-3 font-medium">Destaque</th>
-                    <th className="pb-3 font-medium text-right">Observação</th>
+                    <th className="pb-3 font-medium text-right">Destaque</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
@@ -270,13 +304,10 @@ export default function DashboardOverviewPage() {
                         <td className="py-3 font-medium text-gray-600 dark:text-gray-300">
                           {row.percent}
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 text-right">
                           <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-semibold text-gray-700 dark:text-gray-300 text-[10px]">
                             {row.equipe}
                           </span>
-                        </td>
-                        <td className="py-3 text-right text-gray-500 text-[10px]">
-                          {row.nota}
                         </td>
                       </tr>
                     );
@@ -301,13 +332,13 @@ export default function DashboardOverviewPage() {
 
           </div>
 
-          {/* Card 2: Lower Table (Prevenção de Homicídios) */}
+          {/* Quadro: Alertas de Homicídios */}
           <div className="untitled-card p-4 sm:p-6 space-y-4">
             
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white uppercase tracking-wider">
-                  PREVENÇÃO DE HOMICÍDIOS
+                  ALERTAS DE HOMICÍDIOS
                 </h3>
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   Monitoramento qualificado de ocorrências graves
@@ -371,7 +402,7 @@ export default function DashboardOverviewPage() {
         {/* Right Column (1 col) */}
         <div className="space-y-4 sm:space-y-6">
           
-          {/* Card: Tier / Team Distribution */}
+          {/* Card: Distribuição de Metas por Equipe */}
           <div className="untitled-card p-4 sm:p-6 space-y-4">
             <div>
               <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-gray-400 uppercase">
@@ -417,7 +448,7 @@ export default function DashboardOverviewPage() {
 
           </div>
 
-          {/* Card: Recent Activity */}
+          {/* Card: Atividades Recentes com nomes de grupos na linha 1 / linha 2 e botão Ver Atividades */}
           <div className="untitled-card p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-gray-400 uppercase">
@@ -434,17 +465,20 @@ export default function DashboardOverviewPage() {
               <div className="space-y-3 text-xs">
                 {logs.slice(0, 4).map((log) => {
                   const op = operations.find(o => o.id === log.tipo_operacao_id);
+                  const groupClean = getCleanGroupName(op?.grupo);
                   return (
                     <div key={log.id} className="flex items-start gap-2.5">
                       <div className="w-6 h-6 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 text-gray-600 dark:text-gray-300 mt-0.5">
                         <Shield className="w-3 h-3" />
                       </div>
                       <div className="space-y-0.5 min-w-0">
-                        <p className="font-semibold text-gray-900 dark:text-white truncate">
-                          {op?.titulo}
+                        {/* Linha 1: Nome do Grupo (ex: POG, Policiamento de Proximidade) */}
+                        <p className="font-bold text-gray-900 dark:text-white truncate">
+                          {groupClean}
                         </p>
+                        {/* Linha 2: Natureza e Equipe */}
                         <p className="text-[10px] text-gray-500 truncate">
-                          {log.equipe} · {log.bairro || 'Salinas'}
+                          {op?.titulo} · {log.equipe}
                         </p>
                       </div>
                     </div>
@@ -455,10 +489,10 @@ export default function DashboardOverviewPage() {
 
             <div className="pt-2 border-t border-gray-100 dark:border-[#222938]">
               <Link
-                href="/dashboard/operacoes"
+                href="/dashboard/operacoes/lancamento"
                 className="w-full flex items-center justify-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
               >
-                <span>Ver catálogo</span>
+                <span>Ver atividades</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
