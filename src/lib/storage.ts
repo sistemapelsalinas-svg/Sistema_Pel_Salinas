@@ -6,7 +6,8 @@ import {
   HomicideAlert, 
   MonthlySchedule, 
   ScheduleLegend,
-  DailyMissionData 
+  DailyMissionData,
+  EscalaMilitar
 } from './types';
 import { 
   INITIAL_USERS, 
@@ -15,6 +16,7 @@ import {
   INITIAL_LOGS, 
   INITIAL_ALERTS, 
   DEFAULT_LEGENDS, 
+  INITIAL_ESCALA_MILITARES,
   generateSampleSchedule 
 } from './mock-data';
 
@@ -26,6 +28,7 @@ const STORAGE_KEYS = {
   ALERTS: 'sgp_salinas_alerts_v1',
   LEGENDS: 'sgp_salinas_legends_v1',
   SCHEDULE: 'sgp_salinas_schedule_v1',
+  ESCALA_MILITARES: 'sgp_salinas_escala_militares_v1',
   CURRENT_USER: 'sgp_salinas_current_user_v1'
 };
 
@@ -271,6 +274,58 @@ class StorageService {
     return alerts[idx];
   }
 
+  // --- EFETIVO DA ESCALA (43 MILITARES) ---
+  getMilitaresEscala(): EscalaMilitar[] {
+    if (!this.isBrowser()) return INITIAL_ESCALA_MILITARES;
+    const data = localStorage.getItem(STORAGE_KEYS.ESCALA_MILITARES);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.ESCALA_MILITARES, JSON.stringify(INITIAL_ESCALA_MILITARES));
+      return INITIAL_ESCALA_MILITARES;
+    }
+    try {
+      const list: EscalaMilitar[] = JSON.parse(data);
+      return list.sort((a, b) => a.ordem - b.ordem);
+    } catch {
+      return INITIAL_ESCALA_MILITARES;
+    }
+  }
+
+  saveMilitaresEscala(militares: EscalaMilitar[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.ESCALA_MILITARES, JSON.stringify(militares));
+  }
+
+  addMilitarEscala(militar: Omit<EscalaMilitar, 'id' | 'ordem'>): EscalaMilitar {
+    const list = this.getMilitaresEscala();
+    const maxOrdem = list.reduce((acc, m) => Math.max(acc, m.ordem || 0), 0);
+    const newMilitar: EscalaMilitar = {
+      ...militar,
+      id: `mil-${Date.now()}`,
+      ordem: maxOrdem + 1,
+      ativo: true
+    };
+    list.push(newMilitar);
+    this.saveMilitaresEscala(list);
+    return newMilitar;
+  }
+
+  updateMilitarEscala(id: string, updates: Partial<EscalaMilitar>): EscalaMilitar | null {
+    const list = this.getMilitaresEscala();
+    const idx = list.findIndex(m => m.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveMilitaresEscala(list);
+    return list[idx];
+  }
+
+  deleteMilitarEscala(id: string): boolean {
+    const list = this.getMilitaresEscala();
+    const filtered = list.filter(m => m.id !== id);
+    if (filtered.length === list.length) return false;
+    this.saveMilitaresEscala(filtered);
+    return true;
+  }
+
   // --- ESCALAS E LEGENDAS ---
   getLegends(): ScheduleLegend[] {
     if (!this.isBrowser()) return DEFAULT_LEGENDS;
@@ -294,19 +349,54 @@ class StorageService {
   getSchedule(mes: number = 8, ano: number = 2026): MonthlySchedule {
     if (!this.isBrowser()) return generateSampleSchedule(mes, ano);
     const data = localStorage.getItem(STORAGE_KEYS.SCHEDULE);
+    const militares = this.getMilitaresEscala();
+    const daysInMonth = new Date(ano, mes, 0).getDate();
+
+    let sch: MonthlySchedule;
     if (!data) {
-      const sample = generateSampleSchedule(mes, ano);
-      localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(sample));
-      return sample;
+      sch = generateSampleSchedule(mes, ano);
+    } else {
+      try {
+        const parsed: MonthlySchedule = JSON.parse(data);
+        if (parsed.mes === mes && parsed.ano === ano) {
+          sch = parsed;
+        } else {
+          sch = generateSampleSchedule(mes, ano);
+        }
+      } catch {
+        sch = generateSampleSchedule(mes, ano);
+      }
     }
-    try {
-      const sch: MonthlySchedule = JSON.parse(data);
-      if (sch.mes === mes && sch.ano === ano) return sch;
-      const newMonth = generateSampleSchedule(mes, ano);
-      return newMonth;
-    } catch {
-      return generateSampleSchedule(mes, ano);
+
+    // Garante que TODOS os militares cadastrados no efetivo apareçam na escala
+    let hasNewItems = false;
+    const existingMilitarIds = new Set(sch.itens.map(i => i.militar_id));
+
+    for (const mil of militares) {
+      if (!existingMilitarIds.has(mil.id)) {
+        hasNewItems = true;
+        for (let d = 1; d <= daysInMonth; d++) {
+          const isServico = ((d + mil.ordem) % 3 === 0);
+          const isNoturno = ((d + mil.ordem) % 6 === 0);
+          sch.itens.push({
+            id: `item-${mil.id}-${d}`,
+            escala_id: sch.id,
+            equipe: mil.equipe_padrao || 'ALFA 1',
+            militar_id: mil.id,
+            militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
+            militar_numero_pm: mil.numero_pm,
+            dia_mes: d,
+            legenda_codigo: isNoturno ? 'SN' : (isServico ? 'S' : 'F')
+          });
+        }
+      }
     }
+
+    if (hasNewItems) {
+      this.saveSchedule(sch);
+    }
+
+    return sch;
   }
 
   saveSchedule(schedule: MonthlySchedule): void {

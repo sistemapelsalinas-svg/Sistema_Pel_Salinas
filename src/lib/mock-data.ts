@@ -5,7 +5,8 @@ import {
   HomicideAlert, 
   MonthlySchedule, 
   MonthlyTarget,
-  OperationExecutionLog 
+  OperationExecutionLog,
+  EscalaMilitar
 } from './types';
 
 export const DEFAULT_TEAMS = [
@@ -292,6 +293,53 @@ export const INITIAL_USERS: UserProfile[] = [
   }
 ];
 
+// LISTA DE 43 MILITARES CADASTRADOS PARA A ESCALA
+export const INITIAL_ESCALA_MILITARES: EscalaMilitar[] = [
+  { id: 'mil-1', ordem: 1, graduacao: 'TEN', nome_guerra: 'BRITO', numero_pm: '139.093-9', equipe_padrao: 'CPU', ativo: true },
+  { id: 'mil-2', ordem: 2, graduacao: 'CB', nome_guerra: 'ANDRÉ', numero_pm: '170.377-6', equipe_padrao: 'ALFA 1', ativo: true },
+  { id: 'mil-3', ordem: 3, graduacao: 'SGT', nome_guerra: 'VILELLA', numero_pm: '145.794-4', equipe_padrao: 'ALFA 2', ativo: true },
+  { id: 'mil-4', ordem: 4, graduacao: 'SD', nome_guerra: 'ELLEN THALITA', numero_pm: '178.264-8', equipe_padrao: 'REDS 1', ativo: true },
+  { id: 'mil-5', ordem: 5, graduacao: 'CB', nome_guerra: 'RAMOS', numero_pm: '173.594-3', equipe_padrao: 'ALFA 1', ativo: true },
+  { id: 'mil-6', ordem: 6, graduacao: 'SGT', nome_guerra: 'CLÉSIO', numero_pm: '134.313-6', equipe_padrao: 'BRAVO 1', ativo: true },
+  { id: 'mil-7', ordem: 7, graduacao: 'SGT', nome_guerra: 'UANDES', numero_pm: '147.326-3', equipe_padrao: 'BRAVO 2', ativo: true },
+  { id: 'mil-8', ordem: 8, graduacao: 'SGT', nome_guerra: 'CLEBER', numero_pm: '154.704-1', equipe_padrao: 'CHARLIE 1', ativo: true },
+  { id: 'mil-9', ordem: 9, graduacao: 'SGT', nome_guerra: 'HEVERTON', numero_pm: '140.067-0', equipe_padrao: 'CHARLIE 2', ativo: true },
+  { id: 'mil-10', ordem: 10, graduacao: 'CB', nome_guerra: 'BISPO', numero_pm: '174.086-9', equipe_padrao: 'ALFA 2', ativo: true },
+  { id: 'mil-11', ordem: 11, graduacao: 'SGT', nome_guerra: 'NAILSON', numero_pm: '143.837-3', equipe_padrao: 'SOF ALFA 1', ativo: true },
+  { id: 'mil-12', ordem: 12, graduacao: 'CB', nome_guerra: 'MULLER', numero_pm: '174.226-1', equipe_padrao: 'BRAVO 1', ativo: true },
+  { id: 'mil-13', ordem: 13, graduacao: 'SGT', nome_guerra: 'PEREIRA', numero_pm: '145.708-4', equipe_padrao: 'SOF BRAVO 1', ativo: true },
+  { id: 'mil-14', ordem: 14, graduacao: 'CB', nome_guerra: 'MACIEL', numero_pm: '175.348-2', equipe_padrao: 'BRAVO 2', ativo: true },
+  { id: 'mil-15', ordem: 15, graduacao: 'SGT', nome_guerra: 'ELDER', numero_pm: '157.768-3', equipe_padrao: 'PATRULHA RURAL 1', ativo: true },
+  { id: 'mil-16', ordem: 16, graduacao: 'SD', nome_guerra: 'LUCAS', numero_pm: '179.095-5', equipe_padrao: 'CHARLIE 1', ativo: true },
+  { id: 'mil-17', ordem: 17, graduacao: 'SD', nome_guerra: 'MARTINS', numero_pm: '177.635-0', equipe_padrao: 'CHARLIE 2', ativo: true },
+  { id: 'mil-18', ordem: 18, graduacao: 'CB', nome_guerra: 'SANTOS', numero_pm: '175.390-4', equipe_padrao: 'PATRULHA RURAL 2', ativo: true },
+  { id: 'mil-19', ordem: 19, graduacao: 'SGT', nome_guerra: 'NERIS', numero_pm: '145.362-0', equipe_padrao: 'ALFA 1', ativo: true },
+  { id: 'mil-20', ordem: 20, graduacao: 'CB', nome_guerra: 'BRUNO', numero_pm: '161.522-8', equipe_padrao: 'ALFA 2', ativo: true },
+  { id: 'mil-21', ordem: 21, graduacao: 'CB', nome_guerra: 'FRANTHESCO', numero_pm: '158.659-3', equipe_padrao: 'BRAVO 1', ativo: true },
+  { id: 'mil-22', ordem: 22, graduacao: 'SGT', nome_guerra: 'PEDROSA', numero_pm: '156.332-9', equipe_padrao: 'MP 1', ativo: true },
+  { id: 'mil-23', ordem: 23, graduacao: 'ST', nome_guerra: 'JESUS', numero_pm: '074.516-6', equipe_padrao: 'ADM', ativo: true },
+  { id: 'mil-24', ordem: 24, graduacao: 'SD', nome_guerra: 'RAÍSSA', numero_pm: '177.661-6', equipe_padrao: 'REDS 2', ativo: true },
+  { id: 'mil-25', ordem: 25, graduacao: 'SGT', nome_guerra: 'MACHADO', numero_pm: '130.438-5', equipe_padrao: 'PATRULHA RURAL DIA', ativo: true },
+  { id: 'mil-26', ordem: 26, graduacao: 'CB', nome_guerra: 'PABLO', numero_pm: '173.827-7', equipe_padrao: 'CHARLIE 1', ativo: true },
+  { id: 'mil-27', ordem: 27, graduacao: 'SGT', nome_guerra: 'ANDRE SANTOS', numero_pm: '157.842-6', equipe_padrao: 'ADM', ativo: true },
+  { id: 'mil-28', ordem: 28, graduacao: 'SGT', nome_guerra: 'ALVES', numero_pm: '168.625-2', equipe_padrao: 'MP 2', ativo: true },
+  { id: 'mil-29', ordem: 29, graduacao: 'SGT', nome_guerra: 'JULIO', numero_pm: '152.171-5', equipe_padrao: 'RPPM', ativo: true },
+  { id: 'mil-30', ordem: 30, graduacao: 'CB', nome_guerra: 'BARBOSA', numero_pm: '158.736-9', equipe_padrao: 'BRAVO 2', ativo: true },
+  { id: 'mil-31', ordem: 31, graduacao: 'CB', nome_guerra: 'DAMASCENO', numero_pm: '161.502-0', equipe_padrao: 'CHARLIE 2', ativo: true },
+  { id: 'mil-32', ordem: 32, graduacao: 'SGT', nome_guerra: 'SHAKIN', numero_pm: '156.629-8', equipe_padrao: 'SOF ALFA 2', ativo: true },
+  { id: 'mil-33', ordem: 33, graduacao: 'SGT', nome_guerra: 'OLIVEIRA', numero_pm: '141.421-8', equipe_padrao: 'PATRULHA ESCOLAR', ativo: true },
+  { id: 'mil-34', ordem: 34, graduacao: 'CB', nome_guerra: 'OLIVEIRA', numero_pm: '170.084-8', equipe_padrao: 'ALFA 1', ativo: true },
+  { id: 'mil-35', ordem: 35, graduacao: 'CB', nome_guerra: 'ASSUNÇÃO', numero_pm: '159.197-3', equipe_padrao: 'ALFA 2', ativo: true },
+  { id: 'mil-36', ordem: 36, graduacao: 'SGT', nome_guerra: 'RAFAEL', numero_pm: '150.131-1', equipe_padrao: 'SOF BRAVO 2', ativo: true },
+  { id: 'mil-37', ordem: 37, graduacao: 'SD', nome_guerra: 'CALDEIRA', numero_pm: '181.691-7', equipe_padrao: 'BRAVO 1', ativo: true },
+  { id: 'mil-38', ordem: 38, graduacao: 'SGT', nome_guerra: 'VANDERLAN', numero_pm: '121.737-1', equipe_padrao: 'PATRULHA RURAL 1', ativo: true },
+  { id: 'mil-39', ordem: 39, graduacao: 'SGT', nome_guerra: 'CLEUSA', numero_pm: '139.061-6', equipe_padrao: 'ADM', ativo: true },
+  { id: 'mil-40', ordem: 40, graduacao: 'SGT', nome_guerra: 'CARDOSO', numero_pm: '111.737-3', equipe_padrao: 'PATRULHA RURAL 2', ativo: true },
+  { id: 'mil-41', ordem: 41, graduacao: 'CB', nome_guerra: 'WILLIAN', numero_pm: '171.875-8', equipe_padrao: 'CHARLIE 1', ativo: true },
+  { id: 'mil-42', ordem: 42, graduacao: 'SGT', nome_guerra: 'GUILHERME', numero_pm: '149.164-6', equipe_padrao: 'BRAVO 2', ativo: true },
+  { id: 'mil-43', ordem: 43, graduacao: 'CB', nome_guerra: 'ALMEIDA', numero_pm: '159.288-0', equipe_padrao: 'CHARLIE 2', ativo: true }
+];
+
 // INFORMAÇÕES OPERACIONAIS ZERADAS
 export const INITIAL_MONTHLY_TARGETS: MonthlyTarget[] = [];
 export const INITIAL_LOGS: OperationExecutionLog[] = [];
@@ -299,20 +347,26 @@ export const INITIAL_ALERTS: HomicideAlert[] = [];
 
 export function generateSampleSchedule(mes: number = 8, ano: number = 2026): MonthlySchedule {
   const daysInMonth = new Date(ano, mes, 0).getDate();
-  const user = INITIAL_USERS[0];
+  const militares = INITIAL_ESCALA_MILITARES;
   const items = [];
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    items.push({
-      id: `item-${user.id}-${d}`,
-      escala_id: `sch-${mes}-${ano}`,
-      equipe: user.equipe_padrao || 'ADM',
-      militar_id: user.id,
-      militar_nome: user.nome_guerra,
-      militar_numero_pm: user.numero_pm,
-      dia_mes: d,
-      legenda_codigo: (d % 3 === 1) ? 'S' : 'F'
-    });
+  for (const mil of militares) {
+    for (let d = 1; d <= daysInMonth; d++) {
+      // Padrão de escala alternada realista (1 dia de serviço para cada 2 ou 3 dias)
+      const isServico = ((d + mil.ordem) % 3 === 0);
+      const isNoturno = ((d + mil.ordem) % 6 === 0);
+
+      items.push({
+        id: `item-${mil.id}-${d}`,
+        escala_id: `sch-${mes}-${ano}`,
+        equipe: mil.equipe_padrao || 'ALFA 1',
+        militar_id: mil.id,
+        militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
+        militar_numero_pm: mil.numero_pm,
+        dia_mes: d,
+        legenda_codigo: isNoturno ? 'SN' : (isServico ? 'S' : 'F')
+      });
+    }
   }
 
   return {

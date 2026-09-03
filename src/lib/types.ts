@@ -108,6 +108,16 @@ export interface ScheduleLegend {
   cor_badge: string;
 }
 
+export interface EscalaMilitar {
+  id: string;
+  ordem: number;
+  graduacao: string;
+  nome_guerra: string;
+  numero_pm: string;
+  equipe_padrao?: string;
+  ativo: boolean;
+}
+
 export interface ScheduleItem {
   id: string;
   escala_id: string;
