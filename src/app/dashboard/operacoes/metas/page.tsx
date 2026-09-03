@@ -5,6 +5,8 @@ import { storage } from '@/lib/storage';
 import { TARGET_TEAMS } from '@/lib/mock-data';
 import { MonthlyTarget, OperationType } from '@/lib/types';
 import { distributeEqually, distributeByPercentages } from '@/lib/validation';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { 
   Target, 
   Copy, 
@@ -18,12 +20,17 @@ import {
   Users, 
   AlertCircle,
   X,
-  Check
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function GestaoMetasPage() {
+  const currentYear = new Date().getFullYear();
+  const currentDateFormatted = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
   const [mes, setMes] = useState(8);
   const [ano, setAno] = useState(2026);
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
   const [operations, setOperations] = useState<OperationType[]>([]);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -33,6 +40,8 @@ export default function GestaoMetasPage() {
   const [distributionMode, setDistributionMode] = useState<'EQUAL' | 'PERCENTAGE'>('EQUAL');
   const [selectedTeams, setSelectedTeams] = useState<string[]>(TARGET_TEAMS);
   const [customPercentages, setCustomPercentages] = useState<{ [team: string]: number }>({});
+
+  const availableYears = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
 
   useEffect(() => {
     setOperations(storage.getOperations());
@@ -47,6 +56,25 @@ export default function GestaoMetasPage() {
   const showToast = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  const handleYearSelectChange = (newYear: number) => {
+    if (newYear !== currentYear) {
+      setPendingYear(newYear);
+    } else {
+      setAno(newYear);
+    }
+  };
+
+  const confirmYearChange = () => {
+    if (pendingYear) {
+      setAno(pendingYear);
+      setPendingYear(null);
+    }
+  };
+
+  const cancelYearChange = () => {
+    setPendingYear(null);
   };
 
   const handleCopyFromPrevious = () => {
@@ -216,6 +244,25 @@ export default function GestaoMetasPage() {
         </div>
       )}
 
+      {/* Alerta de Edição em Ano Diferente do Ano Corrente */}
+      {ano !== currentYear && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>
+              Você está visualizando/editando metas para o ano <strong>{ano}</strong> (Ano corrente: <strong>{currentYear}</strong>).
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAno(currentYear)}
+            className="px-2.5 py-1 bg-amber-200/70 hover:bg-amber-200 dark:bg-amber-900/60 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-100 font-bold rounded-lg transition-colors text-[11px] self-start sm:self-auto"
+          >
+            Voltar para {currentYear}
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-1 border-b border-gray-200 dark:border-[#1F242F]">
         <div>
@@ -227,10 +274,12 @@ export default function GestaoMetasPage() {
           </p>
         </div>
 
-        {/* Mês e Copiar Mês Anterior */}
+        {/* Seletores de Mês e Ano (Até 2030) + Copiar Mês Anterior */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-2 bg-white dark:bg-[#151A23] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938] shadow-xs text-xs">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-[#151A23] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938] shadow-xs text-xs">
             <Calendar className="w-4 h-4 text-gray-400" />
+            
+            {/* Mês */}
             <select
               value={mes}
               onChange={(e) => setMes(Number(e.target.value))}
@@ -249,8 +298,21 @@ export default function GestaoMetasPage() {
               <option value={11}>Novembro</option>
               <option value={12}>Dezembro</option>
             </select>
+            
             <span className="text-gray-300 dark:text-gray-600">/</span>
-            <span className="font-bold text-gray-700 dark:text-gray-300">{ano}</span>
+            
+            {/* Ano (Até 2030 com Validação de Confirmação) */}
+            <select
+              value={ano}
+              onChange={(e) => handleYearSelectChange(Number(e.target.value))}
+              className="bg-transparent font-bold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y} {y === currentYear ? '(Atual)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           <button
@@ -271,7 +333,7 @@ export default function GestaoMetasPage() {
           <div className="untitled-card p-8 text-center space-y-3">
             <Target className="w-8 h-8 text-gray-400 mx-auto" />
             <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm">
-              Nenhuma meta cadastrada para este mês.
+              Nenhuma meta cadastrada para {mes}/{ano}.
             </h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
               Adicione operações abaixo para definir metas quantitativas e distribuir entre as equipes.
@@ -370,7 +432,7 @@ export default function GestaoMetasPage() {
           <div className="flex items-center gap-2">
             <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <h3 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white">
-              Adicionar Outras Operações à Grade de Metas do Mês
+              Adicionar Outras Operações à Grade de Metas ({mes}/{ano})
             </h3>
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
@@ -388,7 +450,47 @@ export default function GestaoMetasPage() {
         </div>
       )}
 
-      {/* Modal de Distribuição Responsivo (Nunca corta no Desktop ou Mobile) */}
+      {/* Modal de Confirmação de Ano Diferente do Corrente */}
+      {pendingYear !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl p-5 space-y-4 text-xs animate-in zoom-in-95">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                Ano Diferente do Ano Corrente
+              </h3>
+              <p className="text-gray-500 leading-relaxed">
+                A data atual do sistema é <strong>{currentDateFormatted}</strong> (Ano <strong>{currentYear}</strong>).
+              </p>
+              <p className="text-gray-700 dark:text-gray-300 font-medium">
+                Você está selecionando o ano de <strong>{pendingYear}</strong> para planejar e gerenciar metas. Deseja realmente prosseguir?
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2 border-t border-gray-100 dark:border-[#222938]">
+              <button
+                type="button"
+                onClick={cancelYearChange}
+                className="btn-secondary py-2 px-4 flex-1 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmYearChange}
+                className="py-2 px-4 flex-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                Sim, Alterar para {pendingYear}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Distribuição Responsivo */}
       {selectedTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="w-full max-w-2xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
@@ -397,7 +499,7 @@ export default function GestaoMetasPage() {
             <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
-                  Distribuição da Meta da Operação
+                  Distribuição da Meta da Operação ({mes}/{ano})
                 </h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">
                   Total a distribuir: <strong className="text-emerald-600 dark:text-emerald-400">{selectedTarget.meta_total} operações</strong>
@@ -476,7 +578,7 @@ export default function GestaoMetasPage() {
                   </div>
                 </div>
 
-                {/* Grid das 21 Equipes em formato compacto e organizado */}
+                {/* Grid das 21 Equipes */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-48 overflow-y-auto p-1 border border-gray-100 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
                   {TARGET_TEAMS.map((team) => {
                     const isSelected = selectedTeams.includes(team);
