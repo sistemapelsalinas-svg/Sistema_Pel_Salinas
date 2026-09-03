@@ -368,8 +368,13 @@ class StorageService {
       }
     }
 
-    // Garante que TODOS os militares cadastrados no efetivo apareçam na escala
-    let hasNewItems = false;
+    // Garante que a escala contenha EXCLUSIVAMENTE os militares cadastrados manualmente no efetivo
+    // Remove quaisquer itens legados de login do sistema (usr-...)
+    const validMilitarIds = new Set(militares.map(m => m.id));
+    const initialItemCount = sch.itens.length;
+    sch.itens = sch.itens.filter(i => validMilitarIds.has(i.militar_id));
+    let hasNewItems = sch.itens.length !== initialItemCount;
+
     const existingMilitarIds = new Set(sch.itens.map(i => i.militar_id));
 
     for (const mil of militares) {
@@ -417,9 +422,13 @@ class StorageService {
     const targets = this.getTargets(mes, ano);
     const logs = this.getLogs();
     const alerts = this.getAlerts();
+    const militares = this.getMilitaresEscala();
 
-    // Localiza o militar na escala
-    const userItemToday = schedule.itens.find(i => i.militar_id === user.id && i.dia_mes === day);
+    // Localiza o militar na escala pelo Nº PM ou ID
+    const milRoster = militares.find(m => m.numero_pm.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, ''));
+    const militarIdToFind = milRoster ? milRoster.id : user.id;
+
+    const userItemToday = schedule.itens.find(i => (i.militar_id === militarIdToFind || i.militar_numero_pm?.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, '')) && i.dia_mes === day);
     const currentLegendCode = userItemToday ? userItemToday.legenda_codigo : 'F';
     const legendObj = legends.find(l => l.codigo === currentLegendCode);
     const deServicoHoje = legendObj ? legendObj.conta_como_servico : false;

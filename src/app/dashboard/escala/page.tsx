@@ -191,29 +191,19 @@ export default function EscalaPage() {
     showToast(`Militar ${m.graduacao} ${m.nome_guerra} excluído do efetivo.`);
   };
 
-  // Extrai lista única de militares da escala atual
-  const distinctMilitaryList = Array.from(
-    new Map(
-      schedule?.itens.map(item => [
-        item.militar_id,
-        {
-          id: item.militar_id,
-          nome: item.militar_nome || 'Militar',
-          numero_pm: item.militar_numero_pm || '',
-          equipe: item.equipe
-        }
-      ]) || []
-    ).values()
-  );
-
-  // Ordena os militares de acordo com a ordem do efetivo cadastrado
-  const sortedMilitaryList = distinctMilitaryList.sort((a, b) => {
-    const milA = militares.find(m => m.id === a.id);
-    const milB = militares.find(m => m.id === b.id);
-    const orderA = milA?.ordem ?? 999;
-    const orderB = milB?.ordem ?? 999;
-    return orderA - orderB;
-  });
+  // Lista de militares estritamente cadastrados no efetivo manual da escala (43 militares)
+  const sortedMilitaryList = militares.map(mil => {
+    const militarScheduleItem = schedule?.itens.find(i => i.militar_id === mil.id);
+    return {
+      id: mil.id,
+      ordem: mil.ordem,
+      graduacao: mil.graduacao,
+      nome_guerra: mil.nome_guerra,
+      nome: `${mil.graduacao} ${mil.nome_guerra}`,
+      numero_pm: mil.numero_pm,
+      equipe: militarScheduleItem?.equipe || mil.equipe_padrao || 'ALFA 1'
+    };
+  }).sort((a, b) => a.ordem - b.ordem);
 
   // Aplica filtros de pesquisa e equipe
   const filteredMilitaryList = sortedMilitaryList.filter(m => {
@@ -354,7 +344,7 @@ export default function EscalaPage() {
             onChange={(e) => setTeamFilter(e.target.value)}
             className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
           >
-            <option value="TODAS">Todas as Equipes ({distinctMilitaryList.length})</option>
+            <option value="TODAS">Todas as Equipes ({militares.length})</option>
             {DEFAULT_TEAMS.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
