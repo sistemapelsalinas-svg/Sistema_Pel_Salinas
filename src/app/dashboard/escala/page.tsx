@@ -75,6 +75,14 @@ export default function EscalaPage() {
   const [editingShift, setEditingShift] = useState<EditingShiftData | null>(null);
   const [batchDaysCount, setBatchDaysCount] = useState(1);
 
+  // Modal de Lançamento em Lote / Modelos de Escala (Administrativa, Dobradinha, etc.)
+  const [isBatchPatternModalOpen, setIsBatchPatternModalOpen] = useState(false);
+  const [batchTargetType, setBatchTargetType] = useState<'SINGLE' | 'TEAM' | 'ALL'>('SINGLE');
+  const [batchSelectedMilitarId, setBatchSelectedMilitarId] = useState<string>('');
+  const [batchSelectedTeam, setBatchSelectedTeam] = useState<string>('ALFA 1');
+  const [batchPatternType, setBatchPatternType] = useState<'ADMINISTRATIVA' | 'DOBRADINHA_A' | 'DOBRADINHA_B' | 'ALTERNADO_1X1' | 'ZERAR_FOLGAS'>('DOBRADINHA_A');
+  const [batchDutyCode, setBatchDutyCode] = useState<string>('S');
+
   // Modais de Gestão de Legendas
   const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
   const [isEditLegendModalOpen, setIsEditLegendModalOpen] = useState(false);
@@ -229,6 +237,132 @@ export default function EscalaPage() {
     setDeleteConfirmLegend(null);
     setLegends(storage.getLegends());
     showToast(`Legenda ${codigo} excluída.`);
+  };
+
+  // --- CÁLCULO DE PADRÕES DE ESCALA (ADMINISTRATIVA, DOBRADINHA, ETC.) ---
+  const calculateDayPattern = (day: number, patternType: string, dutyCode: string) => {
+    // 0 = Seg, 1 = Ter, 2 = Qua, 3 = Qui, 4 = Sex, 5 = Sáb, 6 = Dom
+    const dow = (new Date(ano, mes - 1, day).getDay() + 6) % 7;
+
+    if (patternType === 'ADMINISTRATIVA') {
+      // Segunda a Sexta = Trabalho, Sábado e Domingo = Folga
+      return dow >= 0 && dow <= 4 ? dutyCode : 'F';
+    }
+
+    if (patternType === 'DOBRADINHA_A' || patternType === 'DOBRADINHA_B') {
+      // Cálculo da semana no mês considerando ciclo de 14 dias
+      const firstOfMonth = new Date(ano, mes - 1, 1);
+      const firstDow = (firstOfMonth.getDay() + 6) % 7;
+      const firstMonday = new Date(ano, mes - 1, 1 - firstDow);
+      const currentDay = new Date(ano, mes - 1, day);
+      const diffWeeks = Math.floor((currentDay.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+      // Semana A: Seg(T), Ter(F), Qua(T), Qui(F), Sex(F), Sab(T), Dom(T) -> Trabalhou quarta -> folga qui/sex e trabalha sab/dom
+      // Semana B: Seg(F), Ter(T), Qua(F), Qui(T), Sex(T), Sab(F), Dom(F) -> Folgou quarta -> trabalha qui/sex e folga sab/dom
+      const isWeekA = patternType === 'DOBRADINHA_A' ? (diffWeeks % 2 === 0) : (diffWeeks % 2 !== 0);
+      const weekAPattern = [true, false, true, false, false, true, true];
+      const weekBPattern = [false, true, false, true, true, false, false];
+
+      const isDuty = isWeekA ? weekAPattern[dow] : weekBPattern[dow];
+      return isDuty ? dutyCode : 'F';
+    }
+
+    if (patternType === 'ALTERNADO_1X1') {
+      return day % 2 !== 0 ? dutyCode : 'F';
+    }
+
+    if (patternType === 'ZERAR_FOLGAS') {
+      return 'F';
+    }
+
+    return 'F';
+  };
+
+  // Limpeza rápida de serviço para Folga (ao clicar no X da célula)
+  const handleQuickClearShift = (militarId: string, day: number) => {
+    if (!schedule || !isAdmin) return;
+    const updatedItens = schedule.itens.map(i => {
+      if (i.militar_id === militarId && i.dia_mes === day) {
+        return {
+          ...i,
+          legenda_codigo: 'F'
+        };
+      }
+      return i;
+    });
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+    showToast(`Dia ${day} transformado em Folga (F).`);
+  };
+
+  // Abrir Modal de Lançamento em Lote / Modelos de Escala
+  const handleOpenBatchPattern = (militarId?: string) => {
+    if (!schedule || !isAdmin) return;
+    if (militarId) {
+      setBatchTargetType('SINGLE');
+      setBatchSelectedMilitarId(militarId);
+    } else {
+      setBatchTargetType('ALL');
+      if (militares.length > 0) {
+        setBatchSelectedMilitarId(militares[0].id);
+      }
+    }
+    setIsBatchPatternModalOpen(true);
+  };
+
+  // Aplica o Modelo de Escala selecionado para os militares escolhidos
+  const handleApplyBatchPattern = () => {
+    if (!schedule || !isAdmin) return;
+    
+    let targetMilitaryIds: string[] = [];
+    if (batchTargetType === 'SINGLE') {
+      if (!batchSelectedMilitarId) return;
+      targetMilitaryIds = [batchSelectedMilitarId];
+    } else if (batchTargetType === 'TEAM') {
+      targetMilitaryIds = sortedMilitaryList
+        .filter(m => m.equipe === batchSelectedTeam)
+        .map(m => m.id);
+    } else {
+      targetMilitaryIds = militares.map(m => m.id);
+    }
+
+    if (targetMilitaryIds.length === 0) {
+      showToast('Nenhum militar selecionado para aplicação em lote.');
+      return;
+    }
+
+    const updatedItens = schedule.itens.map(i => {
+      if (targetMilitaryIds.includes(i.militar_id)) {
+        const newCode = calculateDayPattern(i.dia_mes, batchPatternType, batchDutyCode);
+        return {
+          ...i,
+          legenda_codigo: newCode
+        };
+      }
+      return i;
+    });
+
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+    setIsBatchPatternModalOpen(false);
+
+    const patternLabels: Record<string, string> = {
+      ADMINISTRATIVA: 'Escala Administrativa (Seg a Sex)',
+      DOBRADINHA_A: 'Escala Dobradinha - Turma A',
+      DOBRADINHA_B: 'Escala Dobradinha - Turma B',
+      ALTERNADO_1X1: 'Dias Alternados (1x1)',
+      ZERAR_FOLGAS: 'Folga Geral (F)'
+    };
+
+    const targetDesc = batchTargetType === 'SINGLE'
+      ? `militar selecionado`
+      : batchTargetType === 'TEAM'
+      ? `equipe ${batchSelectedTeam} (${targetMilitaryIds.length} militares)`
+      : `todos os ${targetMilitaryIds.length} militares`;
+
+    showToast(`${patternLabels[batchPatternType]} aplicada para ${targetDesc}.`);
   };
 
   // --- ABERTURA DO EDITOR DE PLANTÃO (AO CLICAR NA CÉLULA) ---
@@ -496,6 +630,19 @@ export default function EscalaPage() {
             </button>
           )}
 
+          {/* Botão de Lançamento em Lote / Modelos de Escala */}
+          {schedule && isAdmin && (
+            <button
+              type="button"
+              onClick={() => handleOpenBatchPattern()}
+              className="btn-secondary py-1.5 px-3 text-xs text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+              title="Lançar escala em lote (Administrativa, Dobradinha Turma A/B, etc.)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+              <span>Lançar em Lote</span>
+            </button>
+          )}
+
           {/* Salvar Escala */}
           {schedule && isAdmin && (
             <button
@@ -614,14 +761,24 @@ export default function EscalaPage() {
 
               {/* Botão Gerenciar Legendas */}
               {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setIsLegendModalOpen(true)}
-                  className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 hover:text-emerald-600 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] transition-colors"
-                >
-                  <Settings2 className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Gerenciar Legendas</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenBatchPattern()}
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-800 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-900/60 transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Lançamento em Lote</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLegendModalOpen(true)}
+                    className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 hover:text-emerald-600 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] transition-colors"
+                  >
+                    <Settings2 className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Gerenciar Legendas</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -697,7 +854,7 @@ export default function EscalaPage() {
                     <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">
                       Total Sv.
                     </th>
-                    {isAdmin && <th className="p-2.5 text-center w-12 text-[11px] font-bold text-gray-500 sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">Ação</th>}
+                    {isAdmin && <th className="p-2.5 text-center w-20 text-[11px] font-bold text-gray-500 sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">Ações</th>}
                   </tr>
                 </thead>
 
@@ -751,7 +908,7 @@ export default function EscalaPage() {
                           )}
                         </td>
 
-                        {/* Células dos Dias 1 a 31 */}
+                        {/* Células dos Dias 1 a 31 com botão X para apagar/transformar em folga */}
                         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                           const item = militarScheduleItems.find(it => it.dia_mes === day);
                           const code = item?.legenda_codigo || 'F';
@@ -759,6 +916,7 @@ export default function EscalaPage() {
                           const isDifferentTeam = dayTeam !== militar.equipe;
                           const dayInfo = getDayOfWeekInfo(day);
                           const badgeClass = getBadgeForLegend(code);
+                          const isDuty = code !== 'F';
 
                           return (
                             <td 
@@ -766,17 +924,34 @@ export default function EscalaPage() {
                               className={`p-1 text-center border-l border-gray-100 dark:border-[#222938]/60 ${dayInfo.isWeekend ? 'bg-red-50/20 dark:bg-red-950/10' : ''}`}
                             >
                               {isAdmin ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenShiftEditor(militar.id, militar.nome, militar.numero_pm, militar.equipe, day)}
-                                  title={`Dia ${day} (${dayInfo.name}): ${code} | Equipe: ${dayTeam} (Clique para editar)`}
-                                  className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center mx-auto relative ${badgeClass}`}
-                                >
-                                  <span>{code}</span>
-                                  {isDifferentTeam && (
-                                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white" title={`Equipe especial: ${dayTeam}`} />
+                                <div className="relative inline-flex items-center justify-center group/cell">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenShiftEditor(militar.id, militar.nome, militar.numero_pm, militar.equipe, day)}
+                                    title={`Dia ${day} (${dayInfo.name}): ${code} | Equipe: ${dayTeam} (Clique para editar)`}
+                                    className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center relative ${badgeClass}`}
+                                  >
+                                    <span>{code}</span>
+                                    {isDifferentTeam && (
+                                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white" title={`Equipe especial: ${dayTeam}`} />
+                                    )}
+                                  </button>
+
+                                  {/* Botão X rápido para apagar o serviço e transformar em Folga */}
+                                  {isDuty && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleQuickClearShift(militar.id, day);
+                                      }}
+                                      title={`Apagar serviço do dia ${day} -> transformar em Folga (F)`}
+                                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shadow-md text-[10px] font-black opacity-0 group-hover/cell:opacity-100 hover:scale-125 transition-all z-20 cursor-pointer"
+                                    >
+                                      ×
+                                    </button>
                                   )}
-                                </button>
+                                </div>
                               ) : (
                                 <span className={`w-7 h-7 rounded-lg text-[10px] font-mono flex items-center justify-center mx-auto ${badgeClass}`}>
                                   {code}
@@ -791,17 +966,27 @@ export default function EscalaPage() {
                           {totalServicos}
                         </td>
 
-                        {/* Ação de Remover da Escala */}
+                        {/* Ações: Lançar Padrão / Remover da Escala */}
                         {isAdmin && (
                           <td className="p-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMilitaryFromSchedule(militar.id)}
-                              title="Remover militar desta escala"
-                              className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenBatchPattern(militar.id)}
+                                title="Aplicar modelo de escala (Administrativa ou Dobradinha) para este militar"
+                                className="p-1 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                              >
+                                <Sparkles className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMilitaryFromSchedule(militar.id)}
+                                title="Remover militar desta escala"
+                                className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         )}
 
@@ -1546,6 +1731,342 @@ export default function EscalaPage() {
                 Sim, Excluir Escala
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 9: LANÇAMENTO EM LOTE / MODELOS DE ESCALA (ADMINISTRATIVA, DOBRADINHA) */}
+      {/* ========================================================= */}
+      {isBatchPatternModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] my-auto overflow-hidden animate-in zoom-in-95">
+            
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0 bg-gray-50/50 dark:bg-[#0E121A]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                    Lançamento em Lote — Modelos de Escala
+                  </h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    Preenchimento automático para {monthNames[mes - 1]} de {ano}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsBatchPatternModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conteúdo com Seleção de Alvo, Modelo, Legenda e Prévia */}
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              
+              {/* 1. SELEÇÃO DO ALVO (QUEM RECEBERÁ A ESCALA) */}
+              <div className="space-y-2">
+                <label className="block font-bold text-gray-800 dark:text-gray-200">
+                  1. Aplicar escala para quem?
+                </label>
+                
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBatchTargetType('SINGLE')}
+                    className={`p-2.5 rounded-xl border text-center font-bold transition-all ${
+                      batchTargetType === 'SINGLE'
+                        ? 'border-blue-500 bg-blue-50/80 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 ring-2 ring-blue-500'
+                        : 'border-gray-200 dark:border-[#283042] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                    }`}
+                  >
+                    Um Militar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBatchTargetType('TEAM')}
+                    className={`p-2.5 rounded-xl border text-center font-bold transition-all ${
+                      batchTargetType === 'TEAM'
+                        ? 'border-blue-500 bg-blue-50/80 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 ring-2 ring-blue-500'
+                        : 'border-gray-200 dark:border-[#283042] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                    }`}
+                  >
+                    Toda a Equipe
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBatchTargetType('ALL')}
+                    className={`p-2.5 rounded-xl border text-center font-bold transition-all ${
+                      batchTargetType === 'ALL'
+                        ? 'border-blue-500 bg-blue-50/80 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 ring-2 ring-blue-500'
+                        : 'border-gray-200 dark:border-[#283042] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                    }`}
+                  >
+                    Todo o Efetivo ({militares.length})
+                  </button>
+                </div>
+
+                {/* Dropdown condicional de acordo com o alvo */}
+                {batchTargetType === 'SINGLE' && (
+                  <div className="pt-1">
+                    <select
+                      value={batchSelectedMilitarId}
+                      onChange={(e) => setBatchSelectedMilitarId(e.target.value)}
+                      className="untitled-input font-bold"
+                    >
+                      {sortedMilitaryList.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nome} — PM {m.numero_pm} ({m.equipe})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {batchTargetType === 'TEAM' && (
+                  <div className="pt-1">
+                    <select
+                      value={batchSelectedTeam}
+                      onChange={(e) => setBatchSelectedTeam(e.target.value)}
+                      className="untitled-input font-bold"
+                    >
+                      {DEFAULT_TEAMS.map((t) => (
+                        <option key={t} value={t}>
+                          Equipe {t} ({sortedMilitaryList.filter(m => m.equipe === t).length} militares)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. SELEÇÃO DO MODELO DE ESCALA */}
+              <div className="space-y-2">
+                <label className="block font-bold text-gray-800 dark:text-gray-200">
+                  2. Escolha o Modelo de Escala
+                </label>
+
+                <div className="space-y-2">
+                  
+                  {/* Escala Administrativa */}
+                  <label className={`p-3 rounded-xl border cursor-pointer flex items-start gap-3 transition-all ${
+                    batchPatternType === 'ADMINISTRATIVA'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 ring-2 ring-emerald-500'
+                      : 'border-gray-200 dark:border-[#283042] hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="patternType"
+                      checked={batchPatternType === 'ADMINISTRATIVA'}
+                      onChange={() => setBatchPatternType('ADMINISTRATIVA')}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-gray-900 dark:text-white block text-xs">
+                        🏢 Escala Administrativa (Segunda a Sexta)
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
+                        Trabalha de <strong>Segunda a Sexta-feira</strong> e folga aos <strong>Sábados e Domingos</strong>.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Dobradinha - Turma A */}
+                  <label className={`p-3 rounded-xl border cursor-pointer flex items-start gap-3 transition-all ${
+                    batchPatternType === 'DOBRADINHA_A'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 ring-2 ring-emerald-500'
+                      : 'border-gray-200 dark:border-[#283042] hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="patternType"
+                      checked={batchPatternType === 'DOBRADINHA_A'}
+                      onChange={() => setBatchPatternType('DOBRADINHA_A')}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-gray-900 dark:text-white block text-xs">
+                        🔄 Escala Dobradinha — Turma A (Trabalha 1ª Seg, Qua, Sáb, Dom)
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
+                        <strong>Semana 1:</strong> Seg, Qua, Sáb, Dom (Folga Ter, Qui, Sex).<br />
+                        <strong>Semana 2:</strong> Ter, Qui, Sex (Folga Seg, Qua, Sáb, Dom).<br />
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                          * Regra: Como trabalhou na quarta, folga qui/sex e trabalha sáb/dom.
+                        </span>
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Dobradinha - Turma B */}
+                  <label className={`p-3 rounded-xl border cursor-pointer flex items-start gap-3 transition-all ${
+                    batchPatternType === 'DOBRADINHA_B'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 ring-2 ring-emerald-500'
+                      : 'border-gray-200 dark:border-[#283042] hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="patternType"
+                      checked={batchPatternType === 'DOBRADINHA_B'}
+                      onChange={() => setBatchPatternType('DOBRADINHA_B')}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-gray-900 dark:text-white block text-xs">
+                        🔄 Escala Dobradinha — Turma B (Trabalha 1ª Ter, Qui, Sex)
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
+                        <strong>Semana 1:</strong> Ter, Qui, Sex (Folga Seg, Qua, Sáb, Dom).<br />
+                        <strong>Semana 2:</strong> Seg, Qua, Sáb, Dom (Folga Ter, Qui, Sex).<br />
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                          * Regra: Como folgou na quarta, dobra na qui/sex e folga sáb/dom.
+                        </span>
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Dias Alternados Simples */}
+                  <label className={`p-3 rounded-xl border cursor-pointer flex items-start gap-3 transition-all ${
+                    batchPatternType === 'ALTERNADO_1X1'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 ring-2 ring-emerald-500'
+                      : 'border-gray-200 dark:border-[#283042] hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="patternType"
+                      checked={batchPatternType === 'ALTERNADO_1X1'}
+                      onChange={() => setBatchPatternType('ALTERNADO_1X1')}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-gray-900 dark:text-white block text-xs">
+                        ⏱️ Dias Alternados Simples (Dia Sim / Dia Não)
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
+                        Trabalha em dias ímpares (01, 03, 05...) e folga em dias pares (02, 04, 06...).
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Zerar Escala */}
+                  <label className={`p-3 rounded-xl border cursor-pointer flex items-start gap-3 transition-all ${
+                    batchPatternType === 'ZERAR_FOLGAS'
+                      ? 'border-rose-500 bg-rose-50/40 dark:bg-rose-950/30 ring-2 ring-rose-500'
+                      : 'border-gray-200 dark:border-[#283042] hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="patternType"
+                      checked={batchPatternType === 'ZERAR_FOLGAS'}
+                      onChange={() => setBatchPatternType('ZERAR_FOLGAS')}
+                      className="mt-0.5 w-4 h-4 text-rose-600 focus:ring-rose-500"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-rose-700 dark:text-rose-400 block text-xs">
+                        🏖️ Zerar Escala (Todas Folgas - F)
+                      </span>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
+                        Reseta todos os dias do período para <strong>F (Folga)</strong>.
+                      </p>
+                    </div>
+                  </label>
+
+                </div>
+              </div>
+
+              {/* 3. SELEÇÃO DA LEGENDA DE SERVIÇO */}
+              {batchPatternType !== 'ZERAR_FOLGAS' && (
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-gray-800 dark:text-gray-200">
+                    3. Legenda a aplicar nos dias de trabalho
+                  </label>
+                  <select
+                    value={batchDutyCode}
+                    onChange={(e) => setBatchDutyCode(e.target.value)}
+                    className="untitled-input font-bold"
+                  >
+                    {legends.map((leg) => (
+                      <option key={leg.codigo} value={leg.codigo}>
+                        {leg.codigo} — {leg.descricao} {leg.conta_como_servico ? '(Conta como Sv)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* 4. PRÉVIA VISUAL DO PADRÃO PARA O MÊS */}
+              <div className="bg-gray-50 dark:bg-[#0E121A] p-3 rounded-xl border border-gray-200 dark:border-[#222938] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-gray-800 dark:text-gray-200 text-[11px] flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5 text-blue-500" />
+                    Prévia do Calendário ({monthNames[mes - 1]}/{ano})
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-medium">
+                    Total previsto:{' '}
+                    <strong className="text-emerald-600 dark:text-emerald-400">
+                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).filter(d => calculateDayPattern(d, batchPatternType, batchDutyCode) !== 'F').length} serviços
+                    </strong>
+                  </span>
+                </div>
+
+                {/* Grade dos dias 1 a 31 da prévia */}
+                <div className="overflow-x-auto pb-1">
+                  <div className="flex gap-1 min-w-max">
+                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                      const dayCode = calculateDayPattern(day, batchPatternType, batchDutyCode);
+                      const dayInfo = getDayOfWeekInfo(day);
+                      const badgeClass = getBadgeForLegend(dayCode);
+
+                      return (
+                        <div
+                          key={day}
+                          className="flex flex-col items-center justify-center p-1 rounded-lg bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#283042] min-w-[28px]"
+                        >
+                          <span className="text-[9px] font-mono text-gray-400 font-bold">
+                            {day.toString().padStart(2, '0')}
+                          </span>
+                          <span className={`text-[8px] uppercase font-extrabold ${dayInfo.isWeekend ? 'text-red-500' : 'text-gray-400'}`}>
+                            {dayInfo.name}
+                          </span>
+                          <span className={`w-5 h-5 rounded text-[9px] font-mono flex items-center justify-center mt-0.5 ${badgeClass}`}>
+                            {dayCode}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Fixo */}
+            <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2 bg-gray-50/50 dark:bg-[#0E121A]">
+              <button
+                type="button"
+                onClick={() => setIsBatchPatternModalOpen(false)}
+                className="btn-secondary py-2 px-4 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBatchPattern}
+                className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Aplicar Modelo na Escala</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}
