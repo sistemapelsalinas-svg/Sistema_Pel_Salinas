@@ -337,11 +337,20 @@ class StorageService {
     }
     try {
       const parsed: ScheduleLegend[] = JSON.parse(data);
-      // Sincroniza se novas legendas oficiais (ex: DE, PE, BH, FPR) foram adicionadas
-      const hasNewLegend = DEFAULT_LEGENDS.some(def => !parsed.some(p => p.codigo === def.codigo));
-      if (hasNewLegend) {
-        localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(DEFAULT_LEGENDS));
-        return DEFAULT_LEGENDS;
+      // Sincroniza se novas legendas oficiais (ex: DE, PE, BH, FPR) foram adicionadas ou atualizadas
+      let needsUpdate = false;
+      DEFAULT_LEGENDS.forEach(def => {
+        const existing = parsed.find(p => p.codigo === def.codigo);
+        if (!existing) {
+          parsed.push(def);
+          needsUpdate = true;
+        } else if (def.codigo === 'S' && !existing.cor_badge.includes('gray')) {
+          existing.cor_badge = def.cor_badge;
+          needsUpdate = true;
+        }
+      });
+      if (needsUpdate) {
+        localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(parsed));
       }
       return parsed;
     } catch {
@@ -352,6 +361,37 @@ class StorageService {
   saveLegends(legends: ScheduleLegend[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(legends));
+  }
+
+  addLegend(legend: ScheduleLegend): ScheduleLegend {
+    const list = this.getLegends();
+    const cleanCode = legend.codigo.trim().toUpperCase();
+    const existingIdx = list.findIndex(l => l.codigo === cleanCode);
+    const newLegend = { ...legend, codigo: cleanCode };
+    if (existingIdx >= 0) {
+      list[existingIdx] = newLegend;
+    } else {
+      list.push(newLegend);
+    }
+    this.saveLegends(list);
+    return newLegend;
+  }
+
+  updateLegend(codigo: string, updates: Partial<ScheduleLegend>): ScheduleLegend | null {
+    const list = this.getLegends();
+    const idx = list.findIndex(l => l.codigo === codigo);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveLegends(list);
+    return list[idx];
+  }
+
+  deleteLegend(codigo: string): boolean {
+    const list = this.getLegends();
+    const filtered = list.filter(l => l.codigo !== codigo);
+    if (filtered.length === list.length) return false;
+    this.saveLegends(filtered);
+    return true;
   }
 
   // --- ESCALAS MENSAIS (ISOLADAS POR MÊS E ANO) ---

@@ -27,7 +27,10 @@ import {
   Clock,
   Layers,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Tag,
+  Palette,
+  Settings2
 } from 'lucide-react';
 
 interface EditingShiftData {
@@ -39,6 +42,20 @@ interface EditingShiftData {
   code: string;
   team: string;
 }
+
+const COLOR_PRESETS = [
+  { name: 'Cinza Claro (Serviço Normal)', value: 'bg-gray-200 text-gray-900 font-bold border border-gray-300 dark:bg-gray-700 dark:text-gray-100' },
+  { name: 'Verde Vivo (Folga)', value: 'bg-[#00E676] text-black font-extrabold border border-emerald-500' },
+  { name: 'Verde Claro (Descanso / Permuta / BH)', value: 'bg-[#b2f2bb] text-emerald-950 font-bold border border-emerald-300' },
+  { name: 'Preto (Extraordinário / Ordem Cmt)', value: 'bg-black text-white font-extrabold border border-gray-700' },
+  { name: 'Azul Escuro (Férias / Treinamento)', value: 'bg-[#0d47a1] text-white font-bold border border-blue-900' },
+  { name: 'Azul Médio (Licenças / Feriado)', value: 'bg-[#1976d2] text-white font-bold border border-blue-700' },
+  { name: 'Roxo / Noturno', value: 'bg-indigo-600 text-white font-bold' },
+  { name: 'Âmbar / Aviso', value: 'bg-amber-500 text-black font-bold border border-amber-600' },
+  { name: 'Vermelho / Urgência', value: 'bg-rose-600 text-white font-bold border border-rose-700' },
+  { name: 'Verde Petróleo / Curso', value: 'bg-teal-600 text-white font-bold' },
+  { name: 'Púrpura Especial', value: 'bg-purple-600 text-white font-bold' }
+];
 
 export default function EscalaPage() {
   const { user } = useAuth();
@@ -57,6 +74,20 @@ export default function EscalaPage() {
   // Editor do Plantão Diário
   const [editingShift, setEditingShift] = useState<EditingShiftData | null>(null);
   const [batchDaysCount, setBatchDaysCount] = useState(1);
+
+  // Modais de Gestão de Legendas
+  const [isLegendModalOpen, setIsLegendModalOpen] = useState(false);
+  const [isEditLegendModalOpen, setIsEditLegendModalOpen] = useState(false);
+  const [editingLegendCode, setEditingLegendCode] = useState<string | null>(null);
+  const [deleteConfirmLegend, setDeleteConfirmLegend] = useState<ScheduleLegend | null>(null);
+
+  const initialLegendForm = {
+    codigo: '',
+    descricao: '',
+    conta_como_servico: false,
+    cor_badge: COLOR_PRESETS[0].value
+  };
+  const [legendFormData, setLegendFormData] = useState(initialLegendForm);
 
   // Modais de Gestão do Efetivo
   const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
@@ -143,6 +174,61 @@ export default function EscalaPage() {
   const handleExportPdf = () => {
     if (!schedule) return;
     generatePmmgSchedulePdf(schedule, legends);
+  };
+
+  // --- GESTÃO DE LEGENDAS (CRUD) ---
+  const handleOpenAddLegend = () => {
+    setEditingLegendCode(null);
+    setLegendFormData(initialLegendForm);
+    setIsEditLegendModalOpen(true);
+  };
+
+  const handleOpenEditLegend = (leg: ScheduleLegend) => {
+    setEditingLegendCode(leg.codigo);
+    setLegendFormData({
+      codigo: leg.codigo,
+      descricao: leg.descricao,
+      conta_como_servico: leg.conta_como_servico,
+      cor_badge: leg.cor_badge
+    });
+    setIsEditLegendModalOpen(true);
+  };
+
+  const handleSaveLegend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!legendFormData.codigo.trim() || !legendFormData.descricao.trim()) return;
+
+    const cleanCode = legendFormData.codigo.trim().toUpperCase();
+
+    if (editingLegendCode) {
+      storage.updateLegend(editingLegendCode, {
+        codigo: cleanCode,
+        descricao: legendFormData.descricao.trim(),
+        conta_como_servico: legendFormData.conta_como_servico,
+        cor_badge: legendFormData.cor_badge
+      });
+      showToast(`Legenda ${cleanCode} atualizada.`);
+    } else {
+      storage.addLegend({
+        codigo: cleanCode,
+        descricao: legendFormData.descricao.trim(),
+        conta_como_servico: legendFormData.conta_como_servico,
+        cor_badge: legendFormData.cor_badge
+      });
+      showToast(`Nova legenda ${cleanCode} criada.`);
+    }
+
+    setIsEditLegendModalOpen(false);
+    setEditingLegendCode(null);
+    setLegendFormData(initialLegendForm);
+    setLegends(storage.getLegends());
+  };
+
+  const handleDeleteLegend = (codigo: string) => {
+    storage.deleteLegend(codigo);
+    setDeleteConfirmLegend(null);
+    setLegends(storage.getLegends());
+    showToast(`Legenda ${codigo} excluída.`);
   };
 
   // --- ABERTURA DO EDITOR DE PLANTÃO (AO CLICAR NA CÉLULA) ---
@@ -327,32 +413,15 @@ export default function EscalaPage() {
     return matchesSearch && matchesTeam;
   });
 
-  // Estilização com as cores exatas da legenda oficial da imagem
+  // Retorna a cor do badge cadastrada dinamicamente para a legenda
   const getBadgeForLegend = (code: string) => {
-    switch (code) {
-      case 'F':
-        return 'bg-[#00E676] text-black font-extrabold border border-emerald-600 shadow-2xs';
-      case 'DE':
-      case 'PE':
-      case 'BH':
-        return 'bg-[#b2f2bb] text-emerald-950 font-bold border border-emerald-400';
-      case 'E':
-        return 'bg-black text-white font-extrabold border border-gray-700';
-      case 'F.A':
-      case 'T.R':
-      case 'TPM':
-        return 'bg-[#0d47a1] text-white font-bold border border-blue-900';
-      case 'FPR':
-      case 'L.M':
-      case 'LI':
-        return 'bg-[#1976d2] text-white font-bold border border-blue-700';
-      case 'S':
-        return 'bg-emerald-600 text-white font-bold';
-      case 'SN':
-        return 'bg-indigo-600 text-white font-bold';
-      default:
-        return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium';
-    }
+    const found = legends.find(l => l.codigo === code);
+    if (found?.cor_badge) return found.cor_badge;
+
+    // Padrão de fallback
+    if (code === 'S') return 'bg-gray-200 text-gray-900 font-bold border border-gray-300 dark:bg-gray-700 dark:text-gray-100';
+    if (code === 'F') return 'bg-[#00E676] text-black font-extrabold border border-emerald-600 shadow-2xs';
+    return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium';
   };
 
   return (
@@ -377,7 +446,7 @@ export default function EscalaPage() {
           </p>
         </div>
 
-        {/* Controles de Mês, Efetivo e Exportação */}
+        {/* Controles de Mês, Efetivo, Legendas e Exportação */}
         <div className="flex items-center gap-2 flex-wrap">
           
           {/* Seletor Mês / Ano */}
@@ -411,8 +480,21 @@ export default function EscalaPage() {
             className="btn-secondary py-1.5 px-3 text-xs"
           >
             <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Efetivo da Escala ({militares.length})</span>
+            <span>Efetivo ({militares.length})</span>
           </button>
+
+          {/* Botão para Gerenciar Legendas */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsLegendModalOpen(true)}
+              className="btn-secondary py-1.5 px-3 text-xs"
+              title="Criar, editar ou excluir legendas da escala"
+            >
+              <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Legendas ({legends.length})</span>
+            </button>
+          )}
 
           {/* Salvar Escala */}
           {schedule && isAdmin && (
@@ -497,7 +579,7 @@ export default function EscalaPage() {
         </div>
       ) : (
         <>
-          {/* Barra de Filtros e Legendas Oficiais */}
+          {/* Barra de Filtros e Legendas */}
           <div className="space-y-3">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
@@ -530,29 +612,40 @@ export default function EscalaPage() {
                 </select>
               </div>
 
-              {/* Dica de Edição Rápida */}
+              {/* Botão Gerenciar Legendas */}
               {isAdmin && (
-                <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 dark:bg-[#0E121A] px-2.5 py-1 rounded-lg border border-gray-200 dark:border-[#222938]">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Clique em qualquer dia para editar a legenda ou mudar a equipe.</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLegendModalOpen(true)}
+                  className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 hover:text-emerald-600 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] transition-colors"
+                >
+                  <Settings2 className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Gerenciar Legendas</span>
+                </button>
               )}
             </div>
 
-            {/* Régua de Legendas Oficiais Conforme Diretriz PMMG */}
+            {/* Régua de Legendas */}
             <div className="bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
               <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-gray-100 dark:border-[#222938]">
                 <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                  Legenda Oficial da Escala
+                  Legenda da Escala
                 </span>
-                <span className="text-[10px] text-gray-400">
-                  Total de {DEFAULT_LEGENDS.length} legendas padronizadas
-                </span>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleOpenAddLegend}
+                    className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Adicionar Legenda</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-1.5 text-[10px]">
-                {DEFAULT_LEGENDS.map((leg) => (
+                {legends.map((leg) => (
                   <span
                     key={leg.codigo}
                     title={leg.descricao}
@@ -567,7 +660,7 @@ export default function EscalaPage() {
 
           </div>
 
-          {/* Tabela Matriz da Escala com Dias e Dias da Semana (SAB/DOM em Vermelho) */}
+          {/* Tabela Matriz da Escala */}
           <div className="untitled-card overflow-hidden">
             <div className="overflow-x-auto max-w-full">
               <table className="w-full text-center border-collapse text-xs">
@@ -613,7 +706,7 @@ export default function EscalaPage() {
                     const milData = militares.find(m => m.id === militar.id);
                     const militarScheduleItems = schedule?.itens.filter(i => i.militar_id === militar.id) || [];
                     
-                    // Conta dias com serviço operacional / extraordinário / treinamento
+                    // Conta dias com serviço conforme cadastro da legenda
                     const totalServicos = militarScheduleItems.filter(i => {
                       const leg = legends.find(l => l.codigo === i.legenda_codigo);
                       return leg ? leg.conta_como_servico : (i.legenda_codigo === 'S' || i.legenda_codigo === 'SN' || i.legenda_codigo === 'E');
@@ -758,11 +851,24 @@ export default function EscalaPage() {
               
               {/* 1. SELEÇÃO DA LEGENDA */}
               <div>
-                <label className="block font-bold text-gray-800 dark:text-gray-200 mb-1.5">
-                  1. Selecione a Legenda do Plantão
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-bold text-gray-800 dark:text-gray-200">
+                    1. Selecione a Legenda do Plantão
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingShift(null);
+                      setIsLegendModalOpen(true);
+                    }}
+                    className="text-[10px] text-blue-600 hover:underline font-bold"
+                  >
+                    + Gerenciar Legendas
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {DEFAULT_LEGENDS.map((leg) => {
+                  {legends.map((leg) => {
                     const isSelected = editingShift.code === leg.codigo;
                     return (
                       <button
@@ -825,7 +931,7 @@ export default function EscalaPage() {
                 </div>
               </div>
 
-              {/* 3. APLICAÇÃO RÁPIDA EM LOTE (Ex: Férias, Licenças, Sequências) */}
+              {/* 3. APLICAÇÃO RÁPIDA EM LOTE */}
               <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-xl border border-blue-200 dark:border-blue-900/50 space-y-2">
                 <span className="font-bold text-blue-900 dark:text-blue-300 block text-[11px]">
                   ⚡ Aplicar em Lote (Sequência de Dias)
@@ -854,7 +960,7 @@ export default function EscalaPage() {
 
             </div>
 
-            {/* Footer Fixo com Botão de Salvar */}
+            {/* Footer Fixo */}
             <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2 bg-gray-50/50 dark:bg-[#0E121A]">
               <button
                 type="button"
@@ -877,7 +983,278 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 2: LISTAGEM COMPLETA DO EFETIVO DA ESCALA (43 MILITARES) */}
+      {/* MODAL 2: GESTÃO DE LEGENDAS (LISTAR, EDITAR, CRIAR, EXCLUIR) */}
+      {/* ========================================================= */}
+      {isLegendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="w-full max-w-3xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
+            
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <Tag className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                    Gerenciamento de Legendas da Escala
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {legends.length} legendas cadastradas para compor as escalas
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenAddLegend}
+                  className="btn-primary py-1.5 px-3 text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nova Legenda</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsLegendModalOpen(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tabela de Legendas */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1">
+              <div className="border border-gray-200 dark:border-[#222938] rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938] text-[11px] font-bold text-gray-500">
+                      <th className="p-2.5 w-24">Sigla</th>
+                      <th className="p-2.5">Descrição</th>
+                      <th className="p-2.5 w-32 text-center">Conta Serviço?</th>
+                      <th className="p-2.5 text-right w-20">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                    {legends.map((leg) => (
+                      <tr key={leg.codigo} className="hover:bg-gray-50/60 dark:hover:bg-[#1D2432]/40 transition-colors">
+                        <td className="p-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono inline-block ${getBadgeForLegend(leg.codigo)}`}>
+                            {leg.codigo}
+                          </span>
+                        </td>
+                        <td className="p-2.5 font-bold text-gray-900 dark:text-white">
+                          {leg.descricao}
+                        </td>
+                        <td className="p-2.5 text-center">
+                          {leg.conta_como_servico ? (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-[10px] font-bold">
+                              Sim (Sv)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px] font-medium">
+                              Não
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2.5 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditLegend(leg)}
+                              title="Editar legenda"
+                              className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmLegend(leg)}
+                              title="Excluir legenda"
+                              className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Footer Fixo */}
+            <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between bg-gray-50/50 dark:bg-[#0E121A]">
+              <span className="text-[11px] text-gray-400">
+                Você pode personalizar as siglas, descrições e cores para as escalas da sua unidade.
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsLegendModalOpen(false)}
+                className="btn-secondary py-1.5 px-4 text-xs"
+              >
+                Fechar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 3: CADASTRO / EDIÇÃO DE LEGENDA */}
+      {/* ========================================================= */}
+      {isEditLegendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+            
+            <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between">
+              <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                {editingLegendCode ? `Editar Legenda ${editingLegendCode}` : 'Nova Legenda da Escala'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditLegendModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLegend} className="p-4 sm:p-5 space-y-3.5 text-xs">
+              
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Sigla / Código *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: S, F, DE, E, S2..."
+                  value={legendFormData.codigo}
+                  onChange={(e) => setLegendFormData({ ...legendFormData, codigo: e.target.value })}
+                  className="untitled-input font-bold uppercase font-mono"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Descrição Completa *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Serviço Operacional Normal"
+                  value={legendFormData.descricao}
+                  onChange={(e) => setLegendFormData({ ...legendFormData, descricao: e.target.value })}
+                  className="untitled-input font-medium"
+                  required
+                />
+              </div>
+
+              {/* Seletor de Estilo / Cor */}
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Cor de Fundo / Estilo do Badge
+                </label>
+                <select
+                  value={legendFormData.cor_badge}
+                  onChange={(e) => setLegendFormData({ ...legendFormData, cor_badge: e.target.value })}
+                  className="untitled-input font-semibold cursor-pointer"
+                >
+                  {COLOR_PRESETS.map((preset) => (
+                    <option key={preset.name} value={preset.value}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 p-2 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] flex items-center justify-between">
+                  <span className="text-[11px] text-gray-500">Prévia do Badge:</span>
+                  <span className={`px-2.5 py-0.5 rounded text-[11px] font-mono ${legendFormData.cor_badge}`}>
+                    {legendFormData.codigo || 'SIGLA'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Checkbox: Conta como Serviço */}
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={legendFormData.conta_como_servico}
+                    onChange={(e) => setLegendFormData({ ...legendFormData, conta_como_servico: e.target.checked })}
+                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700"
+                  />
+                  <span className="font-bold text-gray-800 dark:text-gray-200">
+                    Conta como dia de serviço no total mensal (Sv.)
+                  </span>
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditLegendModalOpen(false)}
+                  className="btn-secondary py-2 px-4 text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary py-2 px-4 text-xs"
+                >
+                  {editingLegendCode ? 'Salvar Alterações' : 'Criar Legenda'}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 4: CONFIRMAÇÃO DE EXCLUSÃO DE LEGENDA */}
+      {/* ========================================================= */}
+      {deleteConfirmLegend && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-xl p-5 space-y-4 text-xs animate-in zoom-in-95">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                Excluir Legenda {deleteConfirmLegend.codigo}?
+              </h3>
+              <p className="text-gray-500">
+                Tem certeza que deseja remover a legenda <strong>{deleteConfirmLegend.descricao}</strong>?
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmLegend(null)}
+                className="btn-secondary py-2 px-4 flex-1 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteLegend(deleteConfirmLegend.codigo)}
+                className="py-2 px-4 flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 5: LISTAGEM DO EFETIVO DA ESCALA */}
       {/* ========================================================= */}
       {isRosterModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
@@ -991,7 +1368,7 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 3: CADASTRO / EDIÇÃO DE MILITAR DO EFETIVO */}
+      {/* MODAL 6: CADASTRO / EDIÇÃO DE MILITAR DO EFETIVO */}
       {/* ========================================================= */}
       {isEditMilitarModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
@@ -1096,7 +1473,7 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 4: CONFIRMAÇÃO DE EXCLUSÃO DE MILITAR DO EFETIVO */}
+      {/* MODAL 7: CONFIRMAÇÃO DE EXCLUSÃO DE MILITAR DO EFETIVO */}
       {/* ========================================================= */}
       {deleteConfirmMilitar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
@@ -1135,7 +1512,7 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 5: CONFIRMAÇÃO DE EXCLUSÃO DA ESCALA DO MÊS */}
+      {/* MODAL 8: CONFIRMAÇÃO DE EXCLUSÃO DA ESCALA DO MÊS */}
       {/* ========================================================= */}
       {deleteScheduleConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">

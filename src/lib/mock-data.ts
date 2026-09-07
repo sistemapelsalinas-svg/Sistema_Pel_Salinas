@@ -47,7 +47,7 @@ export const DEFAULT_LEGENDS: ScheduleLegend[] = [
   { codigo: 'LI', descricao: 'Licença paternidade, Licença luto, Viagem de turma', conta_como_servico: false, cor_badge: 'bg-[#1976d2] text-white font-bold' },
   { codigo: 'T.R', descricao: 'Trânsito Regulamentar', conta_como_servico: false, cor_badge: 'bg-[#0d47a1] text-white font-bold' },
   { codigo: 'TPM', descricao: 'Treinamento Policial Militar', conta_como_servico: true, cor_badge: 'bg-[#0d47a1] text-white font-bold' },
-  { codigo: 'S', descricao: 'Serviço Operacional Normal', conta_como_servico: true, cor_badge: 'bg-emerald-600 text-white font-bold' },
+  { codigo: 'S', descricao: 'Serviço Operacional Normal', conta_como_servico: true, cor_badge: 'bg-gray-200 text-gray-900 font-bold border border-gray-300 dark:bg-gray-700 dark:text-gray-100' },
   { codigo: 'SN', descricao: 'Serviço Noturno', conta_como_servico: true, cor_badge: 'bg-indigo-600 text-white font-bold' }
 ];
 
