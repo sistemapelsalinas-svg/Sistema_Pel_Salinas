@@ -758,28 +758,6 @@ export default function EscalaPage() {
                   ))}
                 </select>
               </div>
-
-              {/* Botão Gerenciar Legendas */}
-              {isAdmin && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenBatchPattern()}
-                    className="flex items-center gap-1.5 text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-800 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-900/60 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Lançamento em Lote</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsLegendModalOpen(true)}
-                    className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-700 dark:text-gray-300 hover:text-emerald-600 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] transition-colors"
-                  >
-                    <Settings2 className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Gerenciar Legendas</span>
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Régua de Legendas */}
