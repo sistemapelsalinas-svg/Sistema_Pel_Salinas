@@ -36,14 +36,19 @@ export const DEFAULT_TEAMS = [
 export const TARGET_TEAMS = DEFAULT_TEAMS;
 
 export const DEFAULT_LEGENDS: ScheduleLegend[] = [
-  { codigo: 'S', descricao: 'Serviço Operacional / Turno Normal', conta_como_servico: true, cor_badge: 'bg-emerald-600 text-white' },
-  { codigo: 'SN', descricao: 'Serviço Noturno', conta_como_servico: true, cor_badge: 'bg-blue-600 text-white' },
-  { codigo: 'F', descricao: 'Folga', conta_como_servico: false, cor_badge: 'bg-slate-600 text-slate-200' },
-  { codigo: 'FA', descricao: 'Férias Anuais', conta_como_servico: false, cor_badge: 'bg-amber-600 text-white' },
-  { codigo: 'L', descricao: 'Licença Especial / Saúde', conta_como_servico: false, cor_badge: 'bg-purple-600 text-white' },
-  { codigo: 'DISP', descricao: 'Dispensa Recompensa / Administrativa', conta_como_servico: false, cor_badge: 'bg-indigo-600 text-white' },
-  { codigo: 'CUR', descricao: 'Curso / Treinamento', conta_como_servico: true, cor_badge: 'bg-teal-600 text-white' },
-  { codigo: 'A', descricao: 'Atestado Médico', conta_como_servico: false, cor_badge: 'bg-rose-600 text-white' }
+  { codigo: 'F', descricao: 'Folga', conta_como_servico: false, cor_badge: 'bg-[#00E676] text-black font-bold border border-emerald-500' },
+  { codigo: 'DE', descricao: 'Descanso de Recomposição de Carga Horária', conta_como_servico: false, cor_badge: 'bg-[#b2f2bb] text-emerald-950 font-bold border border-emerald-300' },
+  { codigo: 'PE', descricao: 'Permuta de serviço', conta_como_servico: false, cor_badge: 'bg-[#b2f2bb] text-emerald-950 font-bold border border-emerald-300' },
+  { codigo: 'BH', descricao: 'Folga em virtude de Banco de Horas', conta_como_servico: false, cor_badge: 'bg-[#b2f2bb] text-emerald-950 font-bold border border-emerald-300' },
+  { codigo: 'E', descricao: 'Empenho Extraordinário (Decorrente de OS/Ordem Cmt)', conta_como_servico: true, cor_badge: 'bg-black text-white font-bold border border-gray-700' },
+  { codigo: 'F.A', descricao: 'Férias anuais / Férias Prêmio', conta_como_servico: false, cor_badge: 'bg-[#0d47a1] text-white font-bold' },
+  { codigo: 'FPR', descricao: 'Feriado, Ponto Facultativo, Recesso', conta_como_servico: false, cor_badge: 'bg-[#1976d2] text-white font-bold' },
+  { codigo: 'L.M', descricao: 'Licença Médica', conta_como_servico: false, cor_badge: 'bg-[#1976d2] text-white font-bold' },
+  { codigo: 'LI', descricao: 'Licença paternidade, Licença luto, Viagem de turma', conta_como_servico: false, cor_badge: 'bg-[#1976d2] text-white font-bold' },
+  { codigo: 'T.R', descricao: 'Trânsito Regulamentar', conta_como_servico: false, cor_badge: 'bg-[#0d47a1] text-white font-bold' },
+  { codigo: 'TPM', descricao: 'Treinamento Policial Militar', conta_como_servico: true, cor_badge: 'bg-[#0d47a1] text-white font-bold' },
+  { codigo: 'S', descricao: 'Serviço Operacional Normal', conta_como_servico: true, cor_badge: 'bg-emerald-600 text-white font-bold' },
+  { codigo: 'SN', descricao: 'Serviço Noturno', conta_como_servico: true, cor_badge: 'bg-indigo-600 text-white font-bold' }
 ];
 
 export const INITIAL_OPERATIONS: OperationType[] = [
@@ -352,10 +357,6 @@ export function generateSampleSchedule(mes: number = 8, ano: number = 2026): Mon
 
   for (const mil of militares) {
     for (let d = 1; d <= daysInMonth; d++) {
-      // Padrão de escala alternada realista (1 dia de serviço para cada 2 ou 3 dias)
-      const isServico = ((d + mil.ordem) % 3 === 0);
-      const isNoturno = ((d + mil.ordem) % 6 === 0);
-
       items.push({
         id: `item-${mil.id}-${d}`,
         escala_id: `sch-${mes}-${ano}`,
@@ -364,7 +365,7 @@ export function generateSampleSchedule(mes: number = 8, ano: number = 2026): Mon
         militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
         militar_numero_pm: mil.numero_pm,
         dia_mes: d,
-        legenda_codigo: isNoturno ? 'SN' : (isServico ? 'S' : 'F')
+        legenda_codigo: 'F'
       });
     }
   }
@@ -373,7 +374,7 @@ export function generateSampleSchedule(mes: number = 8, ano: number = 2026): Mon
     id: `sch-${mes}-${ano}`,
     mes,
     ano,
-    titulo: `Escala Operacional — ${mes.toString().padStart(2, '0')}/${ano}`,
+    titulo: `Escala Mensal — ${mes.toString().padStart(2, '0')}/${ano}`,
     status: 'PUBLICADA',
     itens: items,
     created_at: new Date().toISOString()

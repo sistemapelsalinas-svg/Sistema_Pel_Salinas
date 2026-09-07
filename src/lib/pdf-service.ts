@@ -29,7 +29,7 @@ export function generatePmmgSchedulePdf(
   doc.setFontSize(9);
   doc.text('11ª REGIÃO DA POLÍCIA MILITAR — 2ª COMPANHIA PM INDEPENDENTE', 148.5, 22, { align: 'center' });
   doc.setFont('helvetica', 'bold');
-  doc.text(`2º PELOTÃO PM / SALINAS — ESCALA OPERACIONAL MENSAL — ${monthName} / ${schedule.ano}`, 148.5, 27, { align: 'center' });
+  doc.text(`2º PELOTÃO PM / SALINAS — ESCALA MENSAL — ${monthName} / ${schedule.ano}`, 148.5, 27, { align: 'center' });
 
   doc.setLineWidth(0.5);
   doc.line(14, 30, 283, 30);

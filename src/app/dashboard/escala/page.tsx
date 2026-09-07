@@ -23,14 +23,28 @@ import {
   Filter,
   AlertCircle,
   Copy,
-  AlertTriangle
+  AlertTriangle,
+  Clock,
+  Layers,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
+
+interface EditingShiftData {
+  militarId: string;
+  militarNome: string;
+  militarNumeroPm: string;
+  equipePadrao: string;
+  day: number;
+  code: string;
+  team: string;
+}
 
 export default function EscalaPage() {
   const { user } = useAuth();
-  const currentYear = new Date().getFullYear();
-  const [mes, setMes] = useState(8);
-  const [ano, setAno] = useState(2026);
+  const currentDate = new Date();
+  const [mes, setMes] = useState(currentDate.getMonth() + 1);
+  const [ano, setAno] = useState(currentDate.getFullYear());
   const [schedule, setSchedule] = useState<MonthlySchedule | null>(null);
   const [legends, setLegends] = useState<ScheduleLegend[]>([]);
   const [militares, setMilitares] = useState<EscalaMilitar[]>([]);
@@ -39,6 +53,10 @@ export default function EscalaPage() {
   const [teamFilter, setTeamFilter] = useState('TODAS');
   const [notification, setNotification] = useState<string | null>(null);
   const [deleteScheduleConfirm, setDeleteScheduleConfirm] = useState(false);
+
+  // Editor do Plantão Diário
+  const [editingShift, setEditingShift] = useState<EditingShiftData | null>(null);
+  const [batchDaysCount, setBatchDaysCount] = useState(1);
 
   // Modais de Gestão do Efetivo
   const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
@@ -81,6 +99,17 @@ export default function EscalaPage() {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // Retorna informações do dia da semana (abreviado com 3 letras e flag de final de semana)
+  const getDayOfWeekInfo = (day: number) => {
+    const date = new Date(ano, mes - 1, day);
+    const dayIndex = date.getDay(); // 0 = DOM, 1 = SEG, 2 = TER, 3 = QUA, 4 = QUI, 5 = SEX, 6 = SÁB
+    const daysOfWeek = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+    return {
+      name: daysOfWeek[dayIndex],
+      isWeekend: dayIndex === 0 || dayIndex === 6
+    };
+  };
+
   // --- CRIAÇÃO / CÓPIA / EXCLUSÃO DE ESCALA DO MÊS ---
   const handleCreateSchedule = () => {
     const newSch = storage.createSchedule(mes, ano);
@@ -116,48 +145,99 @@ export default function EscalaPage() {
     generatePmmgSchedulePdf(schedule, legends);
   };
 
-  // --- GESTÃO DE DIAS DA ESCALA ---
-  const handleDayCodeChange = (militarId: string, day: number, newCode: string) => {
-    if (!schedule) return;
-    const upperCode = newCode.toUpperCase().trim();
-    setSchedule({
-      ...schedule,
-      itens: schedule.itens.map(i => {
-        if (i.militar_id === militarId && i.dia_mes === day) {
-          return { ...i, legenda_codigo: upperCode };
-        }
-        return i;
-      })
+  // --- ABERTURA DO EDITOR DE PLANTÃO (AO CLICAR NA CÉLULA) ---
+  const handleOpenShiftEditor = (militarId: string, militarNome: string, militarNumeroPm: string, defaultTeam: string, day: number) => {
+    if (!schedule || !isAdmin) return;
+    const item = schedule.itens.find(i => i.militar_id === militarId && i.dia_mes === day);
+    const code = item?.legenda_codigo || 'F';
+    const currentTeam = item?.equipe || defaultTeam || 'ALFA 1';
+
+    setEditingShift({
+      militarId,
+      militarNome,
+      militarNumeroPm,
+      equipePadrao: defaultTeam,
+      day,
+      code,
+      team: currentTeam
     });
+    setBatchDaysCount(1);
   };
 
-  const handleCycleDayCode = (militarId: string, day: number, currentCode: string) => {
-    if (!isAdmin) return;
-    const codeOrder = ['F', 'S', 'SN', 'FA', 'L', 'DISP', 'CUR', 'A'];
-    const currentIdx = codeOrder.indexOf(currentCode);
-    const nextCode = codeOrder[(currentIdx + 1) % codeOrder.length] || 'F';
-    handleDayCodeChange(militarId, day, nextCode);
+  // Salva alterações do plantão (legenda e/ou equipe)
+  const handleSaveShift = (applyBatch: boolean = false) => {
+    if (!schedule || !editingShift) return;
+
+    const startDay = editingShift.day;
+    const endDay = applyBatch ? Math.min(daysInMonth, startDay + batchDaysCount - 1) : startDay;
+
+    const updatedItens = schedule.itens.map(i => {
+      if (i.militar_id === editingShift.militarId && i.dia_mes >= startDay && i.dia_mes <= endDay) {
+        return {
+          ...i,
+          legenda_codigo: editingShift.code,
+          equipe: editingShift.team
+        };
+      }
+      return i;
+    });
+
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+
+    if (applyBatch && batchDaysCount > 1) {
+      showToast(`Plantão atualizado do dia ${startDay} ao dia ${endDay}.`);
+    } else {
+      showToast(`Plantão do dia ${startDay} atualizado.`);
+    }
+
+    setEditingShift(null);
   };
 
-  const handleTeamChange = (militarId: string, newTeam: string) => {
-    if (!schedule) return;
-    setSchedule({
-      ...schedule,
-      itens: schedule.itens.map(i => {
-        if (i.militar_id === militarId) {
-          return { ...i, equipe: newTeam };
-        }
-        return i;
-      })
+  // Replica equipe para o mês todo do militar
+  const handleReplicateTeamToAllDays = () => {
+    if (!schedule || !editingShift) return;
+
+    const updatedItens = schedule.itens.map(i => {
+      if (i.militar_id === editingShift.militarId) {
+        return {
+          ...i,
+          equipe: editingShift.team
+        };
+      }
+      return i;
     });
+
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+    showToast(`Equipe ${editingShift.team} aplicada a todo o mês.`);
+  };
+
+  // Troca rápida de equipe na linha do militar
+  const handleBaseTeamChange = (militarId: string, newTeam: string) => {
+    if (!schedule) return;
+    const updatedItens = schedule.itens.map(i => {
+      if (i.militar_id === militarId) {
+        return { ...i, equipe: newTeam };
+      }
+      return i;
+    });
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+    showToast(`Equipe do militar alterada para ${newTeam}.`);
   };
 
   const handleRemoveMilitaryFromSchedule = (militarId: string) => {
     if (!schedule) return;
-    setSchedule({
+    const updatedSchedule = {
       ...schedule,
       itens: schedule.itens.filter(i => i.militar_id !== militarId)
-    });
+    };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
     showToast('Militar removido da escala deste mês.');
   };
 
@@ -222,7 +302,7 @@ export default function EscalaPage() {
     showToast(`Militar ${m.graduacao} ${m.nome_guerra} excluído do efetivo.`);
   };
 
-  // Lista de militares estritamente cadastrados no efetivo manual da escala (43 militares)
+  // Lista de militares cadastrados no efetivo manual
   const sortedMilitaryList = militares.map(mil => {
     const militarScheduleItem = schedule?.itens.find(i => i.militar_id === mil.id);
     return {
@@ -247,13 +327,32 @@ export default function EscalaPage() {
     return matchesSearch && matchesTeam;
   });
 
+  // Estilização com as cores exatas da legenda oficial da imagem
   const getBadgeForLegend = (code: string) => {
-    const l = legends.find(leg => leg.codigo === code);
-    if (code === 'S') return 'bg-emerald-600 text-white font-bold';
-    if (code === 'SN') return 'bg-blue-600 text-white font-bold';
-    if (code === 'FA') return 'bg-amber-600 text-white font-bold';
-    if (code === 'F') return 'bg-gray-100 dark:bg-gray-800 text-gray-500 font-medium';
-    return l?.cor_badge || 'bg-purple-600 text-white font-bold';
+    switch (code) {
+      case 'F':
+        return 'bg-[#00E676] text-black font-extrabold border border-emerald-600 shadow-2xs';
+      case 'DE':
+      case 'PE':
+      case 'BH':
+        return 'bg-[#b2f2bb] text-emerald-950 font-bold border border-emerald-400';
+      case 'E':
+        return 'bg-black text-white font-extrabold border border-gray-700';
+      case 'F.A':
+      case 'T.R':
+      case 'TPM':
+        return 'bg-[#0d47a1] text-white font-bold border border-blue-900';
+      case 'FPR':
+      case 'L.M':
+      case 'LI':
+        return 'bg-[#1976d2] text-white font-bold border border-blue-700';
+      case 'S':
+        return 'bg-emerald-600 text-white font-bold';
+      case 'SN':
+        return 'bg-indigo-600 text-white font-bold';
+      default:
+        return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium';
+    }
   };
 
   return (
@@ -271,7 +370,7 @@ export default function EscalaPage() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-1 border-b border-gray-200 dark:border-[#1F242F]">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Escala Operacional Mensal
+            Escala Mensal
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             2º Pelotão Salinas · {militares.length} militares no efetivo · {schedule ? `${sortedMilitaryList.length} alocados em ${monthNames[mes - 1]}/${ano}` : 'Sem escala cadastrada'}
@@ -367,7 +466,7 @@ export default function EscalaPage() {
               Nenhuma escala cadastrada para {monthNames[mes - 1]} de {ano}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-              Não existe escala operacional gerada para este mês. Como administrador, você pode criar uma nova escala ou copiar do mês anterior.
+              Não existe escala operacional gerada para este mês. Ao criar uma nova escala, todos os {militares.length} militares iniciarão automaticamente com <strong>F (Folga)</strong>.
             </p>
           </div>
 
@@ -398,69 +497,114 @@ export default function EscalaPage() {
         </div>
       ) : (
         <>
-          {/* Barra de Filtros e Legenda */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
+          {/* Barra de Filtros e Legendas Oficiais */}
+          <div className="space-y-3">
             
-            {/* Busca por Militar / Nº PM */}
-            <div className="flex items-center gap-2 flex-1 max-w-sm">
-              <div className="relative w-full">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nome, graduação ou Nº PM..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
+              {/* Busca por Militar / Nº PM */}
+              <div className="flex items-center gap-2 flex-1 max-w-sm">
+                <div className="relative w-full">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome, graduação ou Nº PM..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
               </div>
+
+              {/* Filtro por Equipe */}
+              <div className="flex items-center gap-2">
+                <Filter className="w-3.5 h-3.5 text-gray-400" />
+                <select
+                  value={teamFilter}
+                  onChange={(e) => setTeamFilter(e.target.value)}
+                  className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="TODAS">Todas as Equipes ({militares.length})</option>
+                  {DEFAULT_TEAMS.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dica de Edição Rápida */}
+              {isAdmin && (
+                <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 dark:bg-[#0E121A] px-2.5 py-1 rounded-lg border border-gray-200 dark:border-[#222938]">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Clique em qualquer dia para editar a legenda ou mudar a equipe.</span>
+                </div>
+              )}
             </div>
 
-            {/* Filtro por Equipe */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-3.5 h-3.5 text-gray-400" />
-              <select
-                value={teamFilter}
-                onChange={(e) => setTeamFilter(e.target.value)}
-                className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
-              >
-                <option value="TODAS">Todas as Equipes ({militares.length})</option>
-                {DEFAULT_TEAMS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+            {/* Régua de Legendas Oficiais Conforme Diretriz PMMG */}
+            <div className="bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
+              <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-gray-100 dark:border-[#222938]">
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                  Legenda Oficial da Escala
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  Total de {DEFAULT_LEGENDS.length} legendas padronizadas
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 text-[10px]">
+                {DEFAULT_LEGENDS.map((leg) => (
+                  <span
+                    key={leg.codigo}
+                    title={leg.descricao}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] cursor-help ${getBadgeForLegend(leg.codigo)}`}
+                  >
+                    <span>{leg.codigo}</span>
+                    <span className="opacity-90 font-normal">· {leg.descricao}</span>
+                  </span>
                 ))}
-              </select>
-            </div>
-
-            {/* Legendas Rápidas */}
-            <div className="hidden lg:flex items-center gap-1.5 text-[10px]">
-              <span className="font-semibold text-gray-400 mr-1">LEGENDA:</span>
-              <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold">S: Serviço</span>
-              <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold">SN: Noturno</span>
-              <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold">F: Folga</span>
-              <span className="px-1.5 py-0.5 rounded bg-amber-600 text-white font-bold">FA: Férias</span>
-              <span className="px-1.5 py-0.5 rounded bg-purple-600 text-white font-bold">L: Licença</span>
+              </div>
             </div>
 
           </div>
 
-          {/* Tabela Matriz da Escala */}
+          {/* Tabela Matriz da Escala com Dias e Dias da Semana (SAB/DOM em Vermelho) */}
           <div className="untitled-card overflow-hidden">
             <div className="overflow-x-auto max-w-full">
               <table className="w-full text-center border-collapse text-xs">
                 <thead>
-                  <tr className="bg-gray-50/80 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938] text-[11px] font-bold text-gray-600 dark:text-gray-300">
-                    <th className="p-2.5 text-center w-10 sticky left-0 bg-gray-50 dark:bg-[#0E121A] z-10">Nº</th>
-                    <th className="p-2.5 text-left min-w-[180px] sticky left-10 bg-gray-50 dark:bg-[#0E121A] z-10">Militar</th>
-                    <th className="p-2.5 text-left min-w-[130px]">Equipe</th>
+                  <tr className="bg-gray-50/90 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938]">
+                    <th className="p-2.5 text-center w-10 sticky left-0 bg-gray-50 dark:bg-[#0E121A] z-20 text-[11px] font-bold text-gray-500">
+                      Nº
+                    </th>
+                    <th className="p-2.5 text-left min-w-[180px] sticky left-10 bg-gray-50 dark:bg-[#0E121A] z-20 text-[11px] font-bold text-gray-500">
+                      Militar
+                    </th>
+                    <th className="p-2.5 text-left min-w-[130px] text-[11px] font-bold text-gray-500">
+                      Equipe Base
+                    </th>
                     
-                    {/* Cabeçalho dos Dias 1 a 31 */}
-                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
-                      <th key={day} className="p-1.5 min-w-[32px] font-mono text-[10px] text-gray-500 dark:text-gray-400">
-                        {day.toString().padStart(2, '0')}
-                      </th>
-                    ))}
+                    {/* Cabeçalho dos Dias: Número do Dia + Dia da Semana (Sáb/Dom em Vermelho) */}
+                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                      const dayInfo = getDayOfWeekInfo(day);
+                      return (
+                        <th 
+                          key={day} 
+                          className={`p-1 min-w-[34px] text-center border-l border-gray-100 dark:border-[#222938] ${dayInfo.isWeekend ? 'bg-red-50/40 dark:bg-red-950/20' : ''}`}
+                        >
+                          <span className="font-mono text-[11px] block font-bold text-gray-800 dark:text-gray-200">
+                            {day.toString().padStart(2, '0')}
+                          </span>
+                          <span className={`text-[9px] block uppercase font-extrabold ${dayInfo.isWeekend ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
+                            {dayInfo.name}
+                          </span>
+                        </th>
+                      );
+                    })}
 
-                    <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400">Sv.</th>
-                    {isAdmin && <th className="p-2.5 text-center w-12">Ação</th>}
+                    <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400 text-[11px]">
+                      Total Sv.
+                    </th>
+                    {isAdmin && <th className="p-2.5 text-center w-12 text-[11px] font-bold text-gray-500">Ação</th>}
                   </tr>
                 </thead>
 
@@ -468,7 +612,12 @@ export default function EscalaPage() {
                   {filteredMilitaryList.map((militar, idx) => {
                     const milData = militares.find(m => m.id === militar.id);
                     const militarScheduleItems = schedule?.itens.filter(i => i.militar_id === militar.id) || [];
-                    const totalServicos = militarScheduleItems.filter(i => i.legenda_codigo === 'S' || i.legenda_codigo === 'SN').length;
+                    
+                    // Conta dias com serviço operacional / extraordinário / treinamento
+                    const totalServicos = militarScheduleItems.filter(i => {
+                      const leg = legends.find(l => l.codigo === i.legenda_codigo);
+                      return leg ? leg.conta_como_servico : (i.legenda_codigo === 'S' || i.legenda_codigo === 'SN' || i.legenda_codigo === 'E');
+                    }).length;
 
                     return (
                       <tr key={militar.id} className="hover:bg-gray-50/60 dark:hover:bg-[#1D2432]/40 transition-colors">
@@ -490,12 +639,12 @@ export default function EscalaPage() {
                           </div>
                         </td>
 
-                        {/* Dropdown de Equipe */}
+                        {/* Dropdown de Equipe Base do Militar */}
                         <td className="p-2 text-left min-w-[130px]">
                           {isAdmin ? (
                             <select
                               value={militar.equipe}
-                              onChange={(e) => handleTeamChange(militar.id, e.target.value)}
+                              onChange={(e) => handleBaseTeamChange(militar.id, e.target.value)}
                               className="w-full bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
                             >
                               {DEFAULT_TEAMS.map((t) => (
@@ -509,22 +658,31 @@ export default function EscalaPage() {
                           )}
                         </td>
 
-                        {/* Dias 1 a 31 com Badges Interativos */}
+                        {/* Células dos Dias 1 a 31 */}
                         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                           const item = militarScheduleItems.find(it => it.dia_mes === day);
                           const code = item?.legenda_codigo || 'F';
+                          const dayTeam = item?.equipe || militar.equipe;
+                          const isDifferentTeam = dayTeam !== militar.equipe;
+                          const dayInfo = getDayOfWeekInfo(day);
                           const badgeClass = getBadgeForLegend(code);
 
                           return (
-                            <td key={day} className="p-1 text-center">
+                            <td 
+                              key={day} 
+                              className={`p-1 text-center border-l border-gray-100 dark:border-[#222938]/60 ${dayInfo.isWeekend ? 'bg-red-50/20 dark:bg-red-950/10' : ''}`}
+                            >
                               {isAdmin ? (
                                 <button
                                   type="button"
-                                  onClick={() => handleCycleDayCode(militar.id, day, code)}
-                                  title={`Dia ${day}: ${code} (Clique para alternar)`}
-                                  className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform active:scale-90 flex items-center justify-center mx-auto shadow-2xs ${badgeClass}`}
+                                  onClick={() => handleOpenShiftEditor(militar.id, militar.nome, militar.numero_pm, militar.equipe, day)}
+                                  title={`Dia ${day} (${dayInfo.name}): ${code} | Equipe: ${dayTeam} (Clique para editar)`}
+                                  className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center mx-auto relative ${badgeClass}`}
                                 >
-                                  {code}
+                                  <span>{code}</span>
+                                  {isDifferentTeam && (
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white" title={`Equipe especial: ${dayTeam}`} />
+                                  )}
                                 </button>
                               ) : (
                                 <span className={`w-7 h-7 rounded-lg text-[10px] font-mono flex items-center justify-center mx-auto ${badgeClass}`}>
@@ -565,13 +723,166 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 1: LISTAGEM COMPLETA DO EFETIVO DA ESCALA (43 MILITARES) */}
+      {/* MODAL 1: EDITOR INTELIGENTE DE PLANTÃO / DIA / EQUIPE */}
+      {/* ========================================================= */}
+      {editingShift && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="w-full max-w-lg bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
+            
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                    Editar Plantão — Dia {editingShift.day.toString().padStart(2, '0')} ({getDayOfWeekInfo(editingShift.day).name})
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    <strong>{editingShift.militarNome}</strong> · PM {editingShift.militarNumeroPm}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingShift(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conteúdo com Seleção de Legenda e Equipe Flexível */}
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              
+              {/* 1. SELEÇÃO DA LEGENDA */}
+              <div>
+                <label className="block font-bold text-gray-800 dark:text-gray-200 mb-1.5">
+                  1. Selecione a Legenda do Plantão
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {DEFAULT_LEGENDS.map((leg) => {
+                    const isSelected = editingShift.code === leg.codigo;
+                    return (
+                      <button
+                        key={leg.codigo}
+                        type="button"
+                        onClick={() => setEditingShift({ ...editingShift, code: leg.codigo })}
+                        className={`p-2 rounded-xl text-left border transition-all flex flex-col justify-between gap-1 ${
+                          isSelected 
+                            ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 shadow-xs' 
+                            : 'border-gray-200 dark:border-[#283042] hover:bg-gray-50 dark:hover:bg-[#1D2432]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${getBadgeForLegend(leg.codigo)}`}>
+                            {leg.codigo}
+                          </span>
+                          {isSelected && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                        </div>
+                        <span className="text-[10px] text-gray-600 dark:text-gray-300 font-medium leading-tight">
+                          {leg.descricao}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. EQUIPE OPERACIONAL ESPECÍFICA DESTE DIA */}
+              <div className="bg-gray-50 dark:bg-[#0E121A] p-3 rounded-xl border border-gray-200 dark:border-[#222938] space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-gray-800 dark:text-gray-200">
+                    2. Equipe Escalada para Este Dia
+                  </label>
+                  <span className="text-[10px] text-gray-400">
+                    Base: <strong>{editingShift.equipePadrao}</strong>
+                  </span>
+                </div>
+                <select
+                  value={editingShift.team}
+                  onChange={(e) => setEditingShift({ ...editingShift, team: e.target.value })}
+                  className="w-full bg-white dark:bg-[#151A23] border border-gray-300 dark:border-[#283042] rounded-xl px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                >
+                  {DEFAULT_TEAMS.map((t) => (
+                    <option key={t} value={t}>
+                      {t} {t === editingShift.equipePadrao ? '(Equipe Padrão)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-gray-400">
+                    Mudar a equipe deste dia não altera os outros dias do militar.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleReplicateTeamToAllDays}
+                    className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline font-bold"
+                  >
+                    Replicar equipe para o mês todo
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. APLICAÇÃO RÁPIDA EM LOTE (Ex: Férias, Licenças, Sequências) */}
+              <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-xl border border-blue-200 dark:border-blue-900/50 space-y-2">
+                <span className="font-bold text-blue-900 dark:text-blue-300 block text-[11px]">
+                  ⚡ Aplicar em Lote (Sequência de Dias)
+                </span>
+                <p className="text-[10px] text-blue-700 dark:text-blue-300">
+                  Ideal para lançar períodos de <strong>F.A (Férias)</strong>, <strong>L.M (Licença)</strong> ou folgas contínuas.
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-gray-600 dark:text-gray-300">Repetir por:</span>
+                  {[1, 5, 10, 15, 30].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setBatchDaysCount(count)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${
+                        batchDaysCount === count 
+                          ? 'bg-blue-600 text-white shadow-2xs' 
+                          : 'bg-white dark:bg-[#151A23] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#222938]'
+                      }`}
+                    >
+                      {count === 1 ? 'Só este dia' : `${count} dias`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer Fixo com Botão de Salvar */}
+            <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2 bg-gray-50/50 dark:bg-[#0E121A]">
+              <button
+                type="button"
+                onClick={() => setEditingShift(null)}
+                className="btn-secondary py-2 px-4 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveShift(batchDaysCount > 1)}
+                className="btn-primary py-2 px-5 text-xs font-bold"
+              >
+                Salvar Plantão {batchDaysCount > 1 ? `(${batchDaysCount} dias)` : ''}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 2: LISTAGEM COMPLETA DO EFETIVO DA ESCALA (43 MILITARES) */}
       {/* ========================================================= */}
       {isRosterModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="w-full max-w-3xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
             
-            {/* Header Fixo */}
             <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
@@ -608,7 +919,6 @@ export default function EscalaPage() {
               </div>
             </div>
 
-            {/* Tabela do Efetivo com Rolagem Interna */}
             <div className="p-4 sm:p-5 overflow-y-auto flex-1">
               <div className="border border-gray-200 dark:border-[#222938] rounded-xl overflow-hidden">
                 <table className="w-full text-left border-collapse text-xs">
@@ -663,7 +973,6 @@ export default function EscalaPage() {
               </div>
             </div>
 
-            {/* Footer Fixo */}
             <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between bg-gray-50/50 dark:bg-[#0E121A]">
               <span className="text-[11px] text-gray-400">
                 Estes militares compõem as escalas mensais do 2º Pelotão.
@@ -682,7 +991,7 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 2: CADASTRO / EDIÇÃO DE MILITAR DO EFETIVO */}
+      {/* MODAL 3: CADASTRO / EDIÇÃO DE MILITAR DO EFETIVO */}
       {/* ========================================================= */}
       {isEditMilitarModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
@@ -787,7 +1096,7 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 3: CONFIRMAÇÃO DE EXCLUSÃO DE MILITAR DO EFETIVO */}
+      {/* MODAL 4: CONFIRMAÇÃO DE EXCLUSÃO DE MILITAR DO EFETIVO */}
       {/* ========================================================= */}
       {deleteConfirmMilitar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
@@ -826,7 +1135,7 @@ export default function EscalaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL 4: CONFIRMAÇÃO DE EXCLUSÃO DA ESCALA DO MÊS */}
+      {/* MODAL 5: CONFIRMAÇÃO DE EXCLUSÃO DA ESCALA DO MÊS */}
       {/* ========================================================= */}
       {deleteScheduleConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
@@ -840,7 +1149,7 @@ export default function EscalaPage() {
                 Excluir Escala de {monthNames[mes - 1]}/{ano}?
               </h3>
               <p className="text-gray-500">
-                Esta ação removerá toda a escala salva deste período. Os militares não perderão seus cadastros.
+                Esta ação removerá toda a escala salva deste período. Os militares não perderão seus cadastros no efetivo.
               </p>
             </div>
 

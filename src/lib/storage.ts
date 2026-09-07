@@ -336,7 +336,14 @@ class StorageService {
       return DEFAULT_LEGENDS;
     }
     try {
-      return JSON.parse(data);
+      const parsed: ScheduleLegend[] = JSON.parse(data);
+      // Sincroniza se novas legendas oficiais (ex: DE, PE, BH, FPR) foram adicionadas
+      const hasNewLegend = DEFAULT_LEGENDS.some(def => !parsed.some(p => p.codigo === def.codigo));
+      if (hasNewLegend) {
+        localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(DEFAULT_LEGENDS));
+        return DEFAULT_LEGENDS;
+      }
+      return parsed;
     } catch {
       return DEFAULT_LEGENDS;
     }
@@ -416,8 +423,6 @@ class StorageService {
 
     for (const mil of militares) {
       for (let d = 1; d <= daysInMonth; d++) {
-        const isServico = ((d + mil.ordem) % 3 === 0);
-        const isNoturno = ((d + mil.ordem) % 6 === 0);
         items.push({
           id: `item-${mil.id}-${d}-${Date.now()}`,
           escala_id: `sch-${mes}-${ano}`,
@@ -426,7 +431,7 @@ class StorageService {
           militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
           militar_numero_pm: mil.numero_pm,
           dia_mes: d,
-          legenda_codigo: isNoturno ? 'SN' : (isServico ? 'S' : 'F')
+          legenda_codigo: 'F'
         });
       }
     }
@@ -439,7 +444,7 @@ class StorageService {
       id: `sch-${mes}-${ano}`,
       mes,
       ano,
-      titulo: `Escala Operacional — ${monthNames[mes - 1]} / ${ano}`,
+      titulo: `Escala Mensal — ${monthNames[mes - 1]} / ${ano}`,
       status: 'PUBLICADA',
       itens: items,
       created_at: new Date().toISOString()
@@ -488,7 +493,7 @@ class StorageService {
       id: `sch-${mes}-${ano}`,
       mes,
       ano,
-      titulo: `Escala Operacional — ${monthNames[mes - 1]} / ${ano}`,
+      titulo: `Escala Mensal — ${monthNames[mes - 1]} / ${ano}`,
       status: 'PUBLICADA',
       itens: items,
       created_at: new Date().toISOString()
