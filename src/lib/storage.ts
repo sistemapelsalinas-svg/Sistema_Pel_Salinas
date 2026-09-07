@@ -17,6 +17,7 @@ import {
   INITIAL_LOGS, 
   INITIAL_ALERTS, 
   DEFAULT_LEGENDS, 
+  DEFAULT_TEAMS,
   INITIAL_ESCALA_MILITARES,
   generateSampleSchedule 
 } from './mock-data';
@@ -30,6 +31,7 @@ const STORAGE_KEYS = {
   LEGENDS: 'sgp_salinas_legends_v1',
   SCHEDULE: 'sgp_salinas_schedule_v1',
   ESCALA_MILITARES: 'sgp_salinas_escala_militares_v1',
+  TEAMS: 'sgp_salinas_teams_v1',
   CURRENT_USER: 'sgp_salinas_current_user_v1'
 };
 
@@ -376,6 +378,86 @@ class StorageService {
     const list = this.getLegends();
     const filtered = list.filter(l => l.codigo !== codigo);
     this.saveLegends(filtered);
+    return true;
+  }
+
+  // --- EQUIPES OPERACIONAIS (CRUD) ---
+  getTeams(): string[] {
+    if (!this.isBrowser()) return DEFAULT_TEAMS;
+    const data = localStorage.getItem(STORAGE_KEYS.TEAMS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(DEFAULT_TEAMS));
+      return DEFAULT_TEAMS;
+    }
+    try {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      return DEFAULT_TEAMS;
+    } catch {
+      return DEFAULT_TEAMS;
+    }
+  }
+
+  saveTeams(teams: string[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
+  }
+
+  addTeam(teamName: string): boolean {
+    const clean = teamName.trim().toUpperCase();
+    if (!clean) return false;
+    const teams = this.getTeams();
+    if (teams.includes(clean)) return false;
+    teams.push(clean);
+    this.saveTeams(teams);
+    return true;
+  }
+
+  updateTeam(oldName: string, newName: string): boolean {
+    const cleanNew = newName.trim().toUpperCase();
+    if (!cleanNew) return false;
+    const teams = this.getTeams();
+    const idx = teams.indexOf(oldName);
+    if (idx === -1) return false;
+    teams[idx] = cleanNew;
+    this.saveTeams(teams);
+
+    // Atualiza militares da escala que usam essa equipe
+    const militares = this.getMilitaresEscala();
+    let updatedMilitares = false;
+    militares.forEach(m => {
+      if (m.equipe_padrao === oldName) {
+        m.equipe_padrao = cleanNew;
+        updatedMilitares = true;
+      }
+    });
+    if (updatedMilitares) {
+      this.saveMilitaresEscala(militares);
+    }
+
+    // Atualiza itens de escalas existentes
+    const schedules = this.getSchedules();
+    let updatedSchedules = false;
+    schedules.forEach(sch => {
+      sch.itens?.forEach(it => {
+        if (it.equipe === oldName) {
+          it.equipe = cleanNew;
+          updatedSchedules = true;
+        }
+      });
+    });
+    if (updatedSchedules) {
+      localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedules));
+    }
+
+    return true;
+  }
+
+  deleteTeam(teamName: string): boolean {
+    const teams = this.getTeams();
+    const filtered = teams.filter(t => t !== teamName);
+    if (filtered.length === teams.length) return false;
+    this.saveTeams(filtered);
     return true;
   }
 

@@ -103,6 +103,13 @@ export default function EscalaPage() {
   const [editingMilitarId, setEditingMilitarId] = useState<string | null>(null);
   const [deleteConfirmMilitar, setDeleteConfirmMilitar] = useState<EscalaMilitar | null>(null);
 
+  // Modais de Gestão de Equipes (CRUD)
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [isEditTeamModalOpen, setIsEditTeamModalOpen] = useState(false);
+  const [editingTeamOldName, setEditingTeamOldName] = useState<string | null>(null);
+  const [teamFormName, setTeamFormName] = useState('');
+  const [deleteConfirmTeam, setDeleteConfirmTeam] = useState<string | null>(null);
+
   const initialMilitarForm = {
     graduacao: 'SD',
     nome_guerra: '',
@@ -129,6 +136,7 @@ export default function EscalaPage() {
     const milList = storage.getMilitaresEscala();
     setMilitares(milList);
     setLegends(storage.getLegends());
+    setTeams(storage.getTeams());
     const sch = storage.getSchedule(mes, ano);
     setSchedule(sch);
   };
@@ -237,6 +245,49 @@ export default function EscalaPage() {
     setDeleteConfirmLegend(null);
     setLegends(storage.getLegends());
     showToast(`Legenda ${codigo} excluída.`);
+  };
+
+  // --- GESTÃO DE EQUIPES (CRUD) ---
+  const handleOpenAddTeam = () => {
+    setEditingTeamOldName(null);
+    setTeamFormName('');
+    setIsEditTeamModalOpen(true);
+  };
+
+  const handleOpenEditTeam = (teamName: string) => {
+    setEditingTeamOldName(teamName);
+    setTeamFormName(teamName);
+    setIsEditTeamModalOpen(true);
+  };
+
+  const handleSaveTeam = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = teamFormName.trim().toUpperCase();
+    if (!clean) return;
+
+    if (editingTeamOldName) {
+      storage.updateTeam(editingTeamOldName, clean);
+      showToast(`Equipe ${editingTeamOldName} alterada para ${clean}.`);
+    } else {
+      const added = storage.addTeam(clean);
+      if (!added) {
+        showToast(`A equipe ${clean} já existe.`);
+        return;
+      }
+      showToast(`Nova equipe ${clean} criada.`);
+    }
+
+    setIsEditTeamModalOpen(false);
+    setEditingTeamOldName(null);
+    setTeamFormName('');
+    loadAllData();
+  };
+
+  const handleDeleteTeam = (teamName: string) => {
+    storage.deleteTeam(teamName);
+    setDeleteConfirmTeam(null);
+    loadAllData();
+    showToast(`Equipe ${teamName} excluída.`);
   };
 
   // --- CÁLCULO DE PADRÕES DE ESCALA (ADMINISTRATIVA, DOBRADINHA, ETC.) ---
@@ -617,18 +668,29 @@ export default function EscalaPage() {
             <span>Efetivo ({militares.length})</span>
           </button>
 
-          {/* Botão para Gerenciar Legendas */}
+          {/* Botão para Gerenciar Equipes (CRUD) */}
           {isAdmin && (
             <button
               type="button"
-              onClick={() => setIsLegendModalOpen(true)}
+              onClick={() => setIsTeamModalOpen(true)}
               className="btn-secondary py-1.5 px-3 text-xs"
-              title="Criar, editar ou excluir legendas da escala"
+              title="Gerenciar equipes operacionais (CRUD)"
             >
-              <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>Legendas ({legends.length})</span>
+              <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>Equipes ({teams.length})</span>
             </button>
           )}
+
+          {/* Botão para Rolar até as Legendas */}
+          <button
+            type="button"
+            onClick={() => document.getElementById('secao-legendas')?.scrollIntoView({ behavior: 'smooth' })}
+            className="btn-secondary py-1.5 px-3 text-xs"
+            title="Rolar página até a legenda da escala"
+          >
+            <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span>Ver Legendas ({legends.length})</span>
+          </button>
 
           {/* Botão de Lançamento em Lote / Modelos de Escala */}
           {schedule && isAdmin && (
@@ -726,73 +788,36 @@ export default function EscalaPage() {
         </div>
       ) : (
         <>
-          {/* Barra de Filtros e Legendas */}
-          <div className="space-y-3">
-            
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
-              {/* Busca por Militar / Nº PM */}
-              <div className="flex items-center gap-2 flex-1 max-w-sm">
-                <div className="relative w-full">
-                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome, graduação ou Nº PM..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-
-              {/* Filtro por Equipe */}
-              <div className="flex items-center gap-2">
-                <Filter className="w-3.5 h-3.5 text-gray-400" />
-                <select
-                  value={teamFilter}
-                  onChange={(e) => setTeamFilter(e.target.value)}
-                  className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
-                >
-                  <option value="TODAS">Todas as Equipes ({militares.length})</option>
-                  {DEFAULT_TEAMS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+          {/* Barra de Busca e Filtros */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
+            {/* Busca por Militar / Nº PM */}
+            <div className="flex items-center gap-2 flex-1 max-w-sm">
+              <div className="relative w-full">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nome, graduação ou Nº PM..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
               </div>
             </div>
 
-            {/* Régua de Legendas */}
-            <div className="bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
-              <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-gray-100 dark:border-[#222938]">
-                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-emerald-600" />
-                  Legenda da Escala
-                </span>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleOpenAddLegend}
-                    className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Adicionar Legenda</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-1.5 text-[10px]">
-                {legends.map((leg) => (
-                  <span
-                    key={leg.codigo}
-                    title={leg.descricao}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] cursor-help ${getBadgeForLegend(leg.codigo)}`}
-                  >
-                    <span>{leg.codigo}</span>
-                    <span className="opacity-90 font-normal">· {leg.descricao}</span>
-                  </span>
+            {/* Filtro por Equipe */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <select
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
+                className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+              >
+                <option value="TODAS">Todas as Equipes ({militares.length})</option>
+                {teams.map((t) => (
+                  <option key={t} value={t}>{t}</option>
                 ))}
-              </div>
+              </select>
             </div>
-
           </div>
 
           {/* Tabela Matriz da Escala com Scroll Interno e Cabeçalho Fixo (Sticky Header) */}
@@ -875,7 +900,7 @@ export default function EscalaPage() {
                               onChange={(e) => handleBaseTeamChange(militar.id, e.target.value)}
                               className="w-full bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
                             >
-                              {DEFAULT_TEAMS.map((t) => (
+                              {teams.map((t) => (
                                 <option key={t} value={t}>{t}</option>
                               ))}
                             </select>
@@ -973,6 +998,60 @@ export default function EscalaPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Seção Inferior: Régua Completa de Legendas */}
+          <div id="secao-legendas" className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-gray-100 dark:border-[#222938]">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Tag className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Legenda da Escala Mensal
+                  </h4>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                    {legends.length} siglas ativas configuradas para as escalas
+                  </p>
+                </div>
+              </div>
+
+              {isAdmin && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddLegend}
+                    className="btn-primary py-1 px-2.5 text-[11px] flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Nova Legenda</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLegendModalOpen(true)}
+                    className="btn-secondary py-1 px-2.5 text-[11px] flex items-center gap-1"
+                  >
+                    <Settings2 className="w-3 h-3 text-blue-500" />
+                    <span>Gerenciar Legendas</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 text-[10px]">
+              {legends.map((leg) => (
+                <span
+                  key={leg.codigo}
+                  title={leg.descricao}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] cursor-help ${getBadgeForLegend(leg.codigo)}`}
+                >
+                  <span>{leg.codigo}</span>
+                  <span className="opacity-90 font-normal">· {leg.descricao}</span>
+                  {leg.conta_como_servico && <span className="opacity-75 font-semibold text-[9px]">(Sv)</span>}
+                </span>
+              ))}
             </div>
           </div>
         </>
@@ -1074,7 +1153,7 @@ export default function EscalaPage() {
                   onChange={(e) => setEditingShift({ ...editingShift, team: e.target.value })}
                   className="w-full bg-white dark:bg-[#151A23] border border-gray-300 dark:border-[#283042] rounded-xl px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
-                  {DEFAULT_TEAMS.map((t) => (
+                  {teams.map((t) => (
                     <option key={t} value={t}>
                       {t} {t === editingShift.equipePadrao ? '(Equipe Padrão)' : ''}
                     </option>
@@ -1607,7 +1686,7 @@ export default function EscalaPage() {
                   onChange={(e) => setMilitarFormData({ ...militarFormData, equipe_padrao: e.target.value })}
                   className="untitled-input font-semibold"
                 >
-                  {DEFAULT_TEAMS.map((t) => (
+                  {teams.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
@@ -1816,7 +1895,7 @@ export default function EscalaPage() {
                       onChange={(e) => setBatchSelectedTeam(e.target.value)}
                       className="untitled-input font-bold"
                     >
-                      {DEFAULT_TEAMS.map((t) => (
+                      {teams.map((t) => (
                         <option key={t} value={t}>
                           Equipe {t} ({sortedMilitaryList.filter(m => m.equipe === t).length} militares)
                         </option>
@@ -2045,6 +2124,222 @@ export default function EscalaPage() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 10: GESTÃO DE EQUIPES (CRUD - LISTAR, CRIAR, EDITAR, EXCLUIR) */}
+      {/* ========================================================= */}
+      {isTeamModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
+            
+            {/* Header Fixo */}
+            <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                    Gerenciamento de Equipes Operacionais
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {teams.length} equipes cadastradas para o 2º Pelotão Salinas
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenAddTeam}
+                  className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nova Equipe</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTeamModalOpen(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Lista / Tabela de Equipes */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1">
+              <div className="border border-gray-200 dark:border-[#222938] rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938] text-[11px] font-bold text-gray-500">
+                      <th className="p-2.5 w-12 text-center">Nº</th>
+                      <th className="p-2.5">Nome da Equipe</th>
+                      <th className="p-2.5 w-36 text-center">Efetivo Alocado</th>
+                      <th className="p-2.5 text-right w-24">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                    {teams.map((t, idx) => {
+                      const countInEfetivo = sortedMilitaryList.filter(m => m.equipe === t).length;
+                      return (
+                        <tr key={t} className="hover:bg-gray-50/60 dark:hover:bg-[#1D2432]/40 transition-colors">
+                          <td className="p-2.5 text-center font-mono font-bold text-gray-400">{idx + 1}</td>
+                          <td className="p-2.5 font-bold text-gray-900 dark:text-white">
+                            <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">
+                              {t}
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              countInEfetivo > 0
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                            }`}>
+                              {countInEfetivo} militar{countInEfetivo !== 1 ? 'es' : ''}
+                            </span>
+                          </td>
+                          <td className="p-2.5 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditTeam(t)}
+                                title="Editar nome da equipe"
+                                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmTeam(t)}
+                                title="Excluir equipe"
+                                className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Footer Fixo */}
+            <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between bg-gray-50/50 dark:bg-[#0E121A]">
+              <span className="text-[11px] text-gray-400">
+                Você pode cadastrar, renomear ou remover equipes para alocar seus militares.
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsTeamModalOpen(false)}
+                className="btn-secondary py-1.5 px-4 text-xs"
+              >
+                Fechar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 11: CADASTRO / EDIÇÃO DE EQUIPE */}
+      {/* ========================================================= */}
+      {isEditTeamModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+            
+            <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between">
+              <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                {editingTeamOldName ? `Editar Equipe ${editingTeamOldName}` : 'Nova Equipe Operacional'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditTeamModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTeam} className="p-4 sm:p-5 space-y-3.5 text-xs">
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nome / Identificador da Equipe *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: ALFA 3, PATRULHA RURAL 3, CPU 2..."
+                  value={teamFormName}
+                  onChange={(e) => setTeamFormName(e.target.value)}
+                  className="untitled-input font-bold uppercase"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditTeamModalOpen(false)}
+                  className="btn-secondary py-2 px-4 text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary py-2 px-4 text-xs font-bold"
+                >
+                  {editingTeamOldName ? 'Salvar Alterações' : 'Criar Equipe'}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 12: CONFIRMAÇÃO DE EXCLUSÃO DE EQUIPE */}
+      {/* ========================================================= */}
+      {deleteConfirmTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-xl p-5 space-y-4 text-xs animate-in zoom-in-95">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                Excluir Equipe {deleteConfirmTeam}?
+              </h3>
+              <p className="text-gray-500">
+                Tem certeza que deseja remover a equipe <strong>{deleteConfirmTeam}</strong>?
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmTeam(null)}
+                className="btn-secondary py-2 px-4 flex-1 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteTeam(deleteConfirmTeam)}
+                className="py-2 px-4 flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                Sim, Excluir
+              </button>
+            </div>
           </div>
         </div>
       )}

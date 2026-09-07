@@ -29,10 +29,12 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { isCollapsed, toggleSidebar } = useSidebar();
+  const [isHovered, setIsHovered] = useState(false);
   const [showEgressosModal, setShowEgressosModal] = useState(false);
 
   if (!user) return null;
 
+  const isExpanded = !isCollapsed || isHovered;
   const isAdmin = user.role === 'ADMIN';
   const isSofOrAdmin = user.role === 'ADMIN' || user.role === 'SOF';
 
@@ -63,7 +65,7 @@ export function Sidebar() {
     {
       category: 'GESTÃO & RELATÓRIOS',
       items: [
-        ...(isAdmin ? [{ title: 'Militares & Acessos', href: '/dashboard/usuarios', icon: Users }] : []),
+        { title: 'Militares & Acessos', href: '/dashboard/usuarios', icon: Users },
         { title: 'Relatórios & Produtividade', href: '/dashboard/relatorios', icon: BarChart2 },
       ]
     }
@@ -72,18 +74,24 @@ export function Sidebar() {
   return (
     <>
       <aside 
-        className={`hidden lg:flex flex-col flex-shrink-0 border-r border-gray-200/90 dark:border-[#222938] bg-white dark:bg-[#151A23] sticky top-0 h-screen z-30 select-none transition-all duration-300 ${
-          isCollapsed ? 'w-16' : 'w-64'
+        onMouseEnter={() => {
+          if (isCollapsed) setIsHovered(true);
+        }}
+        onMouseLeave={() => {
+          if (isCollapsed) setIsHovered(false);
+        }}
+        className={`hidden lg:flex flex-col flex-shrink-0 border-r border-gray-200/90 dark:border-[#222938] bg-white dark:bg-[#151A23] sticky top-0 h-screen select-none transition-all duration-300 ${
+          isExpanded ? 'w-64 z-40 shadow-xl' : 'w-16 z-30'
         }`}
       >
         
         {/* Header da Sidebar */}
-        <div className={`p-3.5 border-b border-gray-100 dark:border-[#222938] flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className={`p-3.5 border-b border-gray-100 dark:border-[#222938] flex items-center ${!isExpanded ? 'justify-center' : 'justify-between'}`}>
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-gray-950 dark:bg-emerald-600 flex items-center justify-center text-white shadow-xs flex-shrink-0">
               <Shield className="w-4 h-4" />
             </div>
-            {!isCollapsed && (
+            {isExpanded && (
               <div className="min-w-0">
                 <h1 className="font-bold text-sm text-gray-900 dark:text-white tracking-tight leading-none truncate">
                   SGP Salinas
@@ -100,7 +108,7 @@ export function Sidebar() {
             title={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1E2636] transition-colors"
           >
-            {isCollapsed ? (
+            {!isExpanded ? (
               <PanelLeftOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <PanelLeftClose className="w-4 h-4" />
@@ -112,7 +120,7 @@ export function Sidebar() {
         <nav className="flex-1 px-2.5 py-3 space-y-4 overflow-y-auto overflow-x-hidden">
           {menuSections.map((section, sIdx) => (
             <div key={sIdx} className="space-y-1">
-              {!isCollapsed && (
+              {isExpanded && (
                 <p className="px-2 text-[10px] font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase truncate">
                   {section.category}
                 </p>
@@ -127,14 +135,14 @@ export function Sidebar() {
                       <button
                         key={iIdx}
                         onClick={item.onClick}
-                        title={isCollapsed ? item.title : undefined}
-                        className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-2.5 py-2'} rounded-xl text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-[#1D2432] hover:text-gray-900 dark:hover:text-white transition-all text-left`}
+                        title={!isExpanded ? item.title : undefined}
+                        className={`w-full flex items-center ${!isExpanded ? 'justify-center px-0 py-2.5' : 'justify-between px-2.5 py-2'} rounded-xl text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100/70 dark:hover:bg-[#1D2432] hover:text-gray-900 dark:hover:text-white transition-all text-left`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          {!isCollapsed && <span className="truncate">{item.title}</span>}
+                          {isExpanded && <span className="truncate">{item.title}</span>}
                         </div>
-                        {!isCollapsed && item.badge && (
+                        {isExpanded && item.badge && (
                           <span className="px-1.5 py-0.2 rounded-md text-[9px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 flex-shrink-0">
                             {item.badge}
                           </span>
@@ -147,8 +155,8 @@ export function Sidebar() {
                     <Link
                       key={iIdx}
                       href={item.href}
-                      title={isCollapsed ? item.title : undefined}
-                      className={`flex items-center ${isCollapsed ? 'justify-center px-0 py-2.5' : 'justify-between px-2.5 py-2'} rounded-xl text-xs font-medium transition-all ${
+                      title={!isExpanded ? item.title : undefined}
+                      className={`flex items-center ${!isExpanded ? 'justify-center px-0 py-2.5' : 'justify-between px-2.5 py-2'} rounded-xl text-xs font-medium transition-all ${
                         isActive
                           ? 'bg-gray-100 dark:bg-[#1E2636] text-gray-950 dark:text-white font-semibold shadow-xs'
                           : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#19202D] hover:text-gray-900 dark:hover:text-white'
@@ -156,9 +164,9 @@ export function Sidebar() {
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-gray-900 dark:text-emerald-400' : 'text-gray-400'}`} />
-                        {!isCollapsed && <span className="truncate">{item.title}</span>}
+                        {isExpanded && <span className="truncate">{item.title}</span>}
                       </div>
-                      {!isCollapsed && item.badge && (
+                      {isExpanded && item.badge && (
                         <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-semibold flex-shrink-0 ${
                           item.badge === 'Plantão' 
                             ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
@@ -176,7 +184,7 @@ export function Sidebar() {
         </nav>
 
         {/* User Profile Footer */}
-        <div className={`p-3 border-t border-gray-100 dark:border-[#222938] flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+        <div className={`p-3 border-t border-gray-100 dark:border-[#222938] flex items-center ${!isExpanded ? 'justify-center' : 'justify-between'}`}>
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative">
               <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center justify-center font-bold text-xs border border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -184,7 +192,7 @@ export function Sidebar() {
               </div>
               <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#151A23] absolute bottom-0 right-0" />
             </div>
-            {!isCollapsed && (
+            {isExpanded && (
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-gray-900 dark:text-white truncate leading-none">
                   {user.nome_guerra}
@@ -193,7 +201,7 @@ export function Sidebar() {
               </div>
             )}
           </div>
-          {!isCollapsed && (
+          {isExpanded && (
             <button
               onClick={logout}
               title="Sair"
