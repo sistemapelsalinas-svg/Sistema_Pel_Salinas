@@ -23,6 +23,7 @@ import {
   Shield 
 } from 'lucide-react';
 import { EgressosModal } from '@/components/egressos-modal';
+import { SidebarProvider } from '@/lib/sidebar-context';
 
 export default function DashboardLayout({
   children,
@@ -98,19 +99,20 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] text-gray-900 dark:text-gray-100 flex flex-col lg:flex-row max-w-full overflow-x-hidden">
-      
-      {/* Sidebar Desktop (Oculta no mobile) */}
-      <Sidebar />
-
-      {/* Área Principal de Conteúdo */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen max-w-full overflow-x-hidden">
-        <Header />
+    <SidebarProvider>
+      <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] text-gray-900 dark:text-gray-100 flex flex-col lg:flex-row max-w-full overflow-x-hidden">
         
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-8 overflow-x-hidden">
-          {children}
-        </main>
-      </div>
+        {/* Sidebar Desktop (Oculta no mobile, recolhível no desktop) */}
+        <Sidebar />
+
+        {/* Área Principal de Conteúdo */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-screen max-w-full overflow-x-hidden">
+          <Header />
+          
+          <main className="flex-1 p-3 sm:p-5 lg:p-6 max-w-[1600px] w-full mx-auto pb-24 lg:pb-8 overflow-x-hidden">
+            {children}
+          </main>
+        </div>
 
       {/* Barra de Navegação Inferior Fixa Permanente no Mobile (Padrão App Nativo) */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-[#151A23]/95 backdrop-blur-lg border-t border-gray-200/90 dark:border-[#222938] h-16 w-full max-w-full px-2 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
@@ -308,5 +310,6 @@ export default function DashboardLayout({
       />
 
     </div>
+  </SidebarProvider>
   );
 }

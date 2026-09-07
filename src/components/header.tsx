@@ -4,13 +4,15 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useSidebar } from '@/lib/sidebar-context';
 import { ThemeToggle } from './theme-toggle';
-import { Compass } from 'lucide-react';
+import { Compass, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export function Header() {
   const { user } = useAuth();
+  const { isCollapsed, toggleSidebar } = useSidebar();
   const pathname = usePathname();
   const today = new Date();
   const formattedDate = format(today, "EEE, dd 'de' MMM", { locale: ptBR });
@@ -26,19 +28,35 @@ export function Header() {
       {/* Linha 1: Título do Pelotão à Esquerda + Ações e Botão de Tema à Direita */}
       <div className="flex items-center justify-between gap-3 w-full">
         
-        {/* Unit Title & Date */}
-        <div className="min-w-0 flex-1 pr-2">
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white tracking-tight truncate">
-              2º Pelotão Salinas
-            </span>
-            <span className="text-[10px] sm:text-xs text-gray-400 font-normal truncate">
-              · {formattedDate}
-            </span>
+        {/* Unit Title, Toggle Sidebar & Date */}
+        <div className="min-w-0 flex-1 pr-2 flex items-center gap-2">
+          {/* Botão de Toggle do Menu Desktop */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            title={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral (mais espaço na tela)"}
+            className="hidden lg:flex p-1.5 rounded-xl text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#1E2636] transition-colors flex-shrink-0"
+          >
+            {isCollapsed ? (
+              <PanelLeftOpen className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <PanelLeftClose className="w-5 h-5" />
+            )}
+          </button>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white tracking-tight truncate">
+                2º Pelotão Salinas
+              </span>
+              <span className="text-[10px] sm:text-xs text-gray-400 font-normal truncate">
+                · {formattedDate}
+              </span>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 hidden lg:block">
+              11ª RPM · 2ª Cia PM Ind
+            </p>
           </div>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 hidden lg:block">
-            11ª RPM · 2ª Cia PM Ind
-          </p>
         </div>
 
         {/* Bloco de Ações da Direita */}
