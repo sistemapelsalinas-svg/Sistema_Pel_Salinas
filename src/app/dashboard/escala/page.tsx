@@ -421,13 +421,13 @@ export default function EscalaPage() {
     if (!schedule || !isAdmin) return;
     const item = schedule.itens.find(i => i.militar_id === militarId && i.dia_mes === day);
     const code = item?.legenda_codigo || 'F';
-    const currentTeam = item?.equipe || defaultTeam || 'ALFA 1';
+    const currentTeam = item?.equipe !== undefined ? item.equipe : (defaultTeam || '');
 
     setEditingShift({
       militarId,
       militarNome,
       militarNumeroPm,
-      equipePadrao: defaultTeam,
+      equipePadrao: defaultTeam || '',
       day,
       code,
       team: currentTeam
@@ -583,7 +583,7 @@ export default function EscalaPage() {
       nome_guerra: mil.nome_guerra,
       nome: `${mil.graduacao} ${mil.nome_guerra}`,
       numero_pm: mil.numero_pm,
-      equipe: militarScheduleItem?.equipe || mil.equipe_padrao || 'ALFA 1'
+      equipe: militarScheduleItem?.equipe || ''
     };
   }).sort((a, b) => a.ordem - b.ordem);
 
@@ -592,9 +592,16 @@ export default function EscalaPage() {
     const matchesSearch = 
       m.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.numero_pm.includes(searchTerm) ||
-      m.equipe.toLowerCase().includes(searchTerm.toLowerCase());
+      (m.equipe && m.equipe.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchesTeam = teamFilter === 'TODAS' || m.equipe === teamFilter;
+    let matchesTeam = true;
+    if (teamFilter === 'TODAS') {
+      matchesTeam = true;
+    } else if (teamFilter === 'SEM_EQUIPE') {
+      matchesTeam = !m.equipe;
+    } else {
+      matchesTeam = m.equipe === teamFilter;
+    }
     return matchesSearch && matchesTeam;
   });
 
@@ -757,7 +764,7 @@ export default function EscalaPage() {
               Nenhuma escala cadastrada para {monthNames[mes - 1]} de {ano}
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-              Não existe escala operacional gerada para este mês. Ao criar uma nova escala, todos os {militares.length} militares iniciarão automaticamente com <strong>F (Folga)</strong>.
+              Não existe escala operacional gerada para este mês. Ao criar uma nova escala, todos os {militares.length} militares iniciarão automaticamente com vínculos de equipe zerados e <strong>F (Folga)</strong>.
             </p>
           </div>
 
@@ -813,6 +820,9 @@ export default function EscalaPage() {
                 className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
               >
                 <option value="TODAS">Todas as Equipes ({militares.length})</option>
+                <option value="SEM_EQUIPE">
+                  Sem Equipe ({sortedMilitaryList.filter(m => !m.equipe).length})
+                </option>
                 {teams.map((t) => (
                   <option key={t} value={t}>{t}</option>
                 ))}
@@ -896,17 +906,26 @@ export default function EscalaPage() {
                         <td className="p-2 text-left min-w-[130px]">
                           {isAdmin ? (
                             <select
-                              value={militar.equipe}
+                              value={militar.equipe || ''}
                               onChange={(e) => handleBaseTeamChange(militar.id, e.target.value)}
-                              className="w-full bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+                              className={`w-full border rounded-lg px-2 py-1 text-[11px] font-semibold focus:outline-none cursor-pointer transition-colors ${
+                                !militar.equipe
+                                  ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 text-amber-700 dark:text-amber-300'
+                                  : 'bg-gray-50 dark:bg-[#0E121A] border-gray-200 dark:border-[#283042] text-gray-800 dark:text-gray-200'
+                              }`}
                             >
+                              <option value="">— Sem Equipe —</option>
                               {teams.map((t) => (
                                 <option key={t} value={t}>{t}</option>
                               ))}
                             </select>
                           ) : (
-                            <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-bold text-gray-700 dark:text-gray-300">
-                              {militar.equipe}
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              !militar.equipe
+                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                            }`}>
+                              {militar.equipe || '— Sem Equipe —'}
                             </span>
                           )}
                         </td>
@@ -1145,17 +1164,18 @@ export default function EscalaPage() {
                     2. Equipe Escalada para Este Dia
                   </label>
                   <span className="text-[10px] text-gray-400">
-                    Base: <strong>{editingShift.equipePadrao}</strong>
+                    Base: <strong>{editingShift.equipePadrao || 'Sem equipe'}</strong>
                   </span>
                 </div>
                 <select
-                  value={editingShift.team}
+                  value={editingShift.team || ''}
                   onChange={(e) => setEditingShift({ ...editingShift, team: e.target.value })}
                   className="w-full bg-white dark:bg-[#151A23] border border-gray-300 dark:border-[#283042] rounded-xl px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                 >
+                  <option value="">— Sem Equipe —</option>
                   {teams.map((t) => (
                     <option key={t} value={t}>
-                      {t} {t === editingShift.equipePadrao ? '(Equipe Padrão)' : ''}
+                      {t} {t === editingShift.equipePadrao ? '(Equipe Base)' : ''}
                     </option>
                   ))}
                 </select>
@@ -1881,7 +1901,7 @@ export default function EscalaPage() {
                     >
                       {sortedMilitaryList.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.nome} — PM {m.numero_pm} ({m.equipe})
+                          {m.nome} — PM {m.numero_pm} ({m.equipe || 'Sem equipe'})
                         </option>
                       ))}
                     </select>

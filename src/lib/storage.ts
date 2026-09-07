@@ -505,7 +505,7 @@ class StorageService {
           sch.itens.push({
             id: `item-${mil.id}-${d}-${Date.now()}`,
             escala_id: sch.id,
-            equipe: mil.equipe_padrao || 'ALFA 1',
+            equipe: '',
             militar_id: mil.id,
             militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
             militar_numero_pm: mil.numero_pm,
@@ -528,12 +528,13 @@ class StorageService {
     const daysInMonth = new Date(ano, mes, 0).getDate();
     const items: ScheduleItem[] = [];
 
+    // Ao criar nova escala, os vínculos com equipes vêm ZERADOS (vazios)
     for (const mil of militares) {
       for (let d = 1; d <= daysInMonth; d++) {
         items.push({
           id: `item-${mil.id}-${d}-${Date.now()}`,
           escala_id: `sch-${mes}-${ano}`,
-          equipe: mil.equipe_padrao || 'ALFA 1',
+          equipe: '',
           militar_id: mil.id,
           militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
           militar_numero_pm: mil.numero_pm,
@@ -574,9 +575,10 @@ class StorageService {
     const daysInMonth = new Date(ano, mes, 0).getDate();
     const items: ScheduleItem[] = [];
 
+    // Na cópia do mês anterior, MANTÉM as equipes que estavam vinculadas na escala anterior
     for (const mil of militares) {
       const prevMilItem = prevSchedule.itens.find(i => i.militar_id === mil.id);
-      const equipe = prevMilItem?.equipe || mil.equipe_padrao || 'ALFA 1';
+      const equipe = prevMilItem?.equipe || '';
 
       for (let d = 1; d <= daysInMonth; d++) {
         items.push({
