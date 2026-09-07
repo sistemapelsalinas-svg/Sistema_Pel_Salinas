@@ -337,22 +337,8 @@ class StorageService {
     }
     try {
       const parsed: ScheduleLegend[] = JSON.parse(data);
-      // Sincroniza se novas legendas oficiais (ex: DE, PE, BH, FPR) foram adicionadas ou atualizadas
-      let needsUpdate = false;
-      DEFAULT_LEGENDS.forEach(def => {
-        const existing = parsed.find(p => p.codigo === def.codigo);
-        if (!existing) {
-          parsed.push(def);
-          needsUpdate = true;
-        } else if (def.codigo === 'S' && !existing.cor_badge.includes('gray')) {
-          existing.cor_badge = def.cor_badge;
-          needsUpdate = true;
-        }
-      });
-      if (needsUpdate) {
-        localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(parsed));
-      }
-      return parsed;
+      if (Array.isArray(parsed)) return parsed;
+      return DEFAULT_LEGENDS;
     } catch {
       return DEFAULT_LEGENDS;
     }
@@ -389,7 +375,6 @@ class StorageService {
   deleteLegend(codigo: string): boolean {
     const list = this.getLegends();
     const filtered = list.filter(l => l.codigo !== codigo);
-    if (filtered.length === list.length) return false;
     this.saveLegends(filtered);
     return true;
   }

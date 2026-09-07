@@ -660,19 +660,19 @@ export default function EscalaPage() {
 
           </div>
 
-          {/* Tabela Matriz da Escala */}
+          {/* Tabela Matriz da Escala com Scroll Interno e Cabeçalho Fixo (Sticky Header) */}
           <div className="untitled-card overflow-hidden">
-            <div className="overflow-x-auto max-w-full">
+            <div className="overflow-x-auto overflow-y-auto max-w-full max-h-[70vh] relative border-b border-gray-100 dark:border-[#222938]">
               <table className="w-full text-center border-collapse text-xs">
-                <thead>
-                  <tr className="bg-gray-50/90 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938]">
-                    <th className="p-2.5 text-center w-10 sticky left-0 bg-gray-50 dark:bg-[#0E121A] z-20 text-[11px] font-bold text-gray-500">
+                <thead className="sticky top-0 z-30 bg-gray-50/95 dark:bg-[#0E121A]/95 backdrop-blur-md shadow-xs">
+                  <tr className="border-b border-gray-200 dark:border-[#222938]">
+                    <th className="p-2.5 text-center w-10 sticky top-0 left-0 bg-gray-100 dark:bg-[#151A23] z-40 text-[11px] font-bold text-gray-600 dark:text-gray-300">
                       Nº
                     </th>
-                    <th className="p-2.5 text-left min-w-[180px] sticky left-10 bg-gray-50 dark:bg-[#0E121A] z-20 text-[11px] font-bold text-gray-500">
+                    <th className="p-2.5 text-left min-w-[180px] sticky top-0 left-10 bg-gray-100 dark:bg-[#151A23] z-40 text-[11px] font-bold text-gray-600 dark:text-gray-300">
                       Militar
                     </th>
-                    <th className="p-2.5 text-left min-w-[130px] text-[11px] font-bold text-gray-500">
+                    <th className="p-2.5 text-left min-w-[130px] sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95 text-[11px] font-bold text-gray-600 dark:text-gray-300">
                       Equipe Base
                     </th>
                     
@@ -682,7 +682,7 @@ export default function EscalaPage() {
                       return (
                         <th 
                           key={day} 
-                          className={`p-1 min-w-[34px] text-center border-l border-gray-100 dark:border-[#222938] ${dayInfo.isWeekend ? 'bg-red-50/40 dark:bg-red-950/20' : ''}`}
+                          className={`p-1 min-w-[34px] text-center border-l border-gray-200/60 dark:border-[#222938] sticky top-0 ${dayInfo.isWeekend ? 'bg-red-50/80 dark:bg-red-950/60' : 'bg-gray-50/95 dark:bg-[#0E121A]/95'}`}
                         >
                           <span className="font-mono text-[11px] block font-bold text-gray-800 dark:text-gray-200">
                             {day.toString().padStart(2, '0')}
@@ -694,10 +694,10 @@ export default function EscalaPage() {
                       );
                     })}
 
-                    <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400 text-[11px]">
+                    <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">
                       Total Sv.
                     </th>
-                    {isAdmin && <th className="p-2.5 text-center w-12 text-[11px] font-bold text-gray-500">Ação</th>}
+                    {isAdmin && <th className="p-2.5 text-center w-12 text-[11px] font-bold text-gray-500 sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">Ação</th>}
                   </tr>
                 </thead>
 
