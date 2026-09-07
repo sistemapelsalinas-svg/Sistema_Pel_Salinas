@@ -21,7 +21,9 @@ import {
   X,
   Shield,
   Filter,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function EscalaPage() {
@@ -36,6 +38,7 @@ export default function EscalaPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [teamFilter, setTeamFilter] = useState('TODAS');
   const [notification, setNotification] = useState<string | null>(null);
+  const [deleteScheduleConfirm, setDeleteScheduleConfirm] = useState(false);
 
   // Modais de Gestão do Efetivo
   const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
@@ -54,6 +57,10 @@ export default function EscalaPage() {
   const isAdmin = user?.role === 'ADMIN';
   const daysInMonth = new Date(ano, mes, 0).getDate();
   const availableYears = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
 
   const graduacoes = ['TEN', 'ST', '1º SGT', '2º SGT', '3º SGT', 'SGT', 'CB', 'SD', 'CAP', 'MAJ', 'TEN CEL', 'CEL'];
 
@@ -72,6 +79,30 @@ export default function EscalaPage() {
   const showToast = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3000);
+  };
+
+  // --- CRIAÇÃO / CÓPIA / EXCLUSÃO DE ESCALA DO MÊS ---
+  const handleCreateSchedule = () => {
+    const newSch = storage.createSchedule(mes, ano);
+    setSchedule(newSch);
+    showToast(`Escala de ${monthNames[mes - 1]}/${ano} criada com sucesso.`);
+  };
+
+  const handleCopyPrevious = () => {
+    const res = storage.copyScheduleFromPreviousMonth(mes, ano);
+    if (res.success && res.schedule) {
+      setSchedule(res.schedule);
+      showToast(`Escala copiada do mês anterior com sucesso.`);
+    } else {
+      showToast('Nenhuma escala encontrada no mês anterior para cópia.');
+    }
+  };
+
+  const handleDeleteCurrentSchedule = () => {
+    storage.deleteSchedule(mes, ano);
+    setSchedule(null);
+    setDeleteScheduleConfirm(false);
+    showToast(`Escala de ${monthNames[mes - 1]}/${ano} excluída com sucesso.`);
   };
 
   const handleSaveSchedule = () => {
@@ -243,7 +274,7 @@ export default function EscalaPage() {
             Escala Operacional Mensal
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            2º Pelotão Salinas · {militares.length} militares no efetivo · {sortedMilitaryList.length} alocados no mês
+            2º Pelotão Salinas · {militares.length} militares no efetivo · {schedule ? `${sortedMilitaryList.length} alocados em ${monthNames[mes - 1]}/${ano}` : 'Sem escala cadastrada'}
           </p>
         </div>
 
@@ -258,18 +289,9 @@ export default function EscalaPage() {
               onChange={(e) => setMes(Number(e.target.value))}
               className="bg-transparent font-bold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
             >
-              <option value={1}>Janeiro</option>
-              <option value={2}>Fevereiro</option>
-              <option value={3}>Março</option>
-              <option value={4}>Abril</option>
-              <option value={5}>Maio</option>
-              <option value={6}>Junho</option>
-              <option value={7}>Julho</option>
-              <option value={8}>Agosto</option>
-              <option value={9}>Setembro</option>
-              <option value={10}>Outubro</option>
-              <option value={11}>Novembro</option>
-              <option value={12}>Dezembro</option>
+              {monthNames.map((name, idx) => (
+                <option key={idx + 1} value={idx + 1}>{name}</option>
+              ))}
             </select>
             <span className="text-gray-300 dark:text-gray-600">/</span>
             <select
@@ -294,7 +316,7 @@ export default function EscalaPage() {
           </button>
 
           {/* Salvar Escala */}
-          {isAdmin && (
+          {schedule && isAdmin && (
             <button
               type="button"
               onClick={handleSaveSchedule}
@@ -306,182 +328,241 @@ export default function EscalaPage() {
           )}
 
           {/* Exportar PDF */}
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            className="btn-secondary py-1.5 px-3 text-xs"
-            title="Exportar no layout padrão PMMG"
-          >
-            <Download className="w-3.5 h-3.5 text-gray-500" />
-            <span>Exportar PDF</span>
-          </button>
+          {schedule && (
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="btn-secondary py-1.5 px-3 text-xs"
+              title="Exportar no layout padrão PMMG"
+            >
+              <Download className="w-3.5 h-3.5 text-gray-500" />
+              <span>Exportar PDF</span>
+            </button>
+          )}
+
+          {/* Excluir Escala do Mês */}
+          {schedule && isAdmin && (
+            <button
+              type="button"
+              onClick={() => setDeleteScheduleConfirm(true)}
+              className="p-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors text-xs"
+              title="Excluir escala deste mês"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
 
         </div>
       </div>
 
-      {/* Barra de Filtros e Legenda */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
-        
-        {/* Busca por Militar / Nº PM */}
-        <div className="flex items-center gap-2 flex-1 max-w-sm">
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Buscar por nome, graduação ou Nº PM..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
+      {/* CASO NÃO HAJA ESCALA CADASTRADA PARA ESTE MÊS */}
+      {!schedule ? (
+        <div className="untitled-card p-8 sm:p-12 text-center space-y-4 max-w-xl mx-auto my-6">
+          <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-[#0E121A] border border-gray-200 dark:border-[#222938] text-gray-400 flex items-center justify-center mx-auto">
+            <CalendarDays className="w-7 h-7" />
           </div>
+
+          <div className="space-y-1.5">
+            <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-white">
+              Nenhuma escala cadastrada para {monthNames[mes - 1]} de {ano}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              Não existe escala operacional gerada para este mês. Como administrador, você pode criar uma nova escala ou copiar do mês anterior.
+            </p>
+          </div>
+
+          {isAdmin ? (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={handleCreateSchedule}
+                className="btn-primary py-2 px-4 text-xs w-full sm:w-auto"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Criar Escala para {monthNames[mes - 1]}/{ano}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyPrevious}
+                className="btn-secondary py-2 px-4 text-xs w-full sm:w-auto"
+              >
+                <Copy className="w-4 h-4 text-gray-500" />
+                <span>Copiar do Mês Anterior</span>
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 pt-2">
+              Aguarde a administração publicar a escala deste período.
+            </p>
+          )}
         </div>
+      ) : (
+        <>
+          {/* Barra de Filtros e Legenda */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
+            
+            {/* Busca por Militar / Nº PM */}
+            <div className="flex items-center gap-2 flex-1 max-w-sm">
+              <div className="relative w-full">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nome, graduação ou Nº PM..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
 
-        {/* Filtro por Equipe */}
-        <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-gray-400" />
-          <select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
-          >
-            <option value="TODAS">Todas as Equipes ({militares.length})</option>
-            {DEFAULT_TEAMS.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Legendas Rápidas */}
-        <div className="hidden lg:flex items-center gap-1.5 text-[10px]">
-          <span className="font-semibold text-gray-400 mr-1">LEGENDA:</span>
-          <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold">S: Serviço</span>
-          <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold">SN: Noturno</span>
-          <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold">F: Folga</span>
-          <span className="px-1.5 py-0.5 rounded bg-amber-600 text-white font-bold">FA: Férias</span>
-          <span className="px-1.5 py-0.5 rounded bg-purple-600 text-white font-bold">L: Licença</span>
-        </div>
-
-      </div>
-
-      {/* Tabela Matriz da Escala (Com Todos os 43 Militares e Scroll Horizontal Seguro) */}
-      <div className="untitled-card overflow-hidden">
-        <div className="overflow-x-auto max-w-full">
-          <table className="w-full text-center border-collapse text-xs">
-            <thead>
-              <tr className="bg-gray-50/80 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938] text-[11px] font-bold text-gray-600 dark:text-gray-300">
-                <th className="p-2.5 text-center w-10 sticky left-0 bg-gray-50 dark:bg-[#0E121A] z-10">Nº</th>
-                <th className="p-2.5 text-left min-w-[180px] sticky left-10 bg-gray-50 dark:bg-[#0E121A] z-10">Militar</th>
-                <th className="p-2.5 text-left min-w-[130px]">Equipe</th>
-                
-                {/* Cabeçalho dos Dias 1 a 31 */}
-                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
-                  <th key={day} className="p-1.5 min-w-[32px] font-mono text-[10px] text-gray-500 dark:text-gray-400">
-                    {day.toString().padStart(2, '0')}
-                  </th>
+            {/* Filtro por Equipe */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <select
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
+                className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+              >
+                <option value="TODAS">Todas as Equipes ({militares.length})</option>
+                {DEFAULT_TEAMS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
                 ))}
+              </select>
+            </div>
 
-                <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400">Sv.</th>
-                {isAdmin && <th className="p-2.5 text-center w-12">Ação</th>}
-              </tr>
-            </thead>
+            {/* Legendas Rápidas */}
+            <div className="hidden lg:flex items-center gap-1.5 text-[10px]">
+              <span className="font-semibold text-gray-400 mr-1">LEGENDA:</span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold">S: Serviço</span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold">SN: Noturno</span>
+              <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold">F: Folga</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-600 text-white font-bold">FA: Férias</span>
+              <span className="px-1.5 py-0.5 rounded bg-purple-600 text-white font-bold">L: Licença</span>
+            </div>
 
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 font-sans">
-              {filteredMilitaryList.map((militar, idx) => {
-                const milData = militares.find(m => m.id === militar.id);
-                const militarScheduleItems = schedule?.itens.filter(i => i.militar_id === militar.id) || [];
-                const totalServicos = militarScheduleItems.filter(i => i.legenda_codigo === 'S' || i.legenda_codigo === 'SN').length;
+          </div>
 
-                return (
-                  <tr key={militar.id} className="hover:bg-gray-50/60 dark:hover:bg-[#1D2432]/40 transition-colors">
+          {/* Tabela Matriz da Escala */}
+          <div className="untitled-card overflow-hidden">
+            <div className="overflow-x-auto max-w-full">
+              <table className="w-full text-center border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50/80 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938] text-[11px] font-bold text-gray-600 dark:text-gray-300">
+                    <th className="p-2.5 text-center w-10 sticky left-0 bg-gray-50 dark:bg-[#0E121A] z-10">Nº</th>
+                    <th className="p-2.5 text-left min-w-[180px] sticky left-10 bg-gray-50 dark:bg-[#0E121A] z-10">Militar</th>
+                    <th className="p-2.5 text-left min-w-[130px]">Equipe</th>
                     
-                    {/* Número de Ordem */}
-                    <td className="p-2 text-center text-gray-400 font-mono font-semibold sticky left-0 bg-white dark:bg-[#151A23] z-10">
-                      {milData?.ordem || idx + 1}
-                    </td>
+                    {/* Cabeçalho dos Dias 1 a 31 */}
+                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
+                      <th key={day} className="p-1.5 min-w-[32px] font-mono text-[10px] text-gray-500 dark:text-gray-400">
+                        {day.toString().padStart(2, '0')}
+                      </th>
+                    ))}
 
-                    {/* Nome do Militar e Nº PM */}
-                    <td className="p-2 text-left sticky left-10 bg-white dark:bg-[#151A23] z-10 min-w-[180px]">
-                      <div className="min-w-0">
-                        <span className="font-bold text-gray-900 dark:text-white block truncate text-xs">
-                          {militar.nome}
-                        </span>
-                        <span className="text-[10px] font-mono text-gray-400 block">
-                          PM {militar.numero_pm}
-                        </span>
-                      </div>
-                    </td>
+                    <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400">Sv.</th>
+                    {isAdmin && <th className="p-2.5 text-center w-12">Ação</th>}
+                  </tr>
+                </thead>
 
-                    {/* Dropdown de Equipe */}
-                    <td className="p-2 text-left min-w-[130px]">
-                      {isAdmin ? (
-                        <select
-                          value={militar.equipe}
-                          onChange={(e) => handleTeamChange(militar.id, e.target.value)}
-                          className="w-full bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
-                        >
-                          {DEFAULT_TEAMS.map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-bold text-gray-700 dark:text-gray-300">
-                          {militar.equipe}
-                        </span>
-                      )}
-                    </td>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 font-sans">
+                  {filteredMilitaryList.map((militar, idx) => {
+                    const milData = militares.find(m => m.id === militar.id);
+                    const militarScheduleItems = schedule?.itens.filter(i => i.militar_id === militar.id) || [];
+                    const totalServicos = militarScheduleItems.filter(i => i.legenda_codigo === 'S' || i.legenda_codigo === 'SN').length;
 
-                    {/* Dias 1 a 31 com Badges Interativos */}
-                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                      const item = militarScheduleItems.find(it => it.dia_mes === day);
-                      const code = item?.legenda_codigo || 'F';
-                      const badgeClass = getBadgeForLegend(code);
+                    return (
+                      <tr key={militar.id} className="hover:bg-gray-50/60 dark:hover:bg-[#1D2432]/40 transition-colors">
+                        
+                        {/* Número de Ordem */}
+                        <td className="p-2 text-center text-gray-400 font-mono font-semibold sticky left-0 bg-white dark:bg-[#151A23] z-10">
+                          {milData?.ordem || idx + 1}
+                        </td>
 
-                      return (
-                        <td key={day} className="p-1 text-center">
+                        {/* Nome do Militar e Nº PM */}
+                        <td className="p-2 text-left sticky left-10 bg-white dark:bg-[#151A23] z-10 min-w-[180px]">
+                          <div className="min-w-0">
+                            <span className="font-bold text-gray-900 dark:text-white block truncate text-xs">
+                              {militar.nome}
+                            </span>
+                            <span className="text-[10px] font-mono text-gray-400 block">
+                              PM {militar.numero_pm}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Dropdown de Equipe */}
+                        <td className="p-2 text-left min-w-[130px]">
                           {isAdmin ? (
-                            <button
-                              type="button"
-                              onClick={() => handleCycleDayCode(militar.id, day, code)}
-                              title={`Dia ${day}: ${code} (Clique para alternar)`}
-                              className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform active:scale-90 flex items-center justify-center mx-auto shadow-2xs ${badgeClass}`}
+                            <select
+                              value={militar.equipe}
+                              onChange={(e) => handleTeamChange(militar.id, e.target.value)}
+                              className="w-full bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-lg px-2 py-1 text-[11px] font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
                             >
-                              {code}
-                            </button>
+                              {DEFAULT_TEAMS.map((t) => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
                           ) : (
-                            <span className={`w-7 h-7 rounded-lg text-[10px] font-mono flex items-center justify-center mx-auto ${badgeClass}`}>
-                              {code}
+                            <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-bold text-gray-700 dark:text-gray-300">
+                              {militar.equipe}
                             </span>
                           )}
                         </td>
-                      );
-                    })}
 
-                    {/* Total de Serviços no Mês */}
-                    <td className="p-2 text-center font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                      {totalServicos}
-                    </td>
+                        {/* Dias 1 a 31 com Badges Interativos */}
+                        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                          const item = militarScheduleItems.find(it => it.dia_mes === day);
+                          const code = item?.legenda_codigo || 'F';
+                          const badgeClass = getBadgeForLegend(code);
 
-                    {/* Ação de Remover da Escala */}
-                    {isAdmin && (
-                      <td className="p-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMilitaryFromSchedule(militar.id)}
-                          title="Remover militar desta escala"
-                          className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    )}
+                          return (
+                            <td key={day} className="p-1 text-center">
+                              {isAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCycleDayCode(militar.id, day, code)}
+                                  title={`Dia ${day}: ${code} (Clique para alternar)`}
+                                  className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform active:scale-90 flex items-center justify-center mx-auto shadow-2xs ${badgeClass}`}
+                                >
+                                  {code}
+                                </button>
+                              ) : (
+                                <span className={`w-7 h-7 rounded-lg text-[10px] font-mono flex items-center justify-center mx-auto ${badgeClass}`}>
+                                  {code}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
 
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                        {/* Total de Serviços no Mês */}
+                        <td className="p-2 text-center font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                          {totalServicos}
+                        </td>
+
+                        {/* Ação de Remover da Escala */}
+                        {isAdmin && (
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMilitaryFromSchedule(militar.id)}
+                              title="Remover militar desta escala"
+                              className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        )}
+
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ========================================================= */}
       {/* MODAL 1: LISTAGEM COMPLETA DO EFETIVO DA ESCALA (43 MILITARES) */}
@@ -738,6 +819,45 @@ export default function EscalaPage() {
                 className="py-2 px-4 flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors"
               >
                 Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 4: CONFIRMAÇÃO DE EXCLUSÃO DA ESCALA DO MÊS */}
+      {/* ========================================================= */}
+      {deleteScheduleConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-xl p-5 space-y-4 text-xs animate-in zoom-in-95">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                Excluir Escala de {monthNames[mes - 1]}/{ano}?
+              </h3>
+              <p className="text-gray-500">
+                Esta ação removerá toda a escala salva deste período. Os militares não perderão seus cadastros.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteScheduleConfirm(false)}
+                className="btn-secondary py-2 px-4 flex-1 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCurrentSchedule}
+                className="py-2 px-4 flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                Sim, Excluir Escala
               </button>
             </div>
           </div>

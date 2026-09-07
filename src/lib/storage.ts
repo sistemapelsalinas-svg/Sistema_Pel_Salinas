@@ -7,7 +7,8 @@ import {
   MonthlySchedule, 
   ScheduleLegend,
   DailyMissionData,
-  EscalaMilitar
+  EscalaMilitar,
+  ScheduleItem
 } from './types';
 import { 
   INITIAL_USERS, 
@@ -346,30 +347,36 @@ class StorageService {
     localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(legends));
   }
 
-  getSchedule(mes: number = 8, ano: number = 2026): MonthlySchedule {
-    if (!this.isBrowser()) return generateSampleSchedule(mes, ano);
+  // --- ESCALAS MENSAIS (ISOLADAS POR MÊS E ANO) ---
+  getSchedules(): MonthlySchedule[] {
+    if (!this.isBrowser()) return [];
     const data = localStorage.getItem(STORAGE_KEYS.SCHEDULE);
+    if (!data) return [];
+    try {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && parsed.mes && parsed.ano) return [parsed];
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  saveSchedules(schedules: MonthlySchedule[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedules));
+  }
+
+  getSchedule(mes: number = 8, ano: number = 2026): MonthlySchedule | null {
+    if (!this.isBrowser()) return null;
+    const schedules = this.getSchedules();
+    const sch = schedules.find(s => s.mes === mes && s.ano === ano);
+    if (!sch) return null;
+
     const militares = this.getMilitaresEscala();
     const daysInMonth = new Date(ano, mes, 0).getDate();
 
-    let sch: MonthlySchedule;
-    if (!data) {
-      sch = generateSampleSchedule(mes, ano);
-    } else {
-      try {
-        const parsed: MonthlySchedule = JSON.parse(data);
-        if (parsed.mes === mes && parsed.ano === ano) {
-          sch = parsed;
-        } else {
-          sch = generateSampleSchedule(mes, ano);
-        }
-      } catch {
-        sch = generateSampleSchedule(mes, ano);
-      }
-    }
-
-    // Garante que a escala contenha EXCLUSIVAMENTE os militares cadastrados manualmente no efetivo
-    // Remove quaisquer itens legados de login do sistema (usr-...)
+    // Garante que a escala contenha EXCLUSIVAMENTE os militares cadastrados no efetivo
     const validMilitarIds = new Set(militares.map(m => m.id));
     const initialItemCount = sch.itens.length;
     sch.itens = sch.itens.filter(i => validMilitarIds.has(i.militar_id));
@@ -381,17 +388,15 @@ class StorageService {
       if (!existingMilitarIds.has(mil.id)) {
         hasNewItems = true;
         for (let d = 1; d <= daysInMonth; d++) {
-          const isServico = ((d + mil.ordem) % 3 === 0);
-          const isNoturno = ((d + mil.ordem) % 6 === 0);
           sch.itens.push({
-            id: `item-${mil.id}-${d}`,
+            id: `item-${mil.id}-${d}-${Date.now()}`,
             escala_id: sch.id,
             equipe: mil.equipe_padrao || 'ALFA 1',
             militar_id: mil.id,
             militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
             militar_numero_pm: mil.numero_pm,
             dia_mes: d,
-            legenda_codigo: isNoturno ? 'SN' : (isServico ? 'S' : 'F')
+            legenda_codigo: 'F'
           });
         }
       }
@@ -404,9 +409,113 @@ class StorageService {
     return sch;
   }
 
+  createSchedule(mes: number, ano: number): MonthlySchedule {
+    const militares = this.getMilitaresEscala();
+    const daysInMonth = new Date(ano, mes, 0).getDate();
+    const items: ScheduleItem[] = [];
+
+    for (const mil of militares) {
+      for (let d = 1; d <= daysInMonth; d++) {
+        const isServico = ((d + mil.ordem) % 3 === 0);
+        const isNoturno = ((d + mil.ordem) % 6 === 0);
+        items.push({
+          id: `item-${mil.id}-${d}-${Date.now()}`,
+          escala_id: `sch-${mes}-${ano}`,
+          equipe: mil.equipe_padrao || 'ALFA 1',
+          militar_id: mil.id,
+          militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
+          militar_numero_pm: mil.numero_pm,
+          dia_mes: d,
+          legenda_codigo: isNoturno ? 'SN' : (isServico ? 'S' : 'F')
+        });
+      }
+    }
+
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const newSchedule: MonthlySchedule = {
+      id: `sch-${mes}-${ano}`,
+      mes,
+      ano,
+      titulo: `Escala Operacional — ${monthNames[mes - 1]} / ${ano}`,
+      status: 'PUBLICADA',
+      itens: items,
+      created_at: new Date().toISOString()
+    };
+
+    this.saveSchedule(newSchedule);
+    return newSchedule;
+  }
+
+  copyScheduleFromPreviousMonth(mes: number, ano: number): { success: boolean, schedule?: MonthlySchedule } {
+    const prevMes = mes === 1 ? 12 : mes - 1;
+    const prevAno = mes === 1 ? ano - 1 : ano;
+    const prevSchedule = this.getSchedule(prevMes, prevAno);
+
+    if (!prevSchedule) {
+      return { success: false };
+    }
+
+    const militares = this.getMilitaresEscala();
+    const daysInMonth = new Date(ano, mes, 0).getDate();
+    const items: ScheduleItem[] = [];
+
+    for (const mil of militares) {
+      const prevMilItem = prevSchedule.itens.find(i => i.militar_id === mil.id);
+      const equipe = prevMilItem?.equipe || mil.equipe_padrao || 'ALFA 1';
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        items.push({
+          id: `item-${mil.id}-${d}-${Date.now()}`,
+          escala_id: `sch-${mes}-${ano}`,
+          equipe: equipe,
+          militar_id: mil.id,
+          militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
+          militar_numero_pm: mil.numero_pm,
+          dia_mes: d,
+          legenda_codigo: 'F'
+        });
+      }
+    }
+
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const newSchedule: MonthlySchedule = {
+      id: `sch-${mes}-${ano}`,
+      mes,
+      ano,
+      titulo: `Escala Operacional — ${monthNames[mes - 1]} / ${ano}`,
+      status: 'PUBLICADA',
+      itens: items,
+      created_at: new Date().toISOString()
+    };
+
+    this.saveSchedule(newSchedule);
+    return { success: true, schedule: newSchedule };
+  }
+
+  deleteSchedule(mes: number, ano: number): boolean {
+    const schedules = this.getSchedules();
+    const filtered = schedules.filter(s => !(s.mes === mes && s.ano === ano));
+    if (filtered.length === schedules.length) return false;
+    this.saveSchedules(filtered);
+    return true;
+  }
+
   saveSchedule(schedule: MonthlySchedule): void {
     if (!this.isBrowser()) return;
-    localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedule));
+    const schedules = this.getSchedules();
+    const idx = schedules.findIndex(s => s.mes === schedule.mes && s.ano === schedule.ano);
+    if (idx >= 0) {
+      schedules[idx] = schedule;
+    } else {
+      schedules.push(schedule);
+    }
+    this.saveSchedules(schedules);
   }
 
   // --- CÁLCULO DA "MINHA MISSÃO DO DIA" ---
@@ -428,7 +537,7 @@ class StorageService {
     const milRoster = militares.find(m => m.numero_pm.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, ''));
     const militarIdToFind = milRoster ? milRoster.id : user.id;
 
-    const userItemToday = schedule.itens.find(i => (i.militar_id === militarIdToFind || i.militar_numero_pm?.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, '')) && i.dia_mes === day);
+    const userItemToday = schedule?.itens.find(i => (i.militar_id === militarIdToFind || i.militar_numero_pm?.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, '')) && i.dia_mes === day);
     const currentLegendCode = userItemToday ? userItemToday.legenda_codigo : 'F';
     const legendObj = legends.find(l => l.codigo === currentLegendCode);
     const deServicoHoje = legendObj ? legendObj.conta_como_servico : false;
@@ -439,12 +548,14 @@ class StorageService {
 
     // Conta quantos serviços restantes o militar/equipe tem até o final do mês
     let servicosRestantesMes = 0;
-    for (let d = day; d <= daysInMonth; d++) {
-      const item = schedule.itens.find(i => i.militar_id === user.id && i.dia_mes === d);
-      if (item) {
-        const l = legends.find(leg => leg.codigo === item.legenda_codigo);
-        if (l && l.conta_como_servico) {
-          servicosRestantesMes++;
+    if (schedule) {
+      for (let d = day; d <= daysInMonth; d++) {
+        const item = schedule.itens.find(i => (i.militar_id === militarIdToFind || i.militar_id === user.id) && i.dia_mes === d);
+        if (item) {
+          const l = legends.find(leg => leg.codigo === item.legenda_codigo);
+          if (l && l.conta_como_servico) {
+            servicosRestantesMes++;
+          }
         }
       }
     }
