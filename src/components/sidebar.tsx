@@ -16,7 +16,6 @@ import {
   Users, 
   BarChart2, 
   LogOut, 
-  Zap, 
   SlidersHorizontal, 
   PlusCircle,
   PanelLeftClose,
@@ -25,7 +24,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { EgressosModal } from './egressos-modal';
-import { storage } from '@/lib/storage';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -34,12 +32,6 @@ export function Sidebar() {
   const [showEgressosModal, setShowEgressosModal] = useState(false);
 
   if (!user) return null;
-
-  const allLogs = storage.getLogs();
-  const allTargets = storage.getTargets(8, 2026);
-  const totalTargetCount = allTargets.reduce((acc, t) => acc + t.meta_total, 0);
-  const totalExecutedCount = allLogs.length;
-  const pctReal = totalTargetCount > 0 ? Math.min(100, Math.round((totalExecutedCount / totalTargetCount) * 100)) : 0;
 
   const isAdmin = user.role === 'ADMIN';
   const isSofOrAdmin = user.role === 'ADMIN' || user.role === 'SOF';
@@ -182,39 +174,6 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
-
-        {/* Bottom Feature Widget (Oculto quando recolhido) */}
-        {!isCollapsed && (
-          <div className="p-3">
-            <div className="p-3 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/80 dark:border-[#222938] space-y-2">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                  Missão do Plantão
-                </span>
-              </div>
-              <p className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
-                Turno — {user.equipe_padrao || 'Salinas'}
-              </p>
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-gray-500">
-                  <span>Metas cumpridas</span>
-                  <span className="font-bold">{pctReal}%</span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${pctReal}%` }} />
-                </div>
-              </div>
-              <Link
-                href="/dashboard/missao-do-dia"
-                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 text-xs font-semibold shadow-xs transition-colors mt-1"
-              >
-                <Zap className="w-3 h-3 text-amber-400" />
-                <span>Ver Minha Missão</span>
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* User Profile Footer */}
         <div className={`p-3 border-t border-gray-100 dark:border-[#222938] flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
