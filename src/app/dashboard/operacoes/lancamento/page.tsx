@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { storage } from '@/lib/storage';
-import { DEFAULT_TEAMS } from '@/lib/mock-data';
 import { OperationType, UserProfile, OperationExecutionLog } from '@/lib/types';
 import { validateOperationLaunch } from '@/lib/validation';
 import { useAuth } from '@/lib/auth-context';
@@ -25,6 +24,7 @@ export default function LancamentoOperacoesPage() {
   const { user } = useAuth();
   const [operations, setOperations] = useState<OperationType[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
   const [logs, setLogs] = useState<OperationExecutionLog[]>([]);
   const [successMsg, setSuccessMsg] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -54,14 +54,18 @@ export default function LancamentoOperacoesPage() {
   useEffect(() => {
     const ops = storage.getOperations();
     const uList = storage.getUsers();
+    const loadedTeams = storage.getTeams();
     setOperations(ops);
     setUsers(uList);
+    setTeams(loadedTeams);
     setLogs(storage.getLogs());
 
     if (ops.length > 0) setSelectedOpId(ops[0].id);
     if (user) {
       setMilitarId(user.id);
-      setEquipe(user.equipe_padrao || 'ALFA 1');
+      setEquipe(user.equipe_padrao || (loadedTeams[0] || 'ALFA 1'));
+    } else if (loadedTeams.length > 0) {
+      setEquipe(loadedTeams[0]);
     }
   }, [user]);
 
@@ -251,7 +255,7 @@ export default function LancamentoOperacoesPage() {
                   className="untitled-input font-medium"
                   required
                 >
-                  {DEFAULT_TEAMS.map((t) => (
+                  {teams.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { storage } from '@/lib/storage';
-import { TARGET_TEAMS } from '@/lib/mock-data';
 import { OperationType, MonthlyTarget, OperationExecutionLog } from '@/lib/types';
 import { 
   BarChart2, 
@@ -18,11 +17,13 @@ export default function RelatoriosPage() {
   const [operations, setOperations] = useState<OperationType[]>([]);
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
   const [logs, setLogs] = useState<OperationExecutionLog[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
 
   useEffect(() => {
     setOperations(storage.getOperations());
     setTargets(storage.getTargets(mes, ano));
     setLogs(storage.getLogs());
+    setTeams(storage.getTeams());
   }, [mes, ano]);
 
   const totalMetas = targets.reduce((acc, t) => acc + t.meta_total, 0);
@@ -48,10 +49,10 @@ export default function RelatoriosPage() {
     };
   });
 
-  const teamStats = TARGET_TEAMS.map(team => {
-    const teamLogs = logs.filter(l => l.equipe.toUpperCase().includes(team));
+  const teamStats = teams.map(team => {
+    const teamLogs = logs.filter(l => l.equipe.toUpperCase().includes(team.toUpperCase()));
     const teamTargetCount = targets.reduce((acc, t) => {
-      const dist = t.distribuicoes?.find(d => d.equipe.toUpperCase() === team);
+      const dist = t.distribuicoes?.find(d => d.equipe.toUpperCase() === team.toUpperCase());
       return acc + (dist ? dist.meta_quantitativa : 0);
     }, 0);
 

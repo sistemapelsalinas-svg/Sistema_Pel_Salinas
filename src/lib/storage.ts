@@ -422,7 +422,7 @@ class StorageService {
     teams[idx] = cleanNew;
     this.saveTeams(teams);
 
-    // Atualiza militares da escala que usam essa equipe
+    // 1. Atualiza militares da escala que usam essa equipe
     const militares = this.getMilitaresEscala();
     let updatedMilitares = false;
     militares.forEach(m => {
@@ -435,7 +435,7 @@ class StorageService {
       this.saveMilitaresEscala(militares);
     }
 
-    // Atualiza itens de escalas existentes
+    // 2. Atualiza itens de escalas existentes
     const schedules = this.getSchedules();
     let updatedSchedules = false;
     schedules.forEach(sch => {
@@ -447,7 +447,48 @@ class StorageService {
       });
     });
     if (updatedSchedules) {
-      localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedules));
+      this.saveSchedules(schedules);
+    }
+
+    // 3. Atualiza distribuições de metas em todas as metas cadastradas
+    const allTargets = this.getAllTargets();
+    let updatedTargets = false;
+    allTargets.forEach(t => {
+      t.distribuicoes?.forEach(d => {
+        if (d.equipe === oldName) {
+          d.equipe = cleanNew;
+          updatedTargets = true;
+        }
+      });
+    });
+    if (updatedTargets) {
+      this.saveTargets(allTargets);
+    }
+
+    // 4. Atualiza usuários cadastrados
+    const users = this.getUsers();
+    let updatedUsers = false;
+    users.forEach(u => {
+      if (u.equipe_padrao === oldName) {
+        u.equipe_padrao = cleanNew;
+        updatedUsers = true;
+      }
+    });
+    if (updatedUsers) {
+      this.saveUsers(users);
+    }
+
+    // 5. Atualiza registros de operações executadas
+    const logs = this.getLogs();
+    let updatedLogs = false;
+    logs.forEach(l => {
+      if (l.equipe === oldName) {
+        l.equipe = cleanNew;
+        updatedLogs = true;
+      }
+    });
+    if (updatedLogs) {
+      this.saveLogs(logs);
     }
 
     return true;
@@ -458,6 +499,61 @@ class StorageService {
     const filtered = teams.filter(t => t !== teamName);
     if (filtered.length === teams.length) return false;
     this.saveTeams(filtered);
+
+    // 1. Atualiza militares da escala
+    const militares = this.getMilitaresEscala();
+    let updatedMilitares = false;
+    militares.forEach(m => {
+      if (m.equipe_padrao === teamName) {
+        m.equipe_padrao = '';
+        updatedMilitares = true;
+      }
+    });
+    if (updatedMilitares) {
+      this.saveMilitaresEscala(militares);
+    }
+
+    // 2. Atualiza itens de escalas
+    const schedules = this.getSchedules();
+    let updatedSchedules = false;
+    schedules.forEach(sch => {
+      sch.itens?.forEach(it => {
+        if (it.equipe === teamName) {
+          it.equipe = '';
+          updatedSchedules = true;
+        }
+      });
+    });
+    if (updatedSchedules) {
+      this.saveSchedules(schedules);
+    }
+
+    // 3. Remove das distribuições de metas
+    const allTargets = this.getAllTargets();
+    let updatedTargets = false;
+    allTargets.forEach(t => {
+      if (t.distribuicoes && t.distribuicoes.some(d => d.equipe === teamName)) {
+        t.distribuicoes = t.distribuicoes.filter(d => d.equipe !== teamName);
+        updatedTargets = true;
+      }
+    });
+    if (updatedTargets) {
+      this.saveTargets(allTargets);
+    }
+
+    // 4. Atualiza usuários
+    const users = this.getUsers();
+    let updatedUsers = false;
+    users.forEach(u => {
+      if (u.equipe_padrao === teamName) {
+        u.equipe_padrao = '';
+        updatedUsers = true;
+      }
+    });
+    if (updatedUsers) {
+      this.saveUsers(users);
+    }
+
     return true;
   }
 

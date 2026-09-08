@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { storage } from '@/lib/storage';
-import { DEFAULT_TEAMS } from '@/lib/mock-data';
 import { UserProfile, UserRole } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { RoleBadge } from '@/components/role-badge';
@@ -21,6 +20,7 @@ import {
 export default function GestaoUsuariosPage() {
   const { user: loggedUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   const [selectedUserForInvite, setSelectedUserForInvite] = useState<UserProfile | null>(null);
@@ -39,6 +39,11 @@ export default function GestaoUsuariosPage() {
 
   useEffect(() => {
     setUsers(storage.getUsers());
+    const loadedTeams = storage.getTeams();
+    setTeams(loadedTeams);
+    if (loadedTeams.length > 0) {
+      setFormData(prev => ({ ...prev, equipe_padrao: loadedTeams[0] }));
+    }
   }, []);
 
   const showToast = (msg: string) => {
@@ -390,7 +395,7 @@ export default function GestaoUsuariosPage() {
                     onChange={(e) => setFormData({ ...formData, equipe_padrao: e.target.value })}
                     className="untitled-input"
                   >
-                    {DEFAULT_TEAMS.map((t) => (
+                    {teams.map((t) => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>

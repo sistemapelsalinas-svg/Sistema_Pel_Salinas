@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { storage } from '@/lib/storage';
-import { TARGET_TEAMS } from '@/lib/mock-data';
 import { MonthlyTarget, OperationType } from '@/lib/types';
 import { distributeEqually, distributeByPercentages } from '@/lib/validation';
 import { format } from 'date-fns';
@@ -33,18 +32,20 @@ export default function GestaoMetasPage() {
   const [pendingYear, setPendingYear] = useState<number | null>(null);
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
   const [operations, setOperations] = useState<OperationType[]>([]);
+  const [allTeams, setAllTeams] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Modal de Distribuição para uma Operação
   const [selectedTarget, setSelectedTarget] = useState<MonthlyTarget | null>(null);
   const [distributionMode, setDistributionMode] = useState<'EQUAL' | 'PERCENTAGE'>('EQUAL');
-  const [selectedTeams, setSelectedTeams] = useState<string[]>(TARGET_TEAMS);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [customPercentages, setCustomPercentages] = useState<{ [team: string]: number }>({});
 
   const availableYears = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
 
   useEffect(() => {
     setOperations(storage.getOperations());
+    setAllTeams(storage.getTeams());
     loadTargets();
   }, [mes, ano]);
 
@@ -92,7 +93,8 @@ export default function GestaoMetasPage() {
     if (!op) return;
 
     const defaultTotal = 20;
-    const initialTeams = ['ALFA 1', 'ALFA 2', 'BRAVO 1', 'BRAVO 2', 'CHARLIE 1', 'CHARLIE 2'];
+    const currentTeams = storage.getTeams();
+    const initialTeams = currentTeams.length > 0 ? currentTeams.slice(0, 6) : ['ALFA 1', 'BRAVO 1'];
     const equalDist = distributeEqually(defaultTotal, initialTeams);
 
     const newTarget: MonthlyTarget = {
@@ -118,35 +120,46 @@ export default function GestaoMetasPage() {
   };
 
   const handleOpenDistributionModal = (target: MonthlyTarget) => {
+    const currentTeams = storage.getTeams();
+    setAllTeams(currentTeams);
     setSelectedTarget(target);
     const existingTeams = target.distribuicoes && target.distribuicoes.length > 0
-      ? target.distribuicoes.map(d => d.equipe)
-      : ['ALFA 1', 'ALFA 2', 'BRAVO 1', 'BRAVO 2', 'CHARLIE 1', 'CHARLIE 2'];
-    setSelectedTeams(existingTeams);
+      ? target.distribuicoes.map(d => d.equipe).filter(eq => currentTeams.includes(eq))
+      : (currentTeams.length > 0 ? currentTeams.slice(0, 6) : currentTeams);
+    const finalSelected = existingTeams.length > 0 ? existingTeams : currentTeams;
+    setSelectedTeams(finalSelected);
 
     const pcts: { [team: string]: number } = {};
     if (target.distribuicoes && target.distribuicoes.length > 0) {
       target.distribuicoes.forEach(d => {
-        pcts[d.equipe] = d.percentual_alocado || Number((100 / target.distribuicoes!.length).toFixed(1));
+        if (currentTeams.includes(d.equipe)) {
+          pcts[d.equipe] = d.percentual_alocado || Number((100 / finalSelected.length).toFixed(1));
+        }
       });
     } else {
-      const defaultPct = Number((100 / existingTeams.length).toFixed(1));
-      existingTeams.forEach(t => { pcts[t] = defaultPct; });
+      const defaultPct = Number((100 / finalSelected.length).toFixed(1));
+      finalSelected.forEach(t => { pcts[t] = defaultPct; });
     }
     setCustomPercentages(pcts);
   };
 
   const handleSelectAllTeams = () => {
-    setSelectedTeams([...TARGET_TEAMS]);
+    const currentTeams = storage.getTeams();
+    setSelectedTeams([...currentTeams]);
   };
 
   const handleSelectMainShiftTeams = () => {
-    setSelectedTeams(['ALFA 1', 'ALFA 2', 'BRAVO 1', 'BRAVO 2', 'CHARLIE 1', 'CHARLIE 2']);
+    const currentTeams = storage.getTeams();
+    const main = currentTeams.filter(t => t.includes('ALFA') || t.includes('BRAVO') || t.includes('CHARLIE'));
+    setSelectedTeams(main.length > 0 ? main : currentTeams);
   };
 
   const handleClearTeams = () => {
-    if (TARGET_TEAMS.length > 0) {
-      setSelectedTeams([TARGET_TEAMS[0]]);
+    const currentTeams = storage.getTeams();
+    if (currentTeams.length > 0) {
+      setSelectedTeams([currentTeams[0]]);
+    } else {
+      setSelectedTeams([]);
     }
   };
 
@@ -551,7 +564,7 @@ export default function GestaoMetasPage() {
               <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                   <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase tracking-wider">
-                    Equipes Selecionadas ({selectedTeams.length} de {TARGET_TEAMS.length})
+                    Equipes Selecionadas ({selectedTeams.length} de {allTeams.length})
                   </label>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -559,7 +572,7 @@ export default function GestaoMetasPage() {
                       onClick={handleSelectAllTeams}
                       className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                     >
-                      Todas ({TARGET_TEAMS.length})
+                      Todas ({allTeams.length})
                     </button>
                     <button
                       type="button"
@@ -578,9 +591,9 @@ export default function GestaoMetasPage() {
                   </div>
                 </div>
 
-                {/* Grid das 21 Equipes */}
+                {/* Grid das Equipes Dinâmicas */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-48 overflow-y-auto p-1 border border-gray-100 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
-                  {TARGET_TEAMS.map((team) => {
+                  {allTeams.map((team) => {
                     const isSelected = selectedTeams.includes(team);
                     return (
                       <button

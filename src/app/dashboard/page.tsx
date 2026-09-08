@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { storage } from '@/lib/storage';
-import { TARGET_TEAMS } from '@/lib/mock-data';
 import { 
   Target, 
   AlertTriangle, 
@@ -33,6 +32,7 @@ export default function DashboardOverviewPage() {
   const [alerts, setAlerts] = useState(storage.getAlerts());
   const [targets, setTargets] = useState(storage.getTargets(8, 2026));
   const [schedule, setSchedule] = useState(storage.getSchedule(8, 2026));
+  const [teams, setTeams] = useState<string[]>(storage.getTeams());
 
   useEffect(() => {
     setOperations(storage.getOperations());
@@ -40,6 +40,7 @@ export default function DashboardOverviewPage() {
     setAlerts(storage.getAlerts());
     setTargets(storage.getTargets(8, 2026));
     setSchedule(storage.getSchedule(8, 2026));
+    setTeams(storage.getTeams());
   }, []);
 
   const totalMetas = targets.reduce((acc, t) => acc + t.meta_total, 0);
@@ -119,7 +120,7 @@ export default function DashboardOverviewPage() {
     };
   });
 
-  const teamDistributionStats = TARGET_TEAMS.map(team => {
+  const teamDistributionStats = teams.map(team => {
     const teamTargetCount = targets.reduce((acc, t) => {
       const dist = t.distribuicoes?.find(d => d.equipe.toUpperCase() === team.toUpperCase());
       return acc + (dist ? dist.meta_quantitativa : 0);
