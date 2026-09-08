@@ -60,12 +60,26 @@ export default function LancamentoOperacoesPage() {
     setTeams(loadedTeams);
     setLogs(storage.getLogs());
 
-    if (ops.length > 0) setSelectedOpId(ops[0].id);
-    if (user) {
-      setMilitarId(user.id);
-      setEquipe(user.equipe_padrao || (loadedTeams[0] || 'ALFA 1'));
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const queryOpId = params?.get('opId');
+    const queryEquipe = params?.get('equipe');
+
+    if (queryOpId && ops.some(o => o.id === queryOpId)) {
+      setSelectedOpId(queryOpId);
+    } else if (ops.length > 0) {
+      setSelectedOpId(ops[0].id);
+    }
+
+    if (queryEquipe && loadedTeams.includes(queryEquipe)) {
+      setEquipe(queryEquipe);
+    } else if (user?.equipe_padrao) {
+      setEquipe(user.equipe_padrao);
     } else if (loadedTeams.length > 0) {
       setEquipe(loadedTeams[0]);
+    }
+
+    if (user) {
+      setMilitarId(user.id);
     }
   }, [user]);
 

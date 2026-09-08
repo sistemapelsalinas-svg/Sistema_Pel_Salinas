@@ -8,7 +8,9 @@ import {
   ScheduleLegend,
   DailyMissionData,
   EscalaMilitar,
-  ScheduleItem
+  ScheduleItem,
+  GuarnicaoMilitar,
+  TeamOperationMissionTarget
 } from './types';
 import { 
   INITIAL_USERS, 
@@ -728,12 +730,15 @@ class StorageService {
     this.saveSchedules(schedules);
   }
 
-  // --- CÁLCULO DA "MINHA MISSÃO DO DIA" ---
+  // --- CÁLCULO DA "MINHA MISSÃO DO DIA" (DOSSIER OPERACIONAL) ---
   getDailyMission(user: UserProfile, date: Date = new Date()): DailyMissionData {
     const day = date.getDate();
     const mes = date.getMonth() + 1;
     const ano = date.getFullYear();
     const daysInMonth = new Date(ano, mes, 0).getDate();
+
+    const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const diaSemana = dayNames[date.getDay()];
 
     const schedule = this.getSchedule(mes, ano);
     const legends = this.getLegends();
@@ -743,36 +748,84 @@ class StorageService {
     const alerts = this.getAlerts();
     const militares = this.getMilitaresEscala();
 
-    // Localiza o militar na escala pelo Nº PM ou ID
-    const milRoster = militares.find(m => m.numero_pm.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, ''));
+    // 1. Normalização e Localização do Militar
+    const userPmClean = (user.numero_pm || '').replace(/\D/g, '');
+    const milRoster = militares.find(m => {
+      const mPmClean = (m.numero_pm || '').replace(/\D/g, '');
+      return (userPmClean && mPmClean === userPmClean) || m.id === user.id;
+    });
+
     const militarIdToFind = milRoster ? milRoster.id : user.id;
 
-    const userItemToday = schedule?.itens.find(i => (i.militar_id === militarIdToFind || i.militar_numero_pm?.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, '')) && i.dia_mes === day);
+    // 2. Localização do Item da Escala de Hoje
+    const userItemToday = schedule?.itens.find(i => {
+      const iPmClean = (i.militar_numero_pm || '').replace(/\D/g, '');
+      const matchPm = userPmClean && iPmClean && iPmClean === userPmClean;
+      const matchId = i.militar_id === militarIdToFind || i.militar_id === user.id;
+      return (matchPm || matchId) && i.dia_mes === day;
+    });
+
     const currentLegendCode = userItemToday ? userItemToday.legenda_codigo : 'F';
     const legendObj = legends.find(l => l.codigo === currentLegendCode);
     const deServicoHoje = legendObj ? legendObj.conta_como_servico : false;
-    const equipeHoje = userItemToday ? userItemToday.equipe : (user.equipe_padrao || 'ALFA 1');
+    const legendaDescricao = legendObj ? legendObj.descricao : 'Folga';
+    const equipeHoje = userItemToday?.equipe || milRoster?.equipe_padrao || user.equipe_padrao || '';
 
-    // Mapeia nome base da equipe (Ex: 'ALFA 1' -> 'ALFA')
-    const teamGroup = equipeHoje.split(' ')[0].toUpperCase();
-
-    // Conta quantos serviços restantes o militar/equipe tem até o final do mês
+    // 3. Contagem de Plantões do Mês (Total, Atual e Restantes)
+    let totalPlantaoMes = 0;
+    let plantaoAtualIndex = 0;
     let servicosRestantesMes = 0;
+
     if (schedule) {
-      for (let d = day; d <= daysInMonth; d++) {
-        const item = schedule.itens.find(i => (i.militar_id === militarIdToFind || i.militar_id === user.id) && i.dia_mes === d);
-        if (item) {
-          const l = legends.find(leg => leg.codigo === item.legenda_codigo);
-          if (l && l.conta_como_servico) {
-            servicosRestantesMes++;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const it = schedule.itens.find(i => {
+          const iPmClean = (i.militar_numero_pm || '').replace(/\D/g, '');
+          const matchPm = userPmClean && iPmClean && iPmClean === userPmClean;
+          return (matchPm || i.militar_id === militarIdToFind || i.militar_id === user.id) && i.dia_mes === d;
+        });
+
+        if (it) {
+          const leg = legends.find(l => l.codigo === it.legenda_codigo);
+          if (leg && leg.conta_como_servico) {
+            totalPlantaoMes++;
+            if (d <= day) {
+              plantaoAtualIndex++;
+            }
+            if (d >= day) {
+              servicosRestantesMes++;
+            }
           }
         }
       }
     }
-    if (servicosRestantesMes === 0 && deServicoHoje) servicosRestantesMes = 1;
 
-    // Metas da equipe
-    const metasEquipe = targets.map(t => {
+    if (totalPlantaoMes === 0 && deServicoHoje) {
+      totalPlantaoMes = 1;
+      plantaoAtualIndex = 1;
+      servicosRestantesMes = 1;
+    }
+
+    // 4. Identificação da Guarnição do Dia (Colegas escalados na mesma equipe hoje)
+    const guarnicaoHoje: GuarnicaoMilitar[] = [];
+    if (schedule && equipeHoje) {
+      schedule.itens
+        .filter(i => i.dia_mes === day && i.equipe.toUpperCase() === equipeHoje.toUpperCase())
+        .forEach(i => {
+          const iPmClean = (i.militar_numero_pm || '').replace(/\D/g, '');
+          const isMe = (userPmClean && iPmClean === userPmClean) || i.militar_id === militarIdToFind || i.militar_id === user.id;
+          guarnicaoHoje.push({
+            id: i.militar_id,
+            militar_nome: i.militar_nome || 'Militar',
+            militar_numero_pm: i.militar_numero_pm || '',
+            equipe: i.equipe,
+            legenda_codigo: i.legenda_codigo,
+            isCurrentUser: isMe
+          });
+        });
+    }
+
+    // 5. Cálculo das Metas da Equipe
+    const metasCalculadas: TeamOperationMissionTarget[] = targets.map(t => {
       const op = operations.find(o => o.id === t.tipo_operacao_id) || {
         id: t.tipo_operacao_id,
         grupo: 'POG' as const,
@@ -782,42 +835,79 @@ class StorageService {
         ativo: true
       };
 
-      const dist = t.distribuicoes?.find(d => d.equipe.toUpperCase() === teamGroup);
-      const metaMensal = dist ? dist.meta_quantitativa : Math.round(t.meta_total / 4);
+      // Procura alocação da equipe
+      const dist = t.distribuicoes?.find(d => 
+        d.equipe.toUpperCase() === equipeHoje.toUpperCase() ||
+        (equipeHoje && d.equipe.toUpperCase().includes(equipeHoje.toUpperCase()))
+      );
 
-      // Quantas já foram executadas por esta equipe este mês
+      const metaMensal = dist ? dist.meta_quantitativa : 0;
+
+      // Executadas pela equipe neste mês
       const executadas = logs.filter(l => {
-        const isThisMonth = new Date(l.data_execucao).getMonth() + 1 === mes;
+        if (!l.data_execucao) return false;
+        const logDate = new Date(l.data_execucao);
+        const isThisMonth = (logDate.getMonth() + 1) === mes && logDate.getFullYear() === ano;
         const isThisOp = l.tipo_operacao_id === t.tipo_operacao_id;
-        const isThisTeam = l.equipe.toUpperCase().includes(teamGroup);
+        const isThisTeam = equipeHoje 
+          ? (l.equipe.toUpperCase() === equipeHoje.toUpperCase() || l.equipe.toUpperCase().includes(equipeHoje.toUpperCase()))
+          : true;
         return isThisMonth && isThisOp && isThisTeam;
       }).length;
 
       const restantes = Math.max(0, metaMensal - executadas);
       const divisor = Math.max(1, servicosRestantesMes);
       const mediaNecessariaPorPlantao = Number((restantes / divisor).toFixed(1));
+      const sugestaoHoje = deServicoHoje && restantes > 0 ? Math.max(1, Math.ceil(restantes / divisor)) : 0;
+      const percentual = metaMensal > 0 ? Math.min(100, Math.round((executadas / metaMensal) * 100)) : (executadas > 0 ? 100 : 0);
+
+      let statusMeta: 'ATINGIDA' | 'NO_RITMO' | 'ATENCAO' | 'CRITICA' = 'NO_RITMO';
+      if (percentual >= 100) {
+        statusMeta = 'ATINGIDA';
+      } else if (mediaNecessariaPorPlantao <= 1.0) {
+        statusMeta = 'NO_RITMO';
+      } else if (mediaNecessariaPorPlantao <= 2.5) {
+        statusMeta = 'ATENCAO';
+      } else {
+        statusMeta = 'CRITICA';
+      }
 
       return {
         operacao: op,
         metaMensal,
         executadas,
         restantes,
-        mediaNecessariaPorPlantao
+        mediaNecessariaPorPlantao,
+        sugestaoHoje,
+        percentual,
+        statusMeta
       };
     });
 
-    // Pendências do último serviço (se na última escala faltou registrar operações de OS)
-    const pendenciasUltimoServico: string[] = [];
-    const osOperations = operations.filter(o => o.grupo === 'ORDENS_SERVICO');
-    if (osOperations.length > 0) {
-      const osOp = osOperations[0];
-      const hasRecentLog = logs.some(l => l.tipo_operacao_id === osOp.id && l.equipe.toUpperCase().includes(teamGroup));
-      if (!hasRecentLog) {
-        pendenciasUltimoServico.push(`Atenção: A ${osOp.titulo} (${osOp.codigo_natureza}) está com execução pendente pela sua equipe. Priorizar abordagem e registro no turno de hoje!`);
-      }
-    }
+    // Se houver operações ativas sem meta explícita, inclui se houver execução
+    const metasEquipe = metasCalculadas.filter(m => m.metaMensal > 0 || m.executadas > 0);
 
-    // Alertas ativos com risco ALTO ou CRÍTICO
+    const totalMetasEquipe = metasEquipe.reduce((acc, m) => acc + m.metaMensal, 0);
+    const totalRealizadasEquipe = metasEquipe.reduce((acc, m) => acc + m.executadas, 0);
+    const totalRestantesEquipe = Math.max(0, totalMetasEquipe - totalRealizadasEquipe);
+    const percentualGeralEquipe = totalMetasEquipe > 0 ? Math.min(100, Math.round((totalRealizadasEquipe / totalMetasEquipe) * 100)) : 0;
+
+    // 6. Pendências e Avisos de Ordens de Serviço (OS)
+    const pendenciasUltimoServico: string[] = [];
+    const osOperations = operations.filter(o => o.grupo === 'ORDENS_SERVICO' && o.ativo);
+    osOperations.forEach(osOp => {
+      const hasRecentLog = logs.some(l => {
+        const logDate = new Date(l.data_execucao);
+        const isThisMonth = (logDate.getMonth() + 1) === mes && logDate.getFullYear() === ano;
+        const isThisTeam = equipeHoje ? (l.equipe.toUpperCase() === equipeHoje.toUpperCase()) : true;
+        return l.tipo_operacao_id === osOp.id && isThisMonth && isThisTeam;
+      });
+      if (!hasRecentLog) {
+        pendenciasUltimoServico.push(`Atenção: A ${osOp.titulo} (${osOp.codigo_natureza}) ainda não possui registros executados pela sua equipe neste mês. Priorizar abordagem e registro no turno de hoje!`);
+      }
+    });
+
+    // 7. Alertas Ativos de Risco Alto ou Crítico
     const alertasSetor = alerts.filter(a => a.status === 'ATIVO' && (a.grau_risco === 'CRITICO' || a.grau_risco === 'ALTO'));
 
     return {
@@ -825,7 +915,19 @@ class StorageService {
       equipeHoje,
       deServicoHoje,
       legendaHoje: currentLegendCode,
+      legendaDescricao,
+      dia: day,
+      mes,
+      ano,
+      diaSemana,
+      totalPlantaoMes,
+      plantaoAtualIndex,
       servicosRestantesMes,
+      guarnicaoHoje,
+      totalMetasEquipe,
+      totalRealizadasEquipe,
+      totalRestantesEquipe,
+      percentualGeralEquipe,
       metasEquipe,
       pendenciasUltimoServico,
       alertasSetor

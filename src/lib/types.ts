@@ -139,19 +139,45 @@ export interface MonthlySchedule {
   created_at: string;
 }
 
+export interface GuarnicaoMilitar {
+  id: string;
+  militar_nome: string;
+  militar_numero_pm: string;
+  equipe: string;
+  legenda_codigo: string;
+  isCurrentUser: boolean;
+}
+
+export interface TeamOperationMissionTarget {
+  operacao: OperationType;
+  metaMensal: number;
+  executadas: number;
+  restantes: number;
+  mediaNecessariaPorPlantao: number;
+  sugestaoHoje: number;
+  percentual: number;
+  statusMeta: 'ATINGIDA' | 'NO_RITMO' | 'ATENCAO' | 'CRITICA';
+}
+
 export interface DailyMissionData {
   militar: UserProfile;
   equipeHoje: string;
   deServicoHoje: boolean;
   legendaHoje: string;
+  legendaDescricao: string;
+  dia: number;
+  mes: number;
+  ano: number;
+  diaSemana: string;
+  totalPlantaoMes: number;
+  plantaoAtualIndex: number;
   servicosRestantesMes: number;
-  metasEquipe: {
-    operacao: OperationType;
-    metaMensal: number;
-    executadas: number;
-    restantes: number;
-    mediaNecessariaPorPlantao: number;
-  }[];
+  guarnicaoHoje: GuarnicaoMilitar[];
+  totalMetasEquipe: number;
+  totalRealizadasEquipe: number;
+  totalRestantesEquipe: number;
+  percentualGeralEquipe: number;
+  metasEquipe: TeamOperationMissionTarget[];
   pendenciasUltimoServico: string[];
   alertasSetor: HomicideAlert[];
 }
