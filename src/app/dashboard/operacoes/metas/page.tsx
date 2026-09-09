@@ -115,7 +115,43 @@ export default function GestaoMetasPage() {
 
   const loadTargets = () => {
     const currentTargets = storage.getTargets(mes, ano);
-    setTargets(currentTargets);
+    
+    // Validação e autocorreção: se alguma meta existente tiver soma de operações diferente de meta_total devido a arredondamentos antigos, recalcula
+    let changed = false;
+    const healed = currentTargets.map(tgt => {
+      if (tgt.distribuicoes && tgt.distribuicoes.length > 0) {
+        const sumOps = tgt.distribuicoes.reduce((acc, d) => acc + (d.meta_quantitativa || 0), 0);
+        if (sumOps !== tgt.meta_total) {
+          const pcts: { [team: string]: number } = {};
+          tgt.distribuicoes.forEach(d => {
+            pcts[d.equipe] = d.percentual_alocado;
+          });
+          const dist = distributeByPercentages(tgt.meta_total, pcts);
+          changed = true;
+          return {
+            ...tgt,
+            distribuicoes: tgt.distribuicoes.map(d => ({
+              ...d,
+              percentual_alocado: dist[d.equipe]?.percent ?? d.percentual_alocado,
+              meta_quantitativa: dist[d.equipe]?.count ?? d.meta_quantitativa
+            }))
+          };
+        }
+      }
+      return tgt;
+    });
+
+    if (changed) {
+      const all = storage.getAllTargets();
+      const updatedAll = all.map(t => {
+        const found = healed.find(h => h.id === t.id);
+        return found || t;
+      });
+      storage.saveTargets(updatedAll);
+      setTargets(healed);
+    } else {
+      setTargets(currentTargets);
+    }
   };
 
   const showToast = (type: 'success' | 'error', message: string) => {
@@ -331,6 +367,18 @@ export default function GestaoMetasPage() {
     return Number(sum.toFixed(1));
   }, [selectedTeams, customPercentages]);
 
+  // Distribuição calculada em tempo real com o método dos maiores restos (Hare-Niemeyer)
+  // Garante que a soma das operações NUNCA ultrapasse a meta_total
+  const dynamicModalDistribution = useMemo(() => {
+    if (!selectedTarget || selectedTeams.length === 0) return {};
+    return distributeByPercentages(selectedTarget.meta_total, customPercentages);
+  }, [selectedTarget, selectedTeams, customPercentages]);
+
+  const currentTotalAllocatedOps = useMemo(() => {
+    if (!selectedTarget || selectedTeams.length === 0) return 0;
+    return Object.values(dynamicModalDistribution).reduce((acc, d) => acc + (d.count || 0), 0);
+  }, [selectedTarget, selectedTeams, dynamicModalDistribution]);
+
   const isPercentageExceeded = currentTotalPercentage > 100.05;
 
   const handleSaveDistribution = () => {
@@ -393,7 +441,11 @@ export default function GestaoMetasPage() {
 
     let newDistributions: TeamTargetAllocation[] = [];
     if (teams.length > 0) {
-      const dist = distributeEqually(newTotal, teams);
+      const pcts: { [team: string]: number } = {};
+      t.distribuicoes?.forEach(d => {
+        pcts[d.equipe] = d.percentual_alocado;
+      });
+      const dist = distributeByPercentages(newTotal, pcts);
       newDistributions = Object.entries(dist).map(([team, data]) => ({
         id: `dst-${Date.now()}-${team}`,
         meta_mensal_id: t.id,
@@ -1141,7 +1193,7 @@ export default function GestaoMetasPage() {
                     <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
                       {selectedTeams.map((team) => {
                         const pct = customPercentages[team] || 0;
-                        const opsCalc = Math.round((selectedTarget.meta_total * pct) / 100);
+                        const opsCalc = dynamicModalDistribution[team]?.count ?? 0;
 
                         return (
                           <div
@@ -1201,7 +1253,7 @@ export default function GestaoMetasPage() {
                     </div>
                   </div>
 
-                  {/* Indicador em Tempo Real da Soma dos Percentuais */}
+                  {/* Indicador em Tempo Real da Soma dos Percentuais e Operações */}
                   <div className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold ${
                     isPercentageExceeded
                       ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
@@ -1220,11 +1272,11 @@ export default function GestaoMetasPage() {
 
                       <span>
                         {isPercentageExceeded ? (
-                          <strong>A soma atual é {currentTotalPercentage}% (extrapola 100% por {(currentTotalPercentage - 100).toFixed(1)}%). O salvamento está bloqueado.</strong>
+                          <strong>A soma atual é {currentTotalPercentage}% ({currentTotalAllocatedOps} ops), extrapolando os 100% da meta ({selectedTarget.meta_total} ops). O salvamento está bloqueado.</strong>
                         ) : currentTotalPercentage === 100 ? (
-                          <strong>Soma das porcentagens: exatamente 100% (distribuição perfeita de {selectedTarget.meta_total} operações).</strong>
+                          <strong>Soma das operações: exatamente {currentTotalAllocatedOps} de {selectedTarget.meta_total} ops (100% da cota distribuída perfeitamente).</strong>
                         ) : (
-                          <span>Soma atual: <strong>{currentTotalPercentage}%</strong> (Resta <strong>{(100 - currentTotalPercentage).toFixed(1)}%</strong> para atingir 100%).</span>
+                          <span>Soma atual: <strong>{currentTotalAllocatedOps} de {selectedTarget.meta_total} ops</strong> ({currentTotalPercentage}% alocado · resta <strong>{(100 - currentTotalPercentage).toFixed(1)}%</strong>).</span>
                         )}
                       </span>
                     </div>

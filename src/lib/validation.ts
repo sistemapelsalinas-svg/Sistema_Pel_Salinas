@@ -161,32 +161,100 @@ export function distributeEqually(total: number, teams: string[]): { [team: stri
   if (teams.length === 0) return {};
   const baseCount = Math.floor(total / teams.length);
   const remainder = total % teams.length;
-  const percentPerTeam = Number((100 / teams.length).toFixed(2));
+  const basePct = Math.floor((100 / teams.length) * 10) / 10;
+  let accumulatedPct = 0;
 
   const result: { [team: string]: { percent: number; count: number } } = {};
   teams.forEach((team, index) => {
-    // Distribui o resto para os primeiros times
     const count = baseCount + (index < remainder ? 1 : 0);
+    let pct: number;
+    if (index === teams.length - 1) {
+      pct = Number((100 - accumulatedPct).toFixed(1));
+    } else {
+      pct = basePct;
+      accumulatedPct += basePct;
+    }
     result[team] = {
-      percent: percentPerTeam,
+      percent: pct,
       count
     };
   });
   return result;
 }
 
-// Algoritmo de Distribuição Percentual de Metas
+// Algoritmo de Distribuição Percentual de Metas com Método dos Maiores Restos (Hare-Niemeyer)
+// Garante rigorosamente que a soma dos inteiros alocados JAMAIS ultrapassa a meta_total
 export function distributeByPercentages(
   total: number, 
   percentages: { [team: string]: number }
 ): { [team: string]: { percent: number; count: number } } {
-  const result: { [team: string]: { percent: number; count: number } } = {};
-  for (const [team, pct] of Object.entries(percentages)) {
-    const count = Math.round((total * pct) / 100);
-    result[team] = {
-      percent: pct,
-      count
-    };
+  const teams = Object.keys(percentages);
+  if (teams.length === 0 || total <= 0) {
+    const empty: { [team: string]: { percent: number; count: number } } = {};
+    teams.forEach(t => { empty[t] = { percent: percentages[t] || 0, count: 0 }; });
+    return empty;
   }
+
+  // 1. Calcula a soma das porcentagens (ex: 100%, ou parcial como 50%)
+  const sumPct = teams.reduce((acc, t) => acc + (percentages[t] || 0), 0);
+  
+  // Meta total de operações a distribuir neste percentual
+  // Se soma for 100%, distribui exatamente total ops.
+  // Se soma for menor (ex: 50%), distribui proporcionalmente sem extrapolar.
+  const targetTotalToDistribute = Math.min(
+    total,
+    Math.round((total * Math.min(100, Math.max(0, sumPct))) / 100)
+  );
+
+  // 2. Calcula cota exata, parte inteira (floor) e resto decimal para cada equipe
+  const items = teams.map(team => {
+    const pct = Math.max(0, percentages[team] || 0);
+    const rawCount = (total * pct) / 100;
+    const baseCount = Math.floor(rawCount);
+    const remainder = rawCount - baseCount;
+    return {
+      team,
+      pct,
+      baseCount,
+      remainder
+    };
+  });
+
+  // 3. Soma das partes inteiras
+  const allocatedBase = items.reduce((acc, it) => acc + it.baseCount, 0);
+  let remainingOps = targetTotalToDistribute - allocatedBase;
+
+  // 4. Ordena pelo maior resto decimal (desempate pelo maior percentual)
+  const sortedIndices = items
+    .map((it, idx) => ({ idx, remainder: it.remainder, pct: it.pct }))
+    .sort((a, b) => {
+      if (Math.abs(b.remainder - a.remainder) > 0.00001) {
+        return b.remainder - a.remainder;
+      }
+      return b.pct - a.pct;
+    });
+
+  const finalCounts: { [team: string]: number } = {};
+  items.forEach(it => {
+    finalCounts[it.team] = it.baseCount;
+  });
+
+  // 5. Distribui os restos (+1 para quem tem maior parte fracionária)
+  let i = 0;
+  while (remainingOps > 0 && i < sortedIndices.length) {
+    const targetTeam = items[sortedIndices[i].idx].team;
+    finalCounts[targetTeam] += 1;
+    remainingOps--;
+    i++;
+  }
+
+  const result: { [team: string]: { percent: number; count: number } } = {};
+  teams.forEach(team => {
+    result[team] = {
+      percent: percentages[team] || 0,
+      count: finalCounts[team] || 0
+    };
+  });
+
   return result;
 }
