@@ -25,7 +25,9 @@ import {
   HeartHandshake,
   Compass,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  SlidersHorizontal,
+  RefreshCw
 } from 'lucide-react';
 
 const GROUP_CONFIG: Record<OperationGroup, {
@@ -39,44 +41,44 @@ const GROUP_CONFIG: Record<OperationGroup, {
   description: string;
 }> = {
   POG: {
-    label: 'Policiamento Ostensivo Geral (POG)',
+    label: 'POG',
     shortLabel: 'POG',
     badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border-blue-300 dark:border-blue-800',
     bgLight: 'bg-blue-50/40 dark:bg-blue-950/10',
     borderColor: 'border-blue-200 dark:border-blue-900/60',
     textColor: 'text-blue-700 dark:text-blue-400',
     icon: Shield,
-    description: 'Ações de patrulhamento ostensivo, trânsito, batidas policiais, abordagens e presença em ZQC.'
-  },
-  ORDENS_SERVICO: {
-    label: 'Ordens de Serviço & AgroGerais',
-    shortLabel: 'Ordens de Serviço / AgroGerais',
-    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-800',
-    bgLight: 'bg-amber-50/40 dark:bg-amber-950/10',
-    borderColor: 'border-amber-200 dark:border-amber-900/60',
-    textColor: 'text-amber-700 dark:text-amber-400',
-    icon: FileSpreadsheet,
-    description: 'Ordens de serviço específicas, fiscalização em bares, visibilidade e Operação AgroGerais Segura no campo.'
-  },
-  INTERACOES_COMUNITARIAS: {
-    label: 'Interações Comunitárias & Reuniões',
-    shortLabel: 'Interações Comunitárias',
-    badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-300 dark:border-purple-800',
-    bgLight: 'bg-purple-50/40 dark:bg-purple-950/10',
-    borderColor: 'border-purple-200 dark:border-purple-900/60',
-    textColor: 'text-purple-700 dark:text-purple-400',
-    icon: HeartHandshake,
-    description: 'Visitas comunitárias (VCP), reuniões com moradores/rurais, redes protegidas e visitas tranquilizadoras (VT).'
+    description: 'Ações de policiamento ostensivo geral, trânsito, batidas policiais, abordagens e presença em ZQC.'
   },
   PROXIMIDADE: {
-    label: 'Policiamento de Proximidade & Especializado',
-    shortLabel: 'Proximidade & Rural',
+    label: 'Policiamento de Proximidade',
+    shortLabel: 'Policiamento de Proximidade',
     badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
     bgLight: 'bg-emerald-50/40 dark:bg-emerald-950/10',
     borderColor: 'border-emerald-200 dark:border-emerald-900/60',
     textColor: 'text-emerald-700 dark:text-emerald-400',
     icon: Compass,
     description: 'Patrulha Rural, Patrulha Escolar/PROERD, GEPAR, Bases de Segurança Comunitária e Redes de Proteção Mulher (RPPM).'
+  },
+  INTERACOES_COMUNITARIAS: {
+    label: 'Interações Comunitárias',
+    shortLabel: 'Interações Comunitárias',
+    badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-300 dark:border-purple-800',
+    bgLight: 'bg-purple-50/40 dark:bg-purple-950/10',
+    borderColor: 'border-purple-200 dark:border-purple-900/60',
+    textColor: 'text-purple-700 dark:text-purple-400',
+    icon: HeartHandshake,
+    description: 'Visitas comunitárias (VCP), reuniões com moradores/rurais, redes protegidas (MRPP) e visitas tranquilizadoras (VT).'
+  },
+  ORDENS_SERVICO: {
+    label: 'Ordens de Serviço',
+    shortLabel: 'Ordens de Serviço',
+    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+    bgLight: 'bg-amber-50/40 dark:bg-amber-950/10',
+    borderColor: 'border-amber-200 dark:border-amber-900/60',
+    textColor: 'text-amber-700 dark:text-amber-400',
+    icon: FileSpreadsheet,
+    description: 'Ordens de serviço específicas, fiscalização em bares, visibilidade e Operação AgroGerais Segura no campo.'
   }
 };
 
@@ -98,9 +100,10 @@ export default function GestaoMetasPage() {
 
   // Modal de Distribuição para uma Operação
   const [selectedTarget, setSelectedTarget] = useState<MonthlyTarget | null>(null);
-  const [distributionMode, setDistributionMode] = useState<'EQUAL' | 'PERCENTAGE'>('EQUAL');
+  const [distributionMode, setDistributionMode] = useState<'EQUAL' | 'PERCENTAGE'>('PERCENTAGE');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [customPercentages, setCustomPercentages] = useState<{ [team: string]: number }>({});
+  const [autoBalanceOthers, setAutoBalanceOthers] = useState<boolean>(true);
 
   const availableYears = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
 
@@ -203,7 +206,7 @@ export default function GestaoMetasPage() {
   const handleSelectAllTeams = () => {
     const currentTeams = storage.getTeams();
     setSelectedTeams([...currentTeams]);
-    updatePercentagesForTeams([...currentTeams]);
+    rebalanceEqually([...currentTeams]);
   };
 
   const handleSelectMainShiftTeams = () => {
@@ -213,7 +216,7 @@ export default function GestaoMetasPage() {
     );
     const selected = main.length > 0 ? main : currentTeams;
     setSelectedTeams(selected);
-    updatePercentagesForTeams(selected);
+    rebalanceEqually(selected);
   };
 
   const handleSelectRuralTeams = () => {
@@ -221,7 +224,7 @@ export default function GestaoMetasPage() {
     const rural = currentTeams.filter(t => t.toUpperCase().includes('RURAL') || t.toUpperCase().includes('AGRO'));
     const selected = rural.length > 0 ? rural : currentTeams;
     setSelectedTeams(selected);
-    updatePercentagesForTeams(selected);
+    rebalanceEqually(selected);
   };
 
   const handleClearTeams = () => {
@@ -237,24 +240,106 @@ export default function GestaoMetasPage() {
       nextTeams = [...selectedTeams, team];
     }
     setSelectedTeams(nextTeams);
-    updatePercentagesForTeams(nextTeams);
+    rebalanceEqually(nextTeams);
   };
 
-  const updatePercentagesForTeams = (teams: string[]) => {
+  // Rebalanceamento igualitário para fechar exatamente 100%
+  const rebalanceEqually = (teams: string[]) => {
     if (teams.length === 0) {
       setCustomPercentages({});
       return;
     }
-    const defaultPct = Number((100 / teams.length).toFixed(1));
+    const basePct = Math.floor((100 / teams.length) * 10) / 10;
     const nextPcts: { [team: string]: number } = {};
-    teams.forEach(t => {
-      nextPcts[t] = customPercentages[t] || defaultPct;
+    let sum = 0;
+    teams.forEach((t, i) => {
+      if (i === teams.length - 1) {
+        nextPcts[t] = Number((100 - sum).toFixed(1));
+      } else {
+        nextPcts[t] = basePct;
+        sum += basePct;
+      }
     });
     setCustomPercentages(nextPcts);
   };
 
+  // Atualização dinâmica inteligente de porcentagem para uma equipe
+  const handlePercentageChange = (team: string, rawVal: number) => {
+    const val = Math.max(0, Math.min(100, isNaN(rawVal) ? 0 : rawVal));
+    
+    if (!autoBalanceOthers || selectedTeams.length <= 1) {
+      // Modo sem balanceamento automático: define diretamente o valor digitado
+      setCustomPercentages(prev => ({
+        ...prev,
+        [team]: val
+      }));
+      return;
+    }
+
+    // Modo com auto-balanceamento: distribui os (100 - val)% restantes proporcionalmente entre as outras equipes
+    const remaining = Math.max(0, 100 - val);
+    const otherTeams = selectedTeams.filter(t => t !== team);
+
+    if (otherTeams.length === 0) {
+      setCustomPercentages({ [team]: 100 });
+      return;
+    }
+
+    const currentOtherSum = otherTeams.reduce((acc, t) => acc + (customPercentages[t] || 0), 0);
+    const nextPcts: { [t: string]: number } = { [team]: val };
+
+    if (currentOtherSum > 0 && remaining > 0) {
+      let allocatedOther = 0;
+      otherTeams.forEach((t, idx) => {
+        if (idx === otherTeams.length - 1) {
+          nextPcts[t] = Math.max(0, Number((remaining - allocatedOther).toFixed(1)));
+        } else {
+          const ratio = (customPercentages[t] || 0) / currentOtherSum;
+          const share = Math.max(0, Math.floor(ratio * remaining * 10) / 10);
+          nextPcts[t] = share;
+          allocatedOther += share;
+        }
+      });
+    } else {
+      const share = Math.floor((remaining / otherTeams.length) * 10) / 10;
+      let allocatedOther = 0;
+      otherTeams.forEach((t, idx) => {
+        if (idx === otherTeams.length - 1) {
+          nextPcts[t] = Math.max(0, Number((remaining - allocatedOther).toFixed(1)));
+        } else {
+          nextPcts[t] = share;
+          allocatedOther += share;
+        }
+      });
+    }
+
+    setCustomPercentages(nextPcts);
+  };
+
+  // Atualização direta pelo número de operações
+  const handleOpsCountChange = (team: string, opsCount: number) => {
+    if (!selectedTarget || selectedTarget.meta_total <= 0) return;
+    const clampedOps = Math.max(0, Math.min(selectedTarget.meta_total, isNaN(opsCount) ? 0 : opsCount));
+    const calculatedPct = Number(((clampedOps / selectedTarget.meta_total) * 100).toFixed(1));
+    handlePercentageChange(team, calculatedPct);
+  };
+
+  // Cálculo da soma atual das porcentagens
+  const currentTotalPercentage = useMemo(() => {
+    if (selectedTeams.length === 0) return 0;
+    const sum = selectedTeams.reduce((acc, t) => acc + (customPercentages[t] || 0), 0);
+    return Number(sum.toFixed(1));
+  }, [selectedTeams, customPercentages]);
+
+  const isPercentageExceeded = currentTotalPercentage > 100.05;
+
   const handleSaveDistribution = () => {
     if (!selectedTarget) return;
+
+    if (isPercentageExceeded) {
+      showToast('error', `A soma das porcentagens é ${currentTotalPercentage}%, excedendo o limite de 100%. Ajuste antes de salvar.`);
+      return;
+    }
 
     let newDistributions: TeamTargetAllocation[] = [];
     if (selectedTeams.length > 0) {
@@ -289,7 +374,7 @@ export default function GestaoMetasPage() {
       storage.saveTargets(all);
       loadTargets();
       showToast('success', selectedTeams.length > 0 
-        ? `Distribuição salva para ${selectedTeams.length} equipes.` 
+        ? `Distribuição salva com sucesso para ${selectedTeams.length} equipes.` 
         : 'Meta definida como geral da fração (sem equipes específicas alocadas).'
       );
     }
@@ -384,9 +469,9 @@ export default function GestaoMetasPage() {
   const availableOpsByGroup = useMemo(() => {
     const groups: Record<OperationGroup, OperationType[]> = {
       POG: [],
-      ORDENS_SERVICO: [],
+      PROXIMIDADE: [],
       INTERACOES_COMUNITARIAS: [],
-      PROXIMIDADE: []
+      ORDENS_SERVICO: []
     };
     availableOps.forEach(op => {
       if (groups[op.grupo]) {
@@ -401,9 +486,9 @@ export default function GestaoMetasPage() {
     const counts: Record<string, { count: number; totalOps: number }> = {
       ALL: { count: targets.length, totalOps: targets.reduce((acc, t) => acc + t.meta_total, 0) },
       POG: { count: 0, totalOps: 0 },
-      ORDENS_SERVICO: { count: 0, totalOps: 0 },
+      PROXIMIDADE: { count: 0, totalOps: 0 },
       INTERACOES_COMUNITARIAS: { count: 0, totalOps: 0 },
-      PROXIMIDADE: { count: 0, totalOps: 0 }
+      ORDENS_SERVICO: { count: 0, totalOps: 0 }
     };
 
     enrichedTargets.forEach(t => {
@@ -420,6 +505,7 @@ export default function GestaoMetasPage() {
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
+
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       
@@ -470,7 +556,7 @@ export default function GestaoMetasPage() {
                 Planejamento de Metas Operacionais
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Distribuição quantitativa por grupo de operações (POG, Ordens de Serviço, AgroGerais, Comunitárias e Proximidade).
+                Distribuição quantitativa por grupo: POG, Policiamento de Proximidade, Interações Comunitárias e Ordens de Serviço.
               </p>
             </div>
           </div>
@@ -521,9 +607,13 @@ export default function GestaoMetasPage() {
           </button>
         </div>
       </div>
+
+      {/* ========================================================= */}
+      {/* 2. BARRA DE FILTROS POR GRUPO DE OPERAÇÕES & BUSCA */}
+      {/* ========================================================= */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs">
         
-        {/* Tabs Segmentadas de Grupos */}
+        {/* Tabs Segmentadas dos 4 Grupos Oficiais */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
           <button
             type="button"
@@ -543,7 +633,7 @@ export default function GestaoMetasPage() {
             </span>
           </button>
 
-          {(Object.keys(GROUP_CONFIG) as OperationGroup[]).map((grpKey) => {
+          {(['POG', 'PROXIMIDADE', 'INTERACOES_COMUNITARIAS', 'ORDENS_SERVICO'] as OperationGroup[]).map((grpKey) => {
             const cfg = GROUP_CONFIG[grpKey];
             const Icon = cfg.icon;
             const isSelected = selectedTabGroup === grpKey;
@@ -608,195 +698,193 @@ export default function GestaoMetasPage() {
             </p>
           </div>
         ) : (
-          // Quando selecionado 'ALL', agrupa visualmente por grupo de operação
-          (selectedTabGroup === 'ALL'
-            ? (['POG', 'ORDENS_SERVICO', 'INTERACOES_COMUNITARIAS', 'PROXIMIDADE'] as OperationGroup[])
-            : [selectedTabGroup]
-          ).map((groupKey) => {
-            const groupTargets = filteredTargets.filter(t => t.opDetails?.grupo === groupKey);
-            if (groupTargets.length === 0) return null;
+          (['POG', 'PROXIMIDADE', 'INTERACOES_COMUNITARIAS', 'ORDENS_SERVICO'] as OperationGroup[])
+            .filter(grpKey => selectedTabGroup === 'ALL' || selectedTabGroup === grpKey)
+            .map((groupKey) => {
+              const groupTargets = filteredTargets.filter(t => t.opDetails?.grupo === groupKey);
+              if (groupTargets.length === 0) return null;
 
-            const groupCfg = GROUP_CONFIG[groupKey];
-            const GroupIcon = groupCfg.icon;
+              const groupCfg = GROUP_CONFIG[groupKey];
+              const GroupIcon = groupCfg.icon;
 
-            return (
-              <div key={groupKey} className="space-y-3">
-                
-                {/* Cabeçalho do Grupo */}
-                <div className={`p-3 rounded-2xl border ${groupCfg.bgLight} ${groupCfg.borderColor} flex flex-col sm:flex-row sm:items-center justify-between gap-2`}>
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-xl ${groupCfg.badgeColor} flex items-center justify-center`}>
-                      <GroupIcon className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="font-extrabold text-sm text-gray-900 dark:text-white">
-                          {groupCfg.label}
-                        </h2>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#283042] text-gray-700 dark:text-gray-300">
-                          {groupTargets.length} {groupTargets.length === 1 ? 'operação' : 'operações'}
-                        </span>
+              return (
+                <div key={groupKey} className="space-y-3">
+                  
+                  {/* Cabeçalho do Grupo */}
+                  <div className={`p-3 rounded-2xl border ${groupCfg.bgLight} ${groupCfg.borderColor} flex flex-col sm:flex-row sm:items-center justify-between gap-2`}>
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl ${groupCfg.badgeColor} flex items-center justify-center`}>
+                        <GroupIcon className="w-4 h-4" />
                       </div>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                        {groupCfg.description}
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="font-extrabold text-sm text-gray-900 dark:text-white">
+                            {groupCfg.label}
+                          </h2>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] text-gray-700 dark:text-gray-300">
+                            {groupTargets.length} {groupTargets.length === 1 ? 'operação' : 'operações'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                          {groupCfg.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right sm:self-auto self-end">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 block">
+                        Meta do Grupo:
+                      </span>
+                      <span className={`text-base font-extrabold ${groupCfg.textColor}`}>
+                        {groupTargets.reduce((acc, t) => acc + t.meta_total, 0)} <span className="text-xs font-medium text-gray-400">ações</span>
+                      </span>
                     </div>
                   </div>
 
-                  <div className="text-right sm:self-auto self-end">
-                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 block">
-                      Meta do Grupo:
-                    </span>
-                    <span className={`text-base font-extrabold ${groupCfg.textColor}`}>
-                      {groupTargets.reduce((acc, t) => acc + t.meta_total, 0)} <span className="text-xs font-medium text-gray-400">ações</span>
-                    </span>
-                  </div>
-                </div>
+                  {/* Grid de Cards de Operações do Grupo */}
+                  <div className="space-y-3">
+                    {groupTargets.map((tgt) => {
+                      const op = tgt.opDetails;
+                      if (!op) return null;
 
-                {/* Grid de Cards de Operações do Grupo */}
-                <div className="space-y-3">
-                  {groupTargets.map((tgt) => {
-                    const op = tgt.opDetails;
-                    if (!op) return null;
+                      const hasTeamsAllocated = tgt.distribuicoes && tgt.distribuicoes.length > 0;
 
-                    const hasTeamsAllocated = tgt.distribuicoes && tgt.distribuicoes.length > 0;
-
-                    return (
-                      <div
-                        key={tgt.id}
-                        className="untitled-card p-4 sm:p-5 space-y-3 hover:border-gray-300 dark:hover:border-[#283042] transition-all"
-                      >
-                        {/* Linha Superior: Código, Título, Meta Total e Botão Distribuir */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
-                              <Target className="w-4 h-4 text-emerald-600" />
-                            </div>
-                            <div>
-                              <div className="flex items-center flex-wrap gap-2">
-                                <span className="px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] font-mono font-bold text-xs text-gray-800 dark:text-gray-200">
-                                  {op.codigo_natureza}
-                                </span>
-                                <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
-                                  {op.titulo}
-                                </h3>
-                                {op.area_rural_obrigatoria && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
-                                    Zona Rural
-                                  </span>
-                                )}
+                      return (
+                        <div
+                          key={tgt.id}
+                          className="untitled-card p-4 sm:p-5 space-y-3 hover:border-gray-300 dark:hover:border-[#283042] transition-all"
+                        >
+                          {/* Linha Superior: Código, Título, Meta Total e Botão Distribuir */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
+                                <Target className="w-4 h-4 text-emerald-600" />
                               </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
-                                {op.descricao}
-                              </p>
+                              <div>
+                                <div className="flex items-center flex-wrap gap-2">
+                                  <span className="px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] font-mono font-bold text-xs text-gray-800 dark:text-gray-200">
+                                    {op.codigo_natureza}
+                                  </span>
+                                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                                    {op.titulo}
+                                  </h3>
+                                  {op.area_rural_obrigatoria && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
+                                      Zona Rural
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
+                                  {op.descricao}
+                                </p>
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Controles de Meta Total e Distribuição */}
-                          <div className="flex items-center gap-2 self-end sm:self-auto">
-                            {/* Input Meta Total */}
-                            <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938]">
-                              <span className="text-xs text-gray-500 font-medium">Meta:</span>
-                              <input
-                                type="number"
-                                min="1"
-                                value={tgt.meta_total}
-                                onChange={(e) => handleTotalChange(tgt.id, Math.max(1, parseInt(e.target.value) || 1))}
-                                className="w-12 bg-transparent text-right font-extrabold text-xs text-gray-900 dark:text-white focus:outline-none"
-                              />
-                              <span className="text-xs text-gray-400 font-semibold">ops</span>
-                            </div>
+                            {/* Controles de Meta Total e Distribuição */}
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              {/* Input Meta Total */}
+                              <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938]">
+                                <span className="text-xs text-gray-500 font-medium">Meta:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={tgt.meta_total}
+                                  onChange={(e) => handleTotalChange(tgt.id, Math.max(1, parseInt(e.target.value) || 1))}
+                                  className="w-12 bg-transparent text-right font-extrabold text-xs text-gray-900 dark:text-white focus:outline-none"
+                                />
+                                <span className="text-xs text-gray-400 font-semibold">ops</span>
+                              </div>
 
-                            {/* Botão de Distribuir Equipes */}
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDistributionModal(tgt)}
-                              className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                                hasTeamsAllocated
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
-                                  : 'bg-white text-gray-700 border-dashed border-gray-300 dark:bg-[#151A23] dark:text-gray-200 dark:border-gray-700 hover:border-emerald-500 hover:text-emerald-600'
-                              }`}
-                            >
-                              <PieChart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>{hasTeamsAllocated ? `Distribuído (${tgt.distribuicoes?.length} eq.)` : 'Distribuir Equipes'}</span>
-                            </button>
-
-                            {/* Botão de Excluir Meta */}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTarget(tgt.id)}
-                              className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                              title="Excluir meta desta operação"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Visualização da Distribuição das Equipes */}
-                        {hasTeamsAllocated ? (
-                          <div className="pt-2 border-t border-gray-100 dark:border-[#222938]">
-                            <div className="flex items-center justify-between pb-1.5">
-                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                                Alocação por Equipe ({tgt.distribuicoes?.length} equipes participantes):
-                              </span>
+                              {/* Botão de Distribuir Equipes */}
                               <button
                                 type="button"
                                 onClick={() => handleOpenDistributionModal(tgt)}
-                                className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-0.5"
+                                className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                                  hasTeamsAllocated
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
+                                    : 'bg-white text-gray-700 border-dashed border-gray-300 dark:bg-[#151A23] dark:text-gray-200 dark:border-gray-700 hover:border-emerald-500 hover:text-emerald-600'
+                                }`}
                               >
-                                <span>Ajustar cotas</span>
-                                <ChevronRight className="w-3 h-3" />
+                                <PieChart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>{hasTeamsAllocated ? `Distribuído (${tgt.distribuicoes?.length} eq.)` : 'Distribuir Equipes'}</span>
+                              </button>
+
+                              {/* Botão de Excluir Meta */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTarget(tgt.id)}
+                                className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                title="Excluir meta desta operação"
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                              {tgt.distribuicoes?.map((dst) => (
-                                <div
-                                  key={dst.id}
-                                  className="p-2 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#222938] flex items-center justify-between gap-2"
+                          </div>
+
+                          {/* Visualização da Distribuição das Equipes */}
+                          {hasTeamsAllocated ? (
+                            <div className="pt-2 border-t border-gray-100 dark:border-[#222938]">
+                              <div className="flex items-center justify-between pb-1.5">
+                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                  Alocação por Equipe ({tgt.distribuicoes?.length} equipes participantes):
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDistributionModal(tgt)}
+                                  className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-0.5"
                                 >
-                                  <div className="min-w-0">
-                                    <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block truncate">
-                                      {dst.equipe}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400 font-mono">
-                                      {dst.percentual_alocado}% da cota
+                                  <span>Ajustar cotas / %</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                                {tgt.distribuicoes?.map((dst) => (
+                                  <div
+                                    key={dst.id}
+                                    className="p-2 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#222938] flex items-center justify-between gap-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block truncate">
+                                        {dst.equipe}
+                                      </span>
+                                      <span className="text-[10px] text-gray-400 font-mono">
+                                        {dst.percentual_alocado}% da cota
+                                      </span>
+                                    </div>
+                                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/80">
+                                      {dst.meta_quantitativa} ops
                                     </span>
                                   </div>
-                                  <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/80">
-                                    {dst.meta_quantitativa} ops
-                                  </span>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gray-50/60 dark:bg-[#0E121A]/50 p-2.5 rounded-xl text-xs text-gray-500">
-                            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-                              <Users className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                              <span>
-                                <strong>Sem equipes alocadas:</strong> Esta meta de {tgt.meta_total} operações conta como cota geral da fração até que você defina as equipes.
-                              </span>
+                          ) : (
+                            <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gray-50/60 dark:bg-[#0E121A]/50 p-2.5 rounded-xl text-xs text-gray-500">
+                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                <Users className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                                <span>
+                                  <strong>Sem equipes alocadas:</strong> Esta meta de {tgt.meta_total} operações conta como cota geral da fração até que você defina as equipes.
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDistributionModal(tgt)}
+                                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Definir Equipes Agora</span>
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDistributionModal(tgt)}
-                              className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Definir Equipes Agora</span>
-                            </button>
-                          </div>
-                        )}
+                          )}
 
-                      </div>
-                    );
-                  })}
+                        </div>
+                      );
+                    })}
+                  </div>
+
                 </div>
-
-              </div>
-            );
-          })
+              );
+            })
         )}
       </div>
 
@@ -820,7 +908,7 @@ export default function GestaoMetasPage() {
           </div>
 
           <div className="space-y-4 pt-1">
-            {(Object.keys(availableOpsByGroup) as OperationGroup[]).map((groupKey) => {
+            {(['POG', 'PROXIMIDADE', 'INTERACOES_COMUNITARIAS', 'ORDENS_SERVICO'] as OperationGroup[]).map((groupKey) => {
               const opsInGroup = availableOpsByGroup[groupKey];
               if (opsInGroup.length === 0) return null;
 
@@ -908,11 +996,11 @@ export default function GestaoMetasPage() {
       )}
 
       {/* ========================================================= */}
-      {/* 6. MODAL DE DISTRIBUIÇÃO DAS EQUIPES (SEM PRÉ-SELEÇÃO FORÇADA) */}
+      {/* 6. MODAL DE DISTRIBUIÇÃO DAS EQUIPES DINÂMICO & INTELIGENTE */}
       {/* ========================================================= */}
       {selectedTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] my-auto overflow-hidden animate-in zoom-in-95">
             
             {/* Header Fixo */}
             <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
@@ -940,43 +1028,12 @@ export default function GestaoMetasPage() {
             {/* Conteúdo com Rolagem Interna */}
             <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
               
-              {/* Seleção do Modo (Segmented Control) */}
-              <div>
-                <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1.5 text-[11px] uppercase tracking-wider">
-                  Modo de Divisão da Cota
-                </label>
-                <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-[#0E121A] p-1 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setDistributionMode('EQUAL')}
-                    className={`py-2 rounded-lg font-bold text-xs transition-all ${
-                      distributionMode === 'EQUAL'
-                        ? 'bg-white dark:bg-[#1E2636] text-gray-900 dark:text-white shadow-xs'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
-                    }`}
-                  >
-                    Divisão Igualitária
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDistributionMode('PERCENTAGE')}
-                    className={`py-2 rounded-lg font-bold text-xs transition-all ${
-                      distributionMode === 'PERCENTAGE'
-                        ? 'bg-white dark:bg-[#1E2636] text-gray-900 dark:text-white shadow-xs'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
-                    }`}
-                  >
-                    Personalizado por %
-                  </button>
-                </div>
-              </div>
-
-              {/* Seleção de Equipes (NÃO VEM PRÉ-SELECIONADO FORÇADO) */}
+              {/* Seleção de Equipes (NÃO VEM PRÉ-SELECIONADO) */}
               <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                   <div>
                     <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase tracking-wider block">
-                      Selecione as Equipes Executoras
+                      1. Selecione as Equipes Participantes
                     </label>
                     <span className="text-[11px] text-gray-400">
                       {selectedTeams.length === 0 ? 'Nenhuma equipe marcada' : `${selectedTeams.length} de ${allTeams.length} equipes selecionadas`}
@@ -1019,7 +1076,7 @@ export default function GestaoMetasPage() {
                 </div>
 
                 {/* Grade das Equipes */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-48 overflow-y-auto p-1.5 border border-gray-200 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto p-1.5 border border-gray-200 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
                   {allTeams.map((team) => {
                     const isSelected = selectedTeams.includes(team);
                     return (
@@ -1045,59 +1102,149 @@ export default function GestaoMetasPage() {
                 </div>
               </div>
 
-              {/* Sliders para Modo PERCENTAGE */}
-              {selectedTeams.length > 0 && distributionMode === 'PERCENTAGE' && (
-                <div className="p-3.5 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] space-y-2.5">
-                  <span className="font-bold text-gray-700 dark:text-gray-300 block text-[11px]">
-                    Defina as porcentagens por equipe selecionada:
-                  </span>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {selectedTeams.map((team) => (
-                      <div key={team} className="flex items-center justify-between gap-3">
-                        <span className="font-semibold text-gray-800 dark:text-gray-200 w-28 truncate">{team}</span>
+              {/* 2. Ajuste das Porcentagens e Cotas com Digitação e Sliders */}
+              {selectedTeams.length > 0 && (
+                <div className="space-y-3 pt-2 border-t border-gray-100 dark:border-[#222938]">
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase tracking-wider block">
+                      2. Ajuste a Cota ou Porcentagem (%) por Equipe
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      {/* Checkbox de Auto-Equilíbrio */}
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 dark:text-gray-300 font-medium select-none">
                         <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          value={customPercentages[team] || 0}
-                          onChange={(e) => setCustomPercentages({
-                            ...customPercentages,
-                            [team]: Number(e.target.value)
-                          })}
-                          className="flex-1 accent-emerald-600 cursor-pointer"
+                          type="checkbox"
+                          checked={autoBalanceOthers}
+                          onChange={(e) => setAutoBalanceOthers(e.target.checked)}
+                          className="rounded text-emerald-600 focus:ring-emerald-500"
                         />
-                        <span className="font-mono font-bold w-10 text-right text-emerald-600 dark:text-emerald-400">
-                          {customPercentages[team] || 0}%
-                        </span>
-                        <span className="font-mono text-gray-400 w-14 text-right text-[10px]">
-                          ({Math.round((selectedTarget.meta_total * (customPercentages[team] || 0)) / 100)} ops)
-                        </span>
-                      </div>
-                    ))}
+                        <span>Auto-adequar demais (%)</span>
+                      </label>
+
+                      {/* Botão de Reset Igualitário */}
+                      <button
+                        type="button"
+                        onClick={() => rebalanceEqually(selectedTeams)}
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex items-center gap-1"
+                        title="Dividir 100% igualmente entre as equipes"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Equilibrar 100%</span>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Lista de Equipes com Inputs Digitáveis e Sliders */}
+                  <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-2xl border border-gray-200 dark:border-[#222938] space-y-2.5">
+                    <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                      {selectedTeams.map((team) => {
+                        const pct = customPercentages[team] || 0;
+                        const opsCalc = Math.round((selectedTarget.meta_total * pct) / 100);
+
+                        return (
+                          <div
+                            key={team}
+                            className="p-2 rounded-xl bg-white dark:bg-[#151A23] border border-gray-200/90 dark:border-[#283042] space-y-1.5 shadow-2xs"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-bold text-xs text-gray-900 dark:text-white truncate max-w-[160px]">
+                                {team}
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                {/* Input Digitável de Quantidade de Operações */}
+                                <div className="flex items-center gap-1 bg-gray-50 dark:bg-[#0E121A] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-[#283042]">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={selectedTarget.meta_total}
+                                    value={opsCalc}
+                                    onChange={(e) => handleOpsCountChange(team, parseInt(e.target.value) || 0)}
+                                    className="w-10 bg-transparent text-right font-extrabold text-xs text-emerald-600 dark:text-emerald-400 focus:outline-none"
+                                  />
+                                  <span className="text-[10px] text-gray-400 font-medium">ops</span>
+                                </div>
+
+                                {/* Input Digitável de % */}
+                                <div className="flex items-center gap-1 bg-gray-50 dark:bg-[#0E121A] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-[#222938]">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.5"
+                                    value={pct}
+                                    onChange={(e) => handlePercentageChange(team, parseFloat(e.target.value) || 0)}
+                                    className="w-12 bg-transparent text-right font-extrabold text-xs text-gray-900 dark:text-white focus:outline-none"
+                                  />
+                                  <span className="text-[10px] text-gray-500 font-bold">%</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Barra Deslizante (Slider) Sincronizada */}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                step={0.5}
+                                value={pct}
+                                onChange={(e) => handlePercentageChange(team, Number(e.target.value))}
+                                className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Indicador em Tempo Real da Soma dos Percentuais */}
+                  <div className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-semibold ${
+                    isPercentageExceeded
+                      ? 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+                      : currentTotalPercentage === 100
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                      : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {isPercentageExceeded ? (
+                        <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                      ) : currentTotalPercentage === 100 ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      )}
+
+                      <span>
+                        {isPercentageExceeded ? (
+                          <strong>A soma atual é {currentTotalPercentage}% (extrapola 100% por {(currentTotalPercentage - 100).toFixed(1)}%). O salvamento está bloqueado.</strong>
+                        ) : currentTotalPercentage === 100 ? (
+                          <strong>Soma das porcentagens: exatamente 100% (distribuição perfeita de {selectedTarget.meta_total} operações).</strong>
+                        ) : (
+                          <span>Soma atual: <strong>{currentTotalPercentage}%</strong> (Resta <strong>{(100 - currentTotalPercentage).toFixed(1)}%</strong> para atingir 100%).</span>
+                        )}
+                      </span>
+                    </div>
+
+                    {!isPercentageExceeded && currentTotalPercentage < 100 && (
+                      <button
+                        type="button"
+                        onClick={() => rebalanceEqually(selectedTeams)}
+                        className="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-200 text-amber-900 font-bold text-[11px] self-start sm:self-auto transition-colors"
+                      >
+                        Completar 100%
+                      </button>
+                    )}
+                  </div>
+
                 </div>
               )}
 
-              {/* Resumo da Distribuição Calculada ou Aviso de Nenhuma Equipe */}
-              {selectedTeams.length > 0 ? (
-                <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938]">
-                  <span className="font-bold text-gray-700 dark:text-gray-300 block mb-1.5 text-[11px]">
-                    Cota Calculada por Equipe ({selectedTeams.length} equipes):
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                    {selectedTeams.map((t) => {
-                      const count = distributionMode === 'EQUAL'
-                        ? Math.floor(selectedTarget.meta_total / selectedTeams.length)
-                        : Math.round((selectedTarget.meta_total * (customPercentages[t] || 0)) / 100);
-                      return (
-                        <span key={t} className="px-2 py-0.5 rounded-md bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] font-medium text-gray-700 dark:text-gray-300 text-[10px]">
-                          {t}: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{count} ops</strong>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
+              {/* Quando nenhuma equipe está selecionada */}
+              {selectedTeams.length === 0 && (
                 <div className="p-3 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/60 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
                   <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                   <span>
@@ -1108,7 +1255,7 @@ export default function GestaoMetasPage() {
 
             </div>
 
-            {/* Footer Fixo */}
+            {/* Footer Fixo com Botão de Salvamento Validado */}
             <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2 flex-shrink-0 bg-gray-50/50 dark:bg-[#0E121A]">
               <button
                 type="button"
@@ -1120,7 +1267,12 @@ export default function GestaoMetasPage() {
               <button
                 type="button"
                 onClick={handleSaveDistribution}
-                className="btn-primary py-2 px-4 text-xs flex items-center gap-1.5"
+                disabled={isPercentageExceeded}
+                className={`py-2 px-4 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs ${
+                  isPercentageExceeded
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Salvar Distribuição</span>
@@ -1134,4 +1286,5 @@ export default function GestaoMetasPage() {
     </div>
   );
 }
+
 
