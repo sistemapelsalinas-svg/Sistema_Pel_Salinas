@@ -291,7 +291,7 @@ export const INITIAL_USERS: UserProfile[] = [
     whatsapp: '38999990001',
     password_hash: 'pmmg1234',
     role: 'ADMIN',
-    equipe_padrao: 'ADM',
+    equipe_padrao: '',
     primeiro_acesso: false,
     ativo: true,
     created_at: new Date().toISOString()
@@ -326,7 +326,7 @@ export const INITIAL_ESCALA_MILITARES: EscalaMilitar[] = [
   { id: 'mil-24', ordem: 24, graduacao: 'SD', nome_guerra: 'RAÍSSA', numero_pm: '177.661-6', equipe_padrao: 'REDS 2', ativo: true },
   { id: 'mil-25', ordem: 25, graduacao: 'SGT', nome_guerra: 'MACHADO', numero_pm: '130.438-5', equipe_padrao: 'PATRULHA RURAL DIA', ativo: true },
   { id: 'mil-26', ordem: 26, graduacao: 'CB', nome_guerra: 'PABLO', numero_pm: '173.827-7', equipe_padrao: 'CHARLIE 1', ativo: true },
-  { id: 'mil-27', ordem: 27, graduacao: 'SGT', nome_guerra: 'ANDRE SANTOS', numero_pm: '157.842-6', equipe_padrao: 'ADM', ativo: true },
+  { id: 'mil-27', ordem: 27, graduacao: 'SGT', nome_guerra: 'ANDRE SANTOS', numero_pm: '157.842-6', equipe_padrao: '', ativo: true },
   { id: 'mil-28', ordem: 28, graduacao: 'SGT', nome_guerra: 'ALVES', numero_pm: '168.625-2', equipe_padrao: 'MP 2', ativo: true },
   { id: 'mil-29', ordem: 29, graduacao: 'SGT', nome_guerra: 'JULIO', numero_pm: '152.171-5', equipe_padrao: 'RPPM', ativo: true },
   { id: 'mil-30', ordem: 30, graduacao: 'CB', nome_guerra: 'BARBOSA', numero_pm: '158.736-9', equipe_padrao: 'BRAVO 2', ativo: true },

@@ -51,7 +51,19 @@ class StorageService {
       return INITIAL_USERS;
     }
     try {
-      return JSON.parse(data);
+      const users: UserProfile[] = JSON.parse(data);
+      let updated = false;
+      users.forEach(u => {
+        const pmClean = (u.numero_pm || '').replace(/\D/g, '');
+        if (pmClean === '1578426' && u.equipe_padrao === 'ADM') {
+          u.equipe_padrao = '';
+          updated = true;
+        }
+      });
+      if (updated) {
+        this.saveUsers(users);
+      }
+      return users;
     } catch {
       return INITIAL_USERS;
     }
@@ -289,6 +301,17 @@ class StorageService {
     }
     try {
       const list: EscalaMilitar[] = JSON.parse(data);
+      let updated = false;
+      list.forEach(m => {
+        const pmClean = (m.numero_pm || '').replace(/\D/g, '');
+        if (pmClean === '1578426' && m.equipe_padrao === 'ADM') {
+          m.equipe_padrao = '';
+          updated = true;
+        }
+      });
+      if (updated) {
+        this.saveMilitaresEscala(list);
+      }
       return list.sort((a, b) => a.ordem - b.ordem);
     } catch {
       return INITIAL_ESCALA_MILITARES;
@@ -731,7 +754,7 @@ class StorageService {
   }
 
   // --- CÁLCULO DA "MINHA MISSÃO DO DIA" (DOSSIER OPERACIONAL) ---
-  getDailyMission(user: UserProfile, date: Date = new Date()): DailyMissionData {
+  getDailyMission(user: UserProfile, date: Date = new Date(), teamOverride?: string): DailyMissionData {
     const day = date.getDate();
     const mes = date.getMonth() + 1;
     const ano = date.getFullYear();
@@ -769,7 +792,11 @@ class StorageService {
     const legendObj = legends.find(l => l.codigo === currentLegendCode);
     const deServicoHoje = legendObj ? legendObj.conta_como_servico : false;
     const legendaDescricao = legendObj ? legendObj.descricao : 'Folga';
-    const equipeHoje = userItemToday?.equipe || milRoster?.equipe_padrao || user.equipe_padrao || '';
+    
+    // Determina a equipe ativa para o briefing: override > escala de hoje > equipe padrão
+    const equipeHoje = teamOverride !== undefined 
+      ? teamOverride 
+      : (userItemToday?.equipe || milRoster?.equipe_padrao || user.equipe_padrao || '');
 
     // 3. Contagem de Plantões do Mês (Total, Atual e Restantes)
     let totalPlantaoMes = 0;
@@ -824,7 +851,7 @@ class StorageService {
         });
     }
 
-    // 5. Cálculo das Metas da Equipe
+    // 5. Cálculo das Metas da Equipe (ou Consolidadas da Fração quando sem equipe específica)
     const metasCalculadas: TeamOperationMissionTarget[] = targets.map(t => {
       const op = operations.find(o => o.id === t.tipo_operacao_id) || {
         id: t.tipo_operacao_id,
@@ -835,15 +862,19 @@ class StorageService {
         ativo: true
       };
 
-      // Procura alocação da equipe
-      const dist = t.distribuicoes?.find(d => 
-        d.equipe.toUpperCase() === equipeHoje.toUpperCase() ||
-        (equipeHoje && d.equipe.toUpperCase().includes(equipeHoje.toUpperCase()))
-      );
+      let metaMensal = 0;
+      if (equipeHoje) {
+        const dist = t.distribuicoes?.find(d => 
+          d.equipe.toUpperCase() === equipeHoje.toUpperCase() ||
+          d.equipe.toUpperCase().includes(equipeHoje.toUpperCase())
+        );
+        metaMensal = dist ? dist.meta_quantitativa : 0;
+      } else {
+        // Sem equipe definida (Visão Geral / Admin): meta total da fração
+        metaMensal = t.meta_total;
+      }
 
-      const metaMensal = dist ? dist.meta_quantitativa : 0;
-
-      // Executadas pela equipe neste mês
+      // Executadas pela equipe (ou total da fração) neste mês
       const executadas = logs.filter(l => {
         if (!l.data_execucao) return false;
         const logDate = new Date(l.data_execucao);
@@ -856,9 +887,10 @@ class StorageService {
       }).length;
 
       const restantes = Math.max(0, metaMensal - executadas);
-      const divisor = Math.max(1, servicosRestantesMes);
+      const remainingDaysInMonth = Math.max(1, daysInMonth - day + 1);
+      const divisor = servicosRestantesMes > 0 ? servicosRestantesMes : remainingDaysInMonth;
       const mediaNecessariaPorPlantao = Number((restantes / divisor).toFixed(1));
-      const sugestaoHoje = deServicoHoje && restantes > 0 ? Math.max(1, Math.ceil(restantes / divisor)) : 0;
+      const sugestaoHoje = (deServicoHoje || !equipeHoje) && restantes > 0 ? Math.max(1, Math.ceil(restantes / divisor)) : 0;
       const percentual = metaMensal > 0 ? Math.min(100, Math.round((executadas / metaMensal) * 100)) : (executadas > 0 ? 100 : 0);
 
       let statusMeta: 'ATINGIDA' | 'NO_RITMO' | 'ATENCAO' | 'CRITICA' = 'NO_RITMO';

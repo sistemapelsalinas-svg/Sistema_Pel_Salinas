@@ -1,27 +1,84 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { storage } from '@/lib/storage';
-import { MonthlyTarget, OperationType } from '@/lib/types';
+import { MonthlyTarget, OperationType, OperationGroup, TeamTargetAllocation } from '@/lib/types';
 import { distributeEqually, distributeByPercentages } from '@/lib/validation';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   Target, 
   Copy, 
-  Save, 
-  CheckCircle, 
   Plus, 
   Trash2, 
-  Sliders, 
   PieChart, 
   Calendar, 
   Users, 
   AlertCircle,
   X,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Search,
+  Layers,
+  Shield,
+  FileSpreadsheet,
+  HeartHandshake,
+  Compass,
+  CheckCircle2,
+  ChevronRight
 } from 'lucide-react';
+
+const GROUP_CONFIG: Record<OperationGroup, {
+  label: string;
+  shortLabel: string;
+  badgeColor: string;
+  bgLight: string;
+  borderColor: string;
+  textColor: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+}> = {
+  POG: {
+    label: 'Policiamento Ostensivo Geral (POG)',
+    shortLabel: 'POG',
+    badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border-blue-300 dark:border-blue-800',
+    bgLight: 'bg-blue-50/40 dark:bg-blue-950/10',
+    borderColor: 'border-blue-200 dark:border-blue-900/60',
+    textColor: 'text-blue-700 dark:text-blue-400',
+    icon: Shield,
+    description: 'Ações de patrulhamento ostensivo, trânsito, batidas policiais, abordagens e presença em ZQC.'
+  },
+  ORDENS_SERVICO: {
+    label: 'Ordens de Serviço & AgroGerais',
+    shortLabel: 'Ordens de Serviço / AgroGerais',
+    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+    bgLight: 'bg-amber-50/40 dark:bg-amber-950/10',
+    borderColor: 'border-amber-200 dark:border-amber-900/60',
+    textColor: 'text-amber-700 dark:text-amber-400',
+    icon: FileSpreadsheet,
+    description: 'Ordens de serviço específicas, fiscalização em bares, visibilidade e Operação AgroGerais Segura no campo.'
+  },
+  INTERACOES_COMUNITARIAS: {
+    label: 'Interações Comunitárias & Reuniões',
+    shortLabel: 'Interações Comunitárias',
+    badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-300 dark:border-purple-800',
+    bgLight: 'bg-purple-50/40 dark:bg-purple-950/10',
+    borderColor: 'border-purple-200 dark:border-purple-900/60',
+    textColor: 'text-purple-700 dark:text-purple-400',
+    icon: HeartHandshake,
+    description: 'Visitas comunitárias (VCP), reuniões com moradores/rurais, redes protegidas e visitas tranquilizadoras (VT).'
+  },
+  PROXIMIDADE: {
+    label: 'Policiamento de Proximidade & Especializado',
+    shortLabel: 'Proximidade & Rural',
+    badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+    bgLight: 'bg-emerald-50/40 dark:bg-emerald-950/10',
+    borderColor: 'border-emerald-200 dark:border-emerald-900/60',
+    textColor: 'text-emerald-700 dark:text-emerald-400',
+    icon: Compass,
+    description: 'Patrulha Rural, Patrulha Escolar/PROERD, GEPAR, Bases de Segurança Comunitária e Redes de Proteção Mulher (RPPM).'
+  }
+};
 
 export default function GestaoMetasPage() {
   const currentYear = new Date().getFullYear();
@@ -34,6 +91,10 @@ export default function GestaoMetasPage() {
   const [operations, setOperations] = useState<OperationType[]>([]);
   const [allTeams, setAllTeams] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Filtros de visualização
+  const [selectedTabGroup, setSelectedTabGroup] = useState<OperationGroup | 'ALL'>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Modal de Distribuição para uma Operação
   const [selectedTarget, setSelectedTarget] = useState<MonthlyTarget | null>(null);
@@ -88,57 +149,53 @@ export default function GestaoMetasPage() {
     }
   };
 
+  // Ao adicionar meta para uma operação, as equipes vêm ZERADAS (sem pré-seleção forçada)
   const handleAddTargetForOp = (opId: string) => {
     const op = operations.find(o => o.id === opId);
     if (!op) return;
 
-    const defaultTotal = 20;
-    const currentTeams = storage.getTeams();
-    const initialTeams = currentTeams.length > 0 ? currentTeams.slice(0, 6) : ['ALFA 1', 'BRAVO 1'];
-    const equalDist = distributeEqually(defaultTotal, initialTeams);
+    const defaultTotal = 15;
 
     const newTarget: MonthlyTarget = {
-      id: `tgt-${Date.now()}`,
+      id: `tgt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       mes,
       ano,
       tipo_operacao_id: opId,
       meta_total: defaultTotal,
-      distribuicoes: Object.entries(equalDist).map(([team, data]) => ({
-        id: `dst-${Date.now()}-${team}`,
-        meta_mensal_id: `tgt-${Date.now()}`,
-        equipe: team,
-        percentual_alocado: data.percent,
-        meta_quantitativa: data.count
-      }))
+      distribuicoes: [] // Inicializa sem equipes pré-selecionadas
     };
 
     const all = storage.getAllTargets();
     const updated = [...all, newTarget];
     storage.saveTargets(updated);
     loadTargets();
-    showToast('success', `Meta para ${op.titulo} adicionada.`);
+    showToast('success', `Meta para ${op.titulo} criada. Aloque as equipes clicando em "Distribuir Equipes".`);
   };
 
+  // Ao abrir o modal de distribuição:
+  // Se a meta já tem equipes salvas, carrega-as. Se não tem nenhuma equipe (nova), NÃO pré-seleciona nada (array vazio).
   const handleOpenDistributionModal = (target: MonthlyTarget) => {
     const currentTeams = storage.getTeams();
     setAllTeams(currentTeams);
     setSelectedTarget(target);
+
     const existingTeams = target.distribuicoes && target.distribuicoes.length > 0
       ? target.distribuicoes.map(d => d.equipe).filter(eq => currentTeams.includes(eq))
-      : (currentTeams.length > 0 ? currentTeams.slice(0, 6) : currentTeams);
-    const finalSelected = existingTeams.length > 0 ? existingTeams : currentTeams;
-    setSelectedTeams(finalSelected);
+      : [];
+
+    setSelectedTeams(existingTeams);
 
     const pcts: { [team: string]: number } = {};
-    if (target.distribuicoes && target.distribuicoes.length > 0) {
-      target.distribuicoes.forEach(d => {
+    if (existingTeams.length > 0) {
+      const defaultPct = Number((100 / existingTeams.length).toFixed(1));
+      target.distribuicoes?.forEach(d => {
         if (currentTeams.includes(d.equipe)) {
-          pcts[d.equipe] = d.percentual_alocado || Number((100 / finalSelected.length).toFixed(1));
+          pcts[d.equipe] = d.percentual_alocado || defaultPct;
         }
       });
-    } else {
-      const defaultPct = Number((100 / finalSelected.length).toFixed(1));
-      finalSelected.forEach(t => { pcts[t] = defaultPct; });
+      existingTeams.forEach(t => {
+        if (pcts[t] === undefined) pcts[t] = defaultPct;
+      });
     }
     setCustomPercentages(pcts);
   };
@@ -146,45 +203,80 @@ export default function GestaoMetasPage() {
   const handleSelectAllTeams = () => {
     const currentTeams = storage.getTeams();
     setSelectedTeams([...currentTeams]);
+    updatePercentagesForTeams([...currentTeams]);
   };
 
   const handleSelectMainShiftTeams = () => {
     const currentTeams = storage.getTeams();
-    const main = currentTeams.filter(t => t.includes('ALFA') || t.includes('BRAVO') || t.includes('CHARLIE'));
-    setSelectedTeams(main.length > 0 ? main : currentTeams);
+    const main = currentTeams.filter(t => 
+      t.includes('ALFA') || t.includes('BRAVO') || t.includes('CHARLIE') || t.includes('ROTAM') || t.includes('TM')
+    );
+    const selected = main.length > 0 ? main : currentTeams;
+    setSelectedTeams(selected);
+    updatePercentagesForTeams(selected);
+  };
+
+  const handleSelectRuralTeams = () => {
+    const currentTeams = storage.getTeams();
+    const rural = currentTeams.filter(t => t.toUpperCase().includes('RURAL') || t.toUpperCase().includes('AGRO'));
+    const selected = rural.length > 0 ? rural : currentTeams;
+    setSelectedTeams(selected);
+    updatePercentagesForTeams(selected);
   };
 
   const handleClearTeams = () => {
-    const currentTeams = storage.getTeams();
-    if (currentTeams.length > 0) {
-      setSelectedTeams([currentTeams[0]]);
+    setSelectedTeams([]);
+    setCustomPercentages({});
+  };
+
+  const toggleTeam = (team: string) => {
+    let nextTeams: string[];
+    if (selectedTeams.includes(team)) {
+      nextTeams = selectedTeams.filter(t => t !== team);
     } else {
-      setSelectedTeams([]);
+      nextTeams = [...selectedTeams, team];
     }
+    setSelectedTeams(nextTeams);
+    updatePercentagesForTeams(nextTeams);
+  };
+
+  const updatePercentagesForTeams = (teams: string[]) => {
+    if (teams.length === 0) {
+      setCustomPercentages({});
+      return;
+    }
+    const defaultPct = Number((100 / teams.length).toFixed(1));
+    const nextPcts: { [team: string]: number } = {};
+    teams.forEach(t => {
+      nextPcts[t] = customPercentages[t] || defaultPct;
+    });
+    setCustomPercentages(nextPcts);
   };
 
   const handleSaveDistribution = () => {
     if (!selectedTarget) return;
 
-    let newDistributions = [];
-    if (distributionMode === 'EQUAL') {
-      const dist = distributeEqually(selectedTarget.meta_total, selectedTeams);
-      newDistributions = Object.entries(dist).map(([team, data]) => ({
-        id: `dst-${Date.now()}-${team}`,
-        meta_mensal_id: selectedTarget.id,
-        equipe: team,
-        percentual_alocado: data.percent,
-        meta_quantitativa: data.count
-      }));
-    } else {
-      const dist = distributeByPercentages(selectedTarget.meta_total, customPercentages);
-      newDistributions = Object.entries(dist).map(([team, data]) => ({
-        id: `dst-${Date.now()}-${team}`,
-        meta_mensal_id: selectedTarget.id,
-        equipe: team,
-        percentual_alocado: data.percent,
-        meta_quantitativa: data.count
-      }));
+    let newDistributions: TeamTargetAllocation[] = [];
+    if (selectedTeams.length > 0) {
+      if (distributionMode === 'EQUAL') {
+        const dist = distributeEqually(selectedTarget.meta_total, selectedTeams);
+        newDistributions = Object.entries(dist).map(([team, data]) => ({
+          id: `dst-${Date.now()}-${team}`,
+          meta_mensal_id: selectedTarget.id,
+          equipe: team,
+          percentual_alocado: data.percent,
+          meta_quantitativa: data.count
+        }));
+      } else {
+        const dist = distributeByPercentages(selectedTarget.meta_total, customPercentages);
+        newDistributions = Object.entries(dist).map(([team, data]) => ({
+          id: `dst-${Date.now()}-${team}`,
+          meta_mensal_id: selectedTarget.id,
+          equipe: team,
+          percentual_alocado: data.percent,
+          meta_quantitativa: data.count
+        }));
+      }
     }
 
     const all = storage.getAllTargets();
@@ -196,7 +288,10 @@ export default function GestaoMetasPage() {
       };
       storage.saveTargets(all);
       loadTargets();
-      showToast('success', 'Distribuição salva com sucesso.');
+      showToast('success', selectedTeams.length > 0 
+        ? `Distribuição salva para ${selectedTeams.length} equipes.` 
+        : 'Meta definida como geral da fração (sem equipes específicas alocadas).'
+      );
     }
     setSelectedTarget(null);
   };
@@ -209,19 +304,24 @@ export default function GestaoMetasPage() {
     const t = all[idx];
     const teams = t.distribuicoes && t.distribuicoes.length > 0
       ? t.distribuicoes.map(d => d.equipe)
-      : ['ALFA 1', 'ALFA 2', 'BRAVO 1', 'BRAVO 2'];
-    const dist = distributeEqually(newTotal, teams);
+      : [];
 
-    all[idx] = {
-      ...t,
-      meta_total: newTotal,
-      distribuicoes: Object.entries(dist).map(([team, data]) => ({
+    let newDistributions: TeamTargetAllocation[] = [];
+    if (teams.length > 0) {
+      const dist = distributeEqually(newTotal, teams);
+      newDistributions = Object.entries(dist).map(([team, data]) => ({
         id: `dst-${Date.now()}-${team}`,
         meta_mensal_id: t.id,
         equipe: team,
         percentual_alocado: data.percent,
         meta_quantitativa: data.count
-      }))
+      }));
+    }
+
+    all[idx] = {
+      ...t,
+      meta_total: newTotal,
+      distribuicoes: newDistributions
     };
 
     storage.saveTargets(all);
@@ -233,13 +333,93 @@ export default function GestaoMetasPage() {
     const filtered = all.filter(t => t.id !== targetId);
     storage.saveTargets(filtered);
     loadTargets();
-    showToast('success', 'Meta removida.');
+    showToast('success', 'Meta removida da grade com sucesso.');
   };
 
-  const availableOpsForTarget = operations.filter(
-    op => !targets.some(t => t.tipo_operacao_id === op.id)
-  );
+  // Mapeamento e agrupamento de metas
+  const enrichedTargets = useMemo(() => {
+    return targets.map(tgt => {
+      const op = operations.find(o => o.id === tgt.tipo_operacao_id);
+      return {
+        ...tgt,
+        opDetails: op
+      };
+    });
+  }, [targets, operations]);
 
+  // Filtragem por busca e tab
+  const filteredTargets = useMemo(() => {
+    return enrichedTargets.filter(item => {
+      const op = item.opDetails;
+      if (!op) return false;
+
+      // Filtro por grupo
+      if (selectedTabGroup !== 'ALL' && op.grupo !== selectedTabGroup) {
+        return false;
+      }
+
+      // Filtro por busca
+      if (searchTerm.trim()) {
+        const query = searchTerm.toLowerCase();
+        const matchTitle = op.titulo.toLowerCase().includes(query);
+        const matchCode = op.codigo_natureza.toLowerCase().includes(query);
+        const matchDesc = op.descricao.toLowerCase().includes(query);
+        const matchTeam = item.distribuicoes?.some(d => d.equipe.toLowerCase().includes(query));
+        if (!matchTitle && !matchCode && !matchDesc && !matchTeam) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [enrichedTargets, selectedTabGroup, searchTerm]);
+
+  // Operações ainda não adicionadas para este mês
+  const availableOps = useMemo(() => {
+    const usedOpIds = new Set(targets.map(t => t.tipo_operacao_id));
+    return operations.filter(op => op.ativo && !usedOpIds.has(op.id));
+  }, [operations, targets]);
+
+  // Agrupamento das operações disponíveis para adicionar
+  const availableOpsByGroup = useMemo(() => {
+    const groups: Record<OperationGroup, OperationType[]> = {
+      POG: [],
+      ORDENS_SERVICO: [],
+      INTERACOES_COMUNITARIAS: [],
+      PROXIMIDADE: []
+    };
+    availableOps.forEach(op => {
+      if (groups[op.grupo]) {
+        groups[op.grupo].push(op);
+      }
+    });
+    return groups;
+  }, [availableOps]);
+
+  // Contagens para os cards e tabs
+  const groupStats = useMemo(() => {
+    const counts: Record<string, { count: number; totalOps: number }> = {
+      ALL: { count: targets.length, totalOps: targets.reduce((acc, t) => acc + t.meta_total, 0) },
+      POG: { count: 0, totalOps: 0 },
+      ORDENS_SERVICO: { count: 0, totalOps: 0 },
+      INTERACOES_COMUNITARIAS: { count: 0, totalOps: 0 },
+      PROXIMIDADE: { count: 0, totalOps: 0 }
+    };
+
+    enrichedTargets.forEach(t => {
+      if (t.opDetails?.grupo && counts[t.opDetails.grupo]) {
+        counts[t.opDetails.grupo].count++;
+        counts[t.opDetails.grupo].totalOps += t.meta_total;
+      }
+    });
+
+    return counts;
+  }, [enrichedTargets, targets]);
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       
@@ -251,13 +431,13 @@ export default function GestaoMetasPage() {
             : 'bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
         }`}>
           <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4" />
+            <CheckCircle2 className="w-4 h-4" />
             <span>{notification.message}</span>
           </div>
         </div>
       )}
 
-      {/* Alerta de Edição em Ano Diferente do Ano Corrente */}
+      {/* Alerta de Edição em Ano Diferente do Corrente */}
       {ano !== currentYear && (
         <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200 animate-in fade-in">
           <div className="flex items-center gap-2">
@@ -276,21 +456,30 @@ export default function GestaoMetasPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-1 border-b border-gray-200 dark:border-[#1F242F]">
+      {/* ========================================================= */}
+      {/* 1. CABEÇALHO & SELEÇÃO DE PERÍODO (MÊS / ANO) */}
+      {/* ========================================================= */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-gray-200 dark:border-[#1F242F]">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Metas Mensais & Distribuição
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Planejamento quantitativo das operações e distribuição entre as equipes executoras.
-          </p>
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/80 flex items-center justify-center">
+              <Target className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                Planejamento de Metas Operacionais
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Distribuição quantitativa por grupo de operações (POG, Ordens de Serviço, AgroGerais, Comunitárias e Proximidade).
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Seletores de Mês e Ano (Até 2030) + Copiar Mês Anterior */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Seletores de Mês, Ano e Cópia */}
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-white dark:bg-[#151A23] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938] shadow-xs text-xs">
-            <Calendar className="w-4 h-4 text-gray-400" />
+            <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             
             {/* Mês */}
             <select
@@ -298,30 +487,23 @@ export default function GestaoMetasPage() {
               onChange={(e) => setMes(Number(e.target.value))}
               className="bg-transparent font-bold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
             >
-              <option value={1}>Janeiro</option>
-              <option value={2}>Fevereiro</option>
-              <option value={3}>Março</option>
-              <option value={4}>Abril</option>
-              <option value={5}>Maio</option>
-              <option value={6}>Junho</option>
-              <option value={7}>Julho</option>
-              <option value={8}>Agosto</option>
-              <option value={9}>Setembro</option>
-              <option value={10}>Outubro</option>
-              <option value={11}>Novembro</option>
-              <option value={12}>Dezembro</option>
+              {monthNames.map((mName, idx) => (
+                <option key={idx + 1} value={idx + 1} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                  {mName}
+                </option>
+              ))}
             </select>
             
             <span className="text-gray-300 dark:text-gray-600">/</span>
             
-            {/* Ano (Até 2030 com Validação de Confirmação) */}
+            {/* Ano */}
             <select
               value={ano}
               onChange={(e) => handleYearSelectChange(Number(e.target.value))}
               className="bg-transparent font-bold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
             >
               {availableYears.map((y) => (
-                <option key={y} value={y}>
+                <option key={y} value={y} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                   {y} {y === currentYear ? '(Atual)' : ''}
                 </option>
               ))}
@@ -331,106 +513,285 @@ export default function GestaoMetasPage() {
           <button
             type="button"
             onClick={handleCopyFromPrevious}
-            className="btn-secondary py-1.5 px-3 text-xs"
-            title="Copiar metas cadastradas no mês anterior"
+            className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+            title="Copiar grade de metas do mês anterior"
           >
             <Copy className="w-3.5 h-3.5 text-gray-500" />
-            <span>Copiar do Mês Anterior</span>
+            <span>Copiar Mês Anterior</span>
           </button>
         </div>
       </div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs">
+        
+        {/* Tabs Segmentadas de Grupos */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setSelectedTabGroup('ALL')}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 whitespace-nowrap transition-all ${
+              selectedTabGroup === 'ALL'
+                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1E2636]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Todas as Metas</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+              selectedTabGroup === 'ALL' ? 'bg-white/20 dark:bg-black/20 text-white dark:text-gray-900' : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+            }`}>
+              {groupStats.ALL.count}
+            </span>
+          </button>
 
-      {/* Lista de Metas Configuradas */}
-      <div className="space-y-4">
-        {targets.length === 0 ? (
-          <div className="untitled-card p-8 text-center space-y-3">
-            <Target className="w-8 h-8 text-gray-400 mx-auto" />
+          {(Object.keys(GROUP_CONFIG) as OperationGroup[]).map((grpKey) => {
+            const cfg = GROUP_CONFIG[grpKey];
+            const Icon = cfg.icon;
+            const isSelected = selectedTabGroup === grpKey;
+            const stat = groupStats[grpKey] || { count: 0, totalOps: 0 };
+
+            return (
+              <button
+                key={grpKey}
+                type="button"
+                onClick={() => setSelectedTabGroup(grpKey)}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 whitespace-nowrap transition-all ${
+                  isSelected
+                    ? `${cfg.badgeColor} shadow-xs font-extrabold`
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#1E2636]'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{cfg.shortLabel}</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  isSelected ? 'bg-white/40 dark:bg-black/30' : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                }`}>
+                  {stat.count} ({stat.totalOps})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Campo de Busca Rápida */}
+        <div className="relative min-w-[220px]">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Filtrar por nome, código ou equipe..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#283042] text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-emerald-500"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 3. LISTAGEM DE METAS AGRUPADAS DINAMICAMENTE */}
+      {/* ========================================================= */}
+      <div className="space-y-6">
+        {filteredTargets.length === 0 ? (
+          <div className="untitled-card p-10 text-center space-y-3">
+            <Target className="w-10 h-10 text-gray-400 mx-auto" />
             <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm">
-              Nenhuma meta cadastrada para {mes}/{ano}.
+              Nenhuma meta encontrada para os filtros selecionados.
             </h3>
-            <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              Adicione operações abaixo para definir metas quantitativas e distribuir entre as equipes.
+            <p className="text-xs text-gray-500 max-w-md mx-auto">
+              Utilize a seção abaixo para adicionar operações e definir o planejamento mensal de {monthNames[mes - 1]}/{ano}.
             </p>
           </div>
         ) : (
-          targets.map((tgt) => {
-            const op = operations.find(o => o.id === tgt.tipo_operacao_id);
-            if (!op) return null;
+          // Quando selecionado 'ALL', agrupa visualmente por grupo de operação
+          (selectedTabGroup === 'ALL'
+            ? (['POG', 'ORDENS_SERVICO', 'INTERACOES_COMUNITARIAS', 'PROXIMIDADE'] as OperationGroup[])
+            : [selectedTabGroup]
+          ).map((groupKey) => {
+            const groupTargets = filteredTargets.filter(t => t.opDetails?.grupo === groupKey);
+            if (groupTargets.length === 0) return null;
+
+            const groupCfg = GROUP_CONFIG[groupKey];
+            const GroupIcon = groupCfg.icon;
 
             return (
-              <div
-                key={tgt.id}
-                className="untitled-card p-4 sm:p-5 space-y-4"
-              >
-                {/* Linha Superior: Nome da Op, Meta Total e Ações */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
-                      <Target className="w-4 h-4" />
+              <div key={groupKey} className="space-y-3">
+                
+                {/* Cabeçalho do Grupo */}
+                <div className={`p-3 rounded-2xl border ${groupCfg.bgLight} ${groupCfg.borderColor} flex flex-col sm:flex-row sm:items-center justify-between gap-2`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-xl ${groupCfg.badgeColor} flex items-center justify-center`}>
+                      <GroupIcon className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-mono font-bold text-[11px] text-gray-700 dark:text-gray-300">
-                          {op.codigo_natureza}
+                        <h2 className="font-extrabold text-sm text-gray-900 dark:text-white">
+                          {groupCfg.label}
+                        </h2>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#283042] text-gray-700 dark:text-gray-300">
+                          {groupTargets.length} {groupTargets.length === 1 ? 'operação' : 'operações'}
                         </span>
-                        <h3 className="font-bold text-sm text-gray-900 dark:text-white">
-                          {op.titulo}
-                        </h3>
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{op.descricao}</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {groupCfg.description}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 self-end sm:self-auto">
-                    {/* Input Meta Total */}
-                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938]">
-                      <span className="text-xs text-gray-500 font-medium">Meta Total:</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={tgt.meta_total}
-                        onChange={(e) => handleTotalChange(tgt.id, Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-14 bg-transparent text-right font-bold text-xs text-gray-900 dark:text-white focus:outline-none"
-                      />
-                      <span className="text-xs text-gray-400">ops</span>
-                    </div>
-
-                    <button
-                      onClick={() => handleOpenDistributionModal(tgt)}
-                      className="btn-secondary py-1.5 px-3 text-xs"
-                    >
-                      <PieChart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Distribuir Equipes</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteTarget(tgt.id)}
-                      className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                      title="Excluir meta"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="text-right sm:self-auto self-end">
+                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 block">
+                      Meta do Grupo:
+                    </span>
+                    <span className={`text-base font-extrabold ${groupCfg.textColor}`}>
+                      {groupTargets.reduce((acc, t) => acc + t.meta_total, 0)} <span className="text-xs font-medium text-gray-400">ações</span>
+                    </span>
                   </div>
                 </div>
 
-                {/* Grid com a cota das equipes */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 pt-3 border-t border-gray-100 dark:border-[#222938]">
-                  {tgt.distribuicoes && tgt.distribuicoes.map((dst) => (
-                    <div
-                      key={dst.id}
-                      className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#222938] text-center"
-                    >
-                      <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 block truncate">
-                        {dst.equipe}
-                      </span>
-                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 block my-0.5">
-                        {dst.meta_quantitativa} ops
-                      </span>
-                      <span className="text-[10px] text-gray-400 block font-mono">
-                        {dst.percentual_alocado}%
-                      </span>
-                    </div>
-                  ))}
+                {/* Grid de Cards de Operações do Grupo */}
+                <div className="space-y-3">
+                  {groupTargets.map((tgt) => {
+                    const op = tgt.opDetails;
+                    if (!op) return null;
+
+                    const hasTeamsAllocated = tgt.distribuicoes && tgt.distribuicoes.length > 0;
+
+                    return (
+                      <div
+                        key={tgt.id}
+                        className="untitled-card p-4 sm:p-5 space-y-3 hover:border-gray-300 dark:hover:border-[#283042] transition-all"
+                      >
+                        {/* Linha Superior: Código, Título, Meta Total e Botão Distribuir */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
+                              <Target className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <div>
+                              <div className="flex items-center flex-wrap gap-2">
+                                <span className="px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] font-mono font-bold text-xs text-gray-800 dark:text-gray-200">
+                                  {op.codigo_natureza}
+                                </span>
+                                <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                                  {op.titulo}
+                                </h3>
+                                {op.area_rural_obrigatoria && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
+                                    Zona Rural
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
+                                {op.descricao}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Controles de Meta Total e Distribuição */}
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            {/* Input Meta Total */}
+                            <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938]">
+                              <span className="text-xs text-gray-500 font-medium">Meta:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={tgt.meta_total}
+                                onChange={(e) => handleTotalChange(tgt.id, Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-12 bg-transparent text-right font-extrabold text-xs text-gray-900 dark:text-white focus:outline-none"
+                              />
+                              <span className="text-xs text-gray-400 font-semibold">ops</span>
+                            </div>
+
+                            {/* Botão de Distribuir Equipes */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDistributionModal(tgt)}
+                              className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                                hasTeamsAllocated
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
+                                  : 'bg-white text-gray-700 border-dashed border-gray-300 dark:bg-[#151A23] dark:text-gray-200 dark:border-gray-700 hover:border-emerald-500 hover:text-emerald-600'
+                              }`}
+                            >
+                              <PieChart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>{hasTeamsAllocated ? `Distribuído (${tgt.distribuicoes?.length} eq.)` : 'Distribuir Equipes'}</span>
+                            </button>
+
+                            {/* Botão de Excluir Meta */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTarget(tgt.id)}
+                              className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              title="Excluir meta desta operação"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Visualização da Distribuição das Equipes */}
+                        {hasTeamsAllocated ? (
+                          <div className="pt-2 border-t border-gray-100 dark:border-[#222938]">
+                            <div className="flex items-center justify-between pb-1.5">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                                Alocação por Equipe ({tgt.distribuicoes?.length} equipes participantes):
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDistributionModal(tgt)}
+                                className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-0.5"
+                              >
+                                <span>Ajustar cotas</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                              {tgt.distribuicoes?.map((dst) => (
+                                <div
+                                  key={dst.id}
+                                  className="p-2 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#222938] flex items-center justify-between gap-2"
+                                >
+                                  <div className="min-w-0">
+                                    <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block truncate">
+                                      {dst.equipe}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400 font-mono">
+                                      {dst.percentual_alocado}% da cota
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/80">
+                                    {dst.meta_quantitativa} ops
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gray-50/60 dark:bg-[#0E121A]/50 p-2.5 rounded-xl text-xs text-gray-500">
+                            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                              <Users className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                              <span>
+                                <strong>Sem equipes alocadas:</strong> Esta meta de {tgt.meta_total} operações conta como cota geral da fração até que você defina as equipes.
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDistributionModal(tgt)}
+                              className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Definir Equipes Agora</span>
+                            </button>
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  })}
                 </div>
 
               </div>
@@ -439,31 +800,74 @@ export default function GestaoMetasPage() {
         )}
       </div>
 
-      {/* Adicionar Mais Metas */}
-      {availableOpsForTarget.length > 0 && (
-        <div className="untitled-card p-5 space-y-3">
+      {/* ========================================================= */}
+      {/* 4. ADICIONAR NOVAS OPERAÇÕES À GRADE (AGRUPADAS POR CATEGORIA) */}
+      {/* ========================================================= */}
+      {availableOps.length > 0 && (
+        <div className="untitled-card p-5 sm:p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <h3 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white">
-              Adicionar Outras Operações à Grade de Metas ({mes}/{ano})
-            </h3>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+              <Plus className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                Adicionar Operações à Grade de Metas ({monthNames[mes - 1]}/{ano})
+              </h3>
+              <p className="text-xs text-gray-500">
+                Selecione as operações disponíveis abaixo para incluí-las no planejamento deste mês:
+              </p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {availableOpsForTarget.map((op) => (
-              <button
-                key={op.id}
-                onClick={() => handleAddTargetForOp(op.id)}
-                className="btn-secondary py-1.5 px-3 text-xs"
-              >
-                <Plus className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{op.codigo_natureza} — {op.titulo}</span>
-              </button>
-            ))}
+
+          <div className="space-y-4 pt-1">
+            {(Object.keys(availableOpsByGroup) as OperationGroup[]).map((groupKey) => {
+              const opsInGroup = availableOpsByGroup[groupKey];
+              if (opsInGroup.length === 0) return null;
+
+              const cfg = GROUP_CONFIG[groupKey];
+              const Icon = cfg.icon;
+
+              return (
+                <div key={groupKey} className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-gray-300">
+                    <Icon className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{cfg.label}</span>
+                    <span className="text-gray-400 font-normal">({opsInGroup.length} disponíveis)</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {opsInGroup.map((op) => (
+                      <button
+                        key={op.id}
+                        type="button"
+                        onClick={() => handleAddTargetForOp(op.id)}
+                        className="p-2.5 rounded-xl border border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-emerald-500 dark:hover:border-emerald-500 text-left transition-all group flex flex-col justify-between"
+                      >
+                        <div>
+                          <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-mono font-bold text-[10px] text-gray-700 dark:text-gray-300">
+                            {op.codigo_natureza}
+                          </span>
+                          <h4 className="font-bold text-xs text-gray-900 dark:text-white mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 line-clamp-2">
+                            {op.titulo}
+                          </h4>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pt-2 mt-2 border-t border-gray-50 dark:border-[#1E2636]">
+                          <span>+ Adicionar Meta</span>
+                          <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Modal de Confirmação de Ano Diferente do Corrente */}
+      {/* ========================================================= */}
+      {/* 5. MODAL DE CONFIRMAÇÃO DE ANO */}
+      {/* ========================================================= */}
       {pendingYear !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl p-5 space-y-4 text-xs animate-in zoom-in-95">
@@ -503,20 +907,27 @@ export default function GestaoMetasPage() {
         </div>
       )}
 
-      {/* Modal de Distribuição Responsivo */}
+      {/* ========================================================= */}
+      {/* 6. MODAL DE DISTRIBUIÇÃO DAS EQUIPES (SEM PRÉ-SELEÇÃO FORÇADA) */}
+      {/* ========================================================= */}
       {selectedTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="w-full max-w-2xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95">
             
             {/* Header Fixo */}
             <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
-              <div>
-                <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
-                  Distribuição da Meta da Operação ({mes}/{ano})
-                </h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">
-                  Total a distribuir: <strong className="text-emerald-600 dark:text-emerald-400">{selectedTarget.meta_total} operações</strong>
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                  <PieChart className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                    Distribuição da Meta por Equipe
+                  </h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Operação: <strong>{operations.find(o => o.id === selectedTarget.tipo_operacao_id)?.titulo}</strong> · Cota Total: <strong className="text-emerald-600 dark:text-emerald-400">{selectedTarget.meta_total} ops</strong>
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedTarget(null)}
@@ -526,13 +937,13 @@ export default function GestaoMetasPage() {
               </button>
             </div>
 
-            {/* Conteúdo com Rolagem Interna Independente */}
+            {/* Conteúdo com Rolagem Interna */}
             <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
               
               {/* Seleção do Modo (Segmented Control) */}
               <div>
                 <label className="block font-bold text-gray-700 dark:text-gray-300 mb-1.5 text-[11px] uppercase tracking-wider">
-                  Modo de Distribuição
+                  Modo de Divisão da Cota
                 </label>
                 <div className="grid grid-cols-2 gap-2 bg-gray-100 dark:bg-[#0E121A] p-1 rounded-xl">
                   <button
@@ -555,66 +966,79 @@ export default function GestaoMetasPage() {
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
                     }`}
                   >
-                    Por Percentual (%)
+                    Personalizado por %
                   </button>
                 </div>
               </div>
 
-              {/* Seleção de Equipes com Atalhos Rápidos */}
+              {/* Seleção de Equipes (NÃO VEM PRÉ-SELECIONADO FORÇADO) */}
               <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                  <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase tracking-wider">
-                    Equipes Selecionadas ({selectedTeams.length} de {allTeams.length})
-                  </label>
-                  <div className="flex items-center gap-1.5">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase tracking-wider block">
+                      Selecione as Equipes Executoras
+                    </label>
+                    <span className="text-[11px] text-gray-400">
+                      {selectedTeams.length === 0 ? 'Nenhuma equipe marcada' : `${selectedTeams.length} de ${allTeams.length} equipes selecionadas`}
+                    </span>
+                  </div>
+
+                  {/* Botões Rápidos de Seleção */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
                       onClick={handleSelectAllTeams}
-                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                     >
                       Todas ({allTeams.length})
                     </button>
                     <button
                       type="button"
                       onClick={handleSelectMainShiftTeams}
-                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                     >
-                      Alfa/Bravo/Charlie
+                      Alfa / Bravo / Charlie
                     </button>
                     <button
                       type="button"
-                      onClick={handleClearTeams}
-                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      onClick={handleSelectRuralTeams}
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                     >
-                      Limpar
+                      Patrulha Rural
                     </button>
+                    {selectedTeams.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearTeams}
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                      >
+                        Limpar
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Grid das Equipes Dinâmicas */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-48 overflow-y-auto p-1 border border-gray-100 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
+                {/* Grade das Equipes */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-48 overflow-y-auto p-1.5 border border-gray-200 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
                   {allTeams.map((team) => {
                     const isSelected = selectedTeams.includes(team);
                     return (
                       <button
                         key={team}
                         type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            if (selectedTeams.length > 1) {
-                              setSelectedTeams(selectedTeams.filter(t => t !== team));
-                            }
-                          } else {
-                            setSelectedTeams([...selectedTeams, team]);
-                          }
-                        }}
-                        className={`py-1.5 px-2 rounded-lg border text-center font-semibold text-[11px] truncate transition-all ${
+                        onClick={() => toggleTeam(team)}
+                        className={`py-2 px-2.5 rounded-lg border text-left font-semibold text-[11px] truncate transition-all flex items-center justify-between gap-1.5 ${
                           isSelected
-                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-800 dark:text-emerald-200 shadow-xs'
-                            : 'bg-white dark:bg-[#151A23] border-gray-200 dark:border-[#222938] text-gray-400 hover:text-gray-700'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-900 dark:text-emerald-200 shadow-xs'
+                            : 'bg-white dark:bg-[#151A23] border-gray-200 dark:border-[#222938] text-gray-600 dark:text-gray-400 hover:border-gray-400'
                         }`}
                       >
-                        {team}
+                        <span className="truncate">{team}</span>
+                        <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
+                          isSelected ? 'bg-emerald-600 text-white' : 'border border-gray-300 dark:border-gray-600'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
                       </button>
                     );
                   })}
@@ -622,8 +1046,8 @@ export default function GestaoMetasPage() {
               </div>
 
               {/* Sliders para Modo PERCENTAGE */}
-              {distributionMode === 'PERCENTAGE' && (
-                <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] space-y-2.5">
+              {selectedTeams.length > 0 && distributionMode === 'PERCENTAGE' && (
+                <div className="p-3.5 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] space-y-2.5">
                   <span className="font-bold text-gray-700 dark:text-gray-300 block text-[11px]">
                     Defina as porcentagens por equipe selecionada:
                   </span>
@@ -640,7 +1064,7 @@ export default function GestaoMetasPage() {
                             ...customPercentages,
                             [team]: Number(e.target.value)
                           })}
-                          className="flex-1 accent-emerald-600"
+                          className="flex-1 accent-emerald-600 cursor-pointer"
                         />
                         <span className="font-mono font-bold w-10 text-right text-emerald-600 dark:text-emerald-400">
                           {customPercentages[team] || 0}%
@@ -654,28 +1078,37 @@ export default function GestaoMetasPage() {
                 </div>
               )}
 
-              {/* Resumo da Distribuição Calculada */}
-              <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938]">
-                <span className="font-bold text-gray-700 dark:text-gray-300 block mb-1.5 text-[11px]">
-                  Cota Calculada por Equipe:
-                </span>
-                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-                  {selectedTeams.map((t) => {
-                    const count = distributionMode === 'EQUAL'
-                      ? Math.floor(selectedTarget.meta_total / selectedTeams.length)
-                      : Math.round((selectedTarget.meta_total * (customPercentages[t] || 0)) / 100);
-                    return (
-                      <span key={t} className="px-2 py-0.5 rounded-md bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] font-medium text-gray-700 dark:text-gray-300 text-[10px]">
-                        {t}: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{count} ops</strong>
-                      </span>
-                    );
-                  })}
+              {/* Resumo da Distribuição Calculada ou Aviso de Nenhuma Equipe */}
+              {selectedTeams.length > 0 ? (
+                <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938]">
+                  <span className="font-bold text-gray-700 dark:text-gray-300 block mb-1.5 text-[11px]">
+                    Cota Calculada por Equipe ({selectedTeams.length} equipes):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                    {selectedTeams.map((t) => {
+                      const count = distributionMode === 'EQUAL'
+                        ? Math.floor(selectedTarget.meta_total / selectedTeams.length)
+                        : Math.round((selectedTarget.meta_total * (customPercentages[t] || 0)) / 100);
+                      return (
+                        <span key={t} className="px-2 py-0.5 rounded-md bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] font-medium text-gray-700 dark:text-gray-300 text-[10px]">
+                          {t}: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{count} ops</strong>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/60 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <span>
+                    Nenhuma equipe selecionada. Se você salvar sem selecionar equipes, a meta permanecerá como cota global da fração (sem divisão individual por equipe).
+                  </span>
+                </div>
+              )}
 
             </div>
 
-            {/* Footer Fixo com Botões Visíveis */}
+            {/* Footer Fixo */}
             <div className="p-4 border-t border-gray-100 dark:border-[#222938] flex items-center justify-end gap-2 flex-shrink-0 bg-gray-50/50 dark:bg-[#0E121A]">
               <button
                 type="button"
@@ -687,9 +1120,10 @@ export default function GestaoMetasPage() {
               <button
                 type="button"
                 onClick={handleSaveDistribution}
-                className="btn-primary py-2 px-4 text-xs"
+                className="btn-primary py-2 px-4 text-xs flex items-center gap-1.5"
               >
-                Salvar Distribuição
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Salvar Distribuição</span>
               </button>
             </div>
 
@@ -700,3 +1134,4 @@ export default function GestaoMetasPage() {
     </div>
   );
 }
+

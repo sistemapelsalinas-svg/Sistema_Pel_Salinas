@@ -27,16 +27,22 @@ import { RiskBadge } from '@/components/risk-badge';
 export default function MissaoDoDiaPage() {
   const { user } = useAuth();
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [allTeams, setAllTeams] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [mission, setMission] = useState<DailyMissionData | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<OperationGroup | 'TODAS'>('TODAS');
 
   useEffect(() => {
     const users = storage.getUsers();
+    const teams = storage.getTeams();
     setAllUsers(users);
+    setAllTeams(teams);
     if (user) {
       setSelectedUserId(user.id);
-      setMission(storage.getDailyMission(user));
+      const initialMission = storage.getDailyMission(user);
+      setMission(initialMission);
+      setSelectedTeam(initialMission.equipeHoje || '');
     }
   }, [user]);
 
@@ -44,7 +50,17 @@ export default function MissaoDoDiaPage() {
     setSelectedUserId(uId);
     const targetUser = allUsers.find(u => u.id === uId);
     if (targetUser) {
-      setMission(storage.getDailyMission(targetUser));
+      const newMission = storage.getDailyMission(targetUser);
+      setMission(newMission);
+      setSelectedTeam(newMission.equipeHoje || '');
+    }
+  };
+
+  const handleTeamChange = (teamName: string) => {
+    setSelectedTeam(teamName);
+    const targetUser = allUsers.find(u => u.id === selectedUserId) || user;
+    if (targetUser) {
+      setMission(storage.getDailyMission(targetUser, new Date(), teamName));
     }
   };
 
@@ -105,24 +121,46 @@ export default function MissaoDoDiaPage() {
           </div>
         </div>
 
-        {/* Controles de Ação e Seletor de Militar */}
+        {/* Controles de Ação e Seletor de Militar e Equipe */}
         <div className="flex items-center flex-wrap gap-2">
           {isAdminOrSof && (
-            <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] text-xs">
-              <Users className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-gray-500 font-medium">Militar:</span>
-              <select
-                value={selectedUserId}
-                onChange={(e) => handleUserChange(e.target.value)}
-                className="bg-transparent font-bold text-gray-900 dark:text-white focus:outline-none cursor-pointer"
-              >
-                {allUsers.map((u) => (
-                  <option key={u.id} value={u.id} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
-                    {cleanMilitarName(u.graduacao, u.nome_guerra)} (PM {u.numero_pm})
+            <>
+              {/* Seletor de Equipe */}
+              <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] text-xs">
+                <span className="text-gray-500 font-medium">Equipe:</span>
+                <select
+                  value={selectedTeam}
+                  onChange={(e) => handleTeamChange(e.target.value)}
+                  className="bg-transparent font-bold text-gray-900 dark:text-white focus:outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                    Todas as Equipes (Geral da Fração)
                   </option>
-                ))}
-              </select>
-            </div>
+                  {allTeams.map((t) => (
+                    <option key={t} value={t} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                      Equipe {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Seletor de Militar */}
+              <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] text-xs">
+                <Users className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-gray-500 font-medium">Militar:</span>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => handleUserChange(e.target.value)}
+                  className="bg-transparent font-bold text-gray-900 dark:text-white focus:outline-none cursor-pointer"
+                >
+                  {allUsers.map((u) => (
+                    <option key={u.id} value={u.id} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                      {cleanMilitarName(u.graduacao, u.nome_guerra)} (PM {u.numero_pm})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
           )}
 
           <button
@@ -157,7 +195,7 @@ export default function MissaoDoDiaPage() {
           
           {/* Identificação do Militar */}
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center flex-wrap gap-2">
               <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                 mission.deServicoHoje
                   ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
@@ -167,13 +205,19 @@ export default function MissaoDoDiaPage() {
                 {mission.deServicoHoje ? `DE SERVIÇO (${mission.legendaHoje} · ${mission.legendaDescricao})` : `FOLGA / DISPENSA (${mission.legendaHoje} · ${mission.legendaDescricao})`}
               </span>
 
+              {mission.militar.role === 'ADMIN' && (
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-extrabold flex items-center gap-1">
+                  Administrador Geral do Sistema
+                </span>
+              )}
+
               {mission.equipeHoje ? (
                 <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-extrabold">
                   Equipe: {mission.equipeHoje}
                 </span>
               ) : (
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 text-xs font-bold">
-                  Sem equipe vinculada
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 text-xs font-bold">
+                  Visão Geral da Fração (Todas as Equipes)
                 </span>
               )}
             </div>
