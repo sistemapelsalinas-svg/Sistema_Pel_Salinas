@@ -676,23 +676,21 @@ export default function OperacoesExecutadasPage() {
                           </div>
 
                           {/* Badges de Meta e Rural */}
-                          <div className="flex items-center gap-1.5 text-[10px]">
-                            {op.area_rural_obrigatoria && (
-                              <span className="px-1.5 py-0.2 rounded font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                Rural
-                              </span>
-                            )}
-                            {hasTeamGoal ? (
-                              <span className="px-1.5 py-0.2 rounded font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                                <FileCheck className="w-2.5 h-2.5" />
-                                <span>Meta: {teamAlloc?.meta_quantitativa}</span>
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.2 rounded font-semibold bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                                Sem meta
-                              </span>
-                            )}
-                          </div>
+                          {(op.area_rural_obrigatoria || hasTeamGoal) && (
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              {op.area_rural_obrigatoria && (
+                                <span className="px-1.5 py-0.2 rounded font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                  Rural
+                                </span>
+                              )}
+                              {hasTeamGoal && (
+                                <span className="px-1.5 py-0.2 rounded font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                                  <FileCheck className="w-2.5 h-2.5" />
+                                  <span>Meta: {teamAlloc?.meta_quantitativa}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center text-emerald-600 dark:text-emerald-400 flex-shrink-0 pl-1">
