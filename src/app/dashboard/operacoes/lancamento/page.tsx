@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { storage } from '@/lib/storage';
 import { OperationType, EscalaMilitar, OperationExecutionLog, OperationGroupDef, MonthlyTarget } from '@/lib/types';
-import { validateOperationLaunch } from '@/lib/validation';
 import { useAuth } from '@/lib/auth-context';
 import { 
   Target, 
@@ -28,7 +27,13 @@ import {
   Bookmark,
   Folder,
   UserCheck,
-  FileCheck
+  FileCheck,
+  ArrowRight,
+  ArrowLeft,
+  CheckSquare,
+  Square,
+  HelpCircle,
+  Search
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -53,15 +58,15 @@ const getGroupIcon = (iconName?: string) => {
   return ICON_MAP[iconName] || Shield;
 };
 
-const COLOR_MAP: Record<string, { bgClass: string; badgeClass: string; activeClass: string }> = {
-  blue: { bgClass: 'bg-blue-500', badgeClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800', activeClass: 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300' },
-  emerald: { bgClass: 'bg-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800', activeClass: 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' },
-  purple: { bgClass: 'bg-purple-500', badgeClass: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800', activeClass: 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300' },
-  amber: { bgClass: 'bg-amber-500', badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800', activeClass: 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300' },
-  rose: { bgClass: 'bg-rose-500', badgeClass: 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800', activeClass: 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300' },
-  indigo: { bgClass: 'bg-indigo-500', badgeClass: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800', activeClass: 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300' },
-  cyan: { bgClass: 'bg-cyan-500', badgeClass: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800', activeClass: 'border-cyan-500 bg-cyan-50/50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300' },
-  slate: { bgClass: 'bg-slate-500', badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-900/60 dark:text-slate-300 border-slate-200 dark:border-slate-800', activeClass: 'border-slate-500 bg-slate-50/50 dark:bg-slate-950/30 text-slate-700 dark:text-slate-300' }
+const COLOR_MAP: Record<string, { bgClass: string; badgeClass: string; activeClass: string; borderClass: string }> = {
+  blue: { bgClass: 'bg-blue-500', badgeClass: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800', activeClass: 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300', borderClass: 'border-blue-500' },
+  emerald: { bgClass: 'bg-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800', activeClass: 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300', borderClass: 'border-emerald-500' },
+  purple: { bgClass: 'bg-purple-500', badgeClass: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800', activeClass: 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300', borderClass: 'border-purple-500' },
+  amber: { bgClass: 'bg-amber-500', badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800', activeClass: 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300', borderClass: 'border-amber-500' },
+  rose: { bgClass: 'bg-rose-500', badgeClass: 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800', activeClass: 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300', borderClass: 'border-rose-500' },
+  indigo: { bgClass: 'bg-indigo-500', badgeClass: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800', activeClass: 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300', borderClass: 'border-indigo-500' },
+  cyan: { bgClass: 'bg-cyan-500', badgeClass: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800', activeClass: 'border-cyan-500 bg-cyan-50/50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300', borderClass: 'border-cyan-500' },
+  slate: { bgClass: 'bg-slate-500', badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-900/60 dark:text-slate-300 border-slate-200 dark:border-slate-800', activeClass: 'border-slate-500 bg-slate-50/50 dark:bg-slate-950/30 text-slate-700 dark:text-slate-300', borderClass: 'border-slate-500' }
 };
 
 const getGroupColor = (colorKey?: string) => {
@@ -93,6 +98,9 @@ export default function OperacoesExecutadasPage() {
   const { user } = useAuth();
   const todayStr = useMemo(() => getTodayDateString(), []);
 
+  // Wizard Step: 1 = Grupo, 2 = Natureza, 3 = Dados da Execução
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+
   const [groups, setGroups] = useState<OperationGroupDef[]>([]);
   const [operations, setOperations] = useState<OperationType[]>([]);
   const [militares, setMilitares] = useState<EscalaMilitar[]>([]);
@@ -100,6 +108,10 @@ export default function OperacoesExecutadasPage() {
   const [logs, setLogs] = useState<OperationExecutionLog[]>([]);
   const [allTargets, setAllTargets] = useState<MonthlyTarget[]>([]);
 
+  // Filtro de pesquisa na etapa 2
+  const [opSearchTerm, setOpSearchTerm] = useState<string>('');
+
+  // Seleções do formulário
   const [selectedGroup, setSelectedGroup] = useState<string>('POG');
   const [selectedOpId, setSelectedOpId] = useState<string>('');
   const [dataExecucao, setDataExecucao] = useState<string>(todayStr);
@@ -114,20 +126,27 @@ export default function OperacoesExecutadasPage() {
   const [quantidadeEnvolvidos, setQuantidadeEnvolvidos] = useState<number>(0);
   const [observacoes, setObservacoes] = useState<string>('');
 
-  const [entidadeComunidade, setEntidadeComunidade] = useState<string>('');
-  const [pauta, setPauta] = useState<string>('');
-  const [encaminhamentos, setEncaminhamentos] = useState<string>('');
-  const [orientacoes, setOrientacoes] = useState<string>('');
-  const [demandaIdentificada, setDemandaIdentificada] = useState<string>('');
-  const [redeAtendida, setRedeAtendida] = useState<string>('');
-  const [providencias, setProvidencias] = useState<string>('');
-  const [pessoaAtendida, setPessoaAtendida] = useState<string>('');
-  const [vitimaAtendida, setVitimaAtendida] = useState<string>('');
+  // Checkboxes de confirmação de requisitos institucionais (Interações Comunitárias e Visitas)
+  const [confirmVcpEnvolvidos, setConfirmVcpEnvolvidos] = useState<boolean>(false);
+  const [confirmVcpHistorico, setConfirmVcpHistorico] = useState<boolean>(false);
+  
+  const [confirmRcEnvolvidos, setConfirmRcEnvolvidos] = useState<boolean>(false);
+  const [confirmRcHistorico, setConfirmRcHistorico] = useState<boolean>(false);
+  
+  const [confirmRcrRural, setConfirmRcrRural] = useState<boolean>(false);
+  const [confirmRcrEnvolvidos, setConfirmRcrEnvolvidos] = useState<boolean>(false);
+  const [confirmRcrHistorico, setConfirmRcrHistorico] = useState<boolean>(false);
+  
+  const [confirmMrppEnvolvidos, setConfirmMrppEnvolvidos] = useState<boolean>(false);
+  const [confirmMrppHistorico, setConfirmMrppHistorico] = useState<boolean>(false);
+  
+  const [confirmVtVitima, setConfirmVtVitima] = useState<boolean>(false);
+  const [confirmVtRedsOrigem, setConfirmVtRedsOrigem] = useState<boolean>(false);
 
   const [successMsg, setSuccessMsg] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // Carregar dados iniciais
+  // Carregar dados iniciais e definir equipe pré-selecionada conforme módulo de escala
   useEffect(() => {
     const loadedGroups = storage.getOperationGroups();
     const ops = storage.getOperations();
@@ -147,68 +166,81 @@ export default function OperacoesExecutadasPage() {
     const queryOpId = params?.get('opId');
     const queryEquipe = params?.get('equipe');
 
-    // Equipe inicial
+    // Identificar o militar logado na escala para obter sua equipe padrão
+    const userPmClean = (user?.numero_pm || '').replace(/\D/g, '');
+    const loggedMilitar = mils.find(m => (m.numero_pm || '').replace(/\D/g, '') === userPmClean || m.id === user?.id);
+
+    // Pré-selecionar a equipe do usuário conforme cadastrada na escala
     if (queryEquipe && loadedTeams.includes(queryEquipe)) {
       setEquipe(queryEquipe);
+    } else if (loggedMilitar?.equipe_padrao && loadedTeams.includes(loggedMilitar.equipe_padrao)) {
+      setEquipe(loggedMilitar.equipe_padrao);
     } else if (user?.equipe_padrao && loadedTeams.includes(user.equipe_padrao)) {
       setEquipe(user.equipe_padrao);
     } else if (loadedTeams.length > 0) {
       setEquipe(loadedTeams[0]);
     }
 
-    // Grupo e Operação inicial
+    // Militar responsável pré-selecionado como o usuário logado
+    if (loggedMilitar) {
+      setMilitarId(loggedMilitar.id);
+    } else if (user) {
+      setMilitarId(user.id);
+    } else if (mils.length > 0) {
+      setMilitarId(mils[0].id);
+    }
+
+    // Grupo e Operação inicial via query ou defaults
     if (queryOpId) {
       const foundOp = ops.find(o => o.id === queryOpId);
       if (foundOp) {
         setSelectedGroup(foundOp.grupo);
         setSelectedOpId(foundOp.id);
+        setCurrentStep(3); // Se veio com opId na URL, vai direto para a etapa 3
       } else if (loadedGroups.length > 0) {
         setSelectedGroup(loadedGroups[0].id);
       }
     } else if (loadedGroups.length > 0) {
       setSelectedGroup(loadedGroups[0].id);
     }
-
-    // Militar responsável pré-selecionado como o usuário logado
-    if (user) {
-      const userPmClean = (user.numero_pm || '').replace(/\D/g, '');
-      const matchMil = mils.find(m => (m.numero_pm || '').replace(/\D/g, '') === userPmClean || m.id === user.id);
-      if (matchMil) {
-        setMilitarId(matchMil.id);
-      } else if (mils.length > 0) {
-        setMilitarId(mils[0].id);
-      }
-    } else if (mils.length > 0) {
-      setMilitarId(mils[0].id);
-    }
   }, [user]);
 
-  // Filtrar operações pelo grupo selecionado
+  // Filtrar operações do grupo selecionado
   const opsInGroup = useMemo(() => {
     return operations.filter(o => o.grupo === selectedGroup);
   }, [operations, selectedGroup]);
 
-  // Ao mudar de grupo, ajustar a operação selecionada caso ela não pertença ao grupo atual
-  useEffect(() => {
-    if (opsInGroup.length > 0) {
-      const isCurrentInGroup = opsInGroup.some(o => o.id === selectedOpId);
-      if (!isCurrentInGroup) {
-        setSelectedOpId(opsInGroup[0].id);
-      }
-    } else {
-      setSelectedOpId('');
-    }
-  }, [selectedGroup, opsInGroup, selectedOpId]);
+  // Operações filtradas por termo de busca na Etapa 2
+  const searchedOpsInGroup = useMemo(() => {
+    if (!opSearchTerm.trim()) return opsInGroup;
+    const term = opSearchTerm.toLowerCase();
+    return opsInGroup.filter(o => 
+      o.titulo.toLowerCase().includes(term) || 
+      o.codigo_natureza.toLowerCase().includes(term) ||
+      (o.descricao && o.descricao.toLowerCase().includes(term))
+    );
+  }, [opsInGroup, opSearchTerm]);
 
+  // Objeto da operação selecionada
   const selectedOp = useMemo(() => {
     return operations.find(o => o.id === selectedOpId);
   }, [operations, selectedOpId]);
 
-  // Atualizar flags automáticas quando a operação muda
+  // Objeto do grupo selecionado
+  const selectedGroupDef = useMemo(() => {
+    return groups.find(g => g.id === selectedGroup);
+  }, [groups, selectedGroup]);
+
+  // Atualizar flags automáticas quando a operação selecionada muda
   useEffect(() => {
     if (selectedOp) {
-      if (selectedOp.area_rural_obrigatoria) setAreaRural(true);
-      if (selectedOp.min_envolvidos) setQuantidadeEnvolvidos(prev => Math.max(prev, selectedOp.min_envolvidos ?? 0));
+      if (selectedOp.area_rural_obrigatoria || selectedOp.codigo_natureza === 'A19.001') {
+        setAreaRural(true);
+        setConfirmRcrRural(true);
+      }
+      if (selectedOp.min_envolvidos) {
+        setQuantidadeEnvolvidos(prev => Math.max(prev, selectedOp.min_envolvidos ?? 0));
+      }
     }
   }, [selectedOp]);
 
@@ -242,6 +274,24 @@ export default function OperacoesExecutadasPage() {
     }
     setValidationErrors(prev => prev.filter(e => !e.includes('data futura') && !e.includes('data de execução')));
     setDataExecucao(val);
+  };
+
+  // Funções de navegação do Wizard
+  const handleSelectGroupAndNext = (groupId: string) => {
+    setSelectedGroup(groupId);
+    // Se a op atual não pertence a esse grupo, limpa ou seleciona a primeira
+    const groupOps = operations.filter(o => o.grupo === groupId);
+    if (!groupOps.some(o => o.id === selectedOpId)) {
+      setSelectedOpId(groupOps.length > 0 ? groupOps[0].id : '');
+    }
+    setOpSearchTerm('');
+    setCurrentStep(2);
+  };
+
+  const handleSelectOpAndNext = (opId: string) => {
+    setSelectedOpId(opId);
+    setCurrentStep(3);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -280,27 +330,67 @@ export default function OperacoesExecutadasPage() {
       }
     }
 
-    // 4. Validações de Requisitos de Negócio da Operação
-    const validation = validateOperationLaunch(selectedOp, {
-      reds_numero: redsNumero,
-      reds_origem: redsOrigem,
-      quantidade_envolvidos: quantidadeEnvolvidos,
-      area_rural: areaRural,
-      detalhes_interacao: {
-        entidade_comunidade: entidadeComunidade,
-        pauta,
-        encaminhamentos,
-        orientacoes,
-        demanda_identificada: demandaIdentificada,
-        rede_atendida: redeAtendida,
-        providencias,
-        pessoa_atendida: pessoaAtendida,
-        vitima_atendida: vitimaAtendida
-      }
-    });
+    // 4. Validação dos Checkboxes Obrigatórios de Confirmação no REDS
+    const errors: string[] = [];
 
-    if (!validation.valid) {
-      setValidationErrors(validation.errors);
+    // VCP (A21.007)
+    if (selectedOp.codigo_natureza === 'A21.007') {
+      if (!confirmVcpEnvolvidos) {
+        errors.push('Confirme que há no mínimo 1 (um) envolvido cadastrado no REDS.');
+      }
+      if (!confirmVcpHistorico) {
+        errors.push('Confirme que foram descritas no histórico do REDS as orientações repassadas e a demanda identificada.');
+      }
+    }
+
+    // RC (A19.000)
+    if (selectedOp.codigo_natureza === 'A19.000' || selectedOp.codigo_natureza.startsWith('A19.000')) {
+      if (!confirmRcEnvolvidos) {
+        errors.push('Confirme que há no mínimo 3 (três) envolvidos cadastrados no REDS da Reunião Comunitária.');
+      }
+      if (!confirmRcHistorico) {
+        errors.push('Confirme que foram descritas no histórico do REDS a entidade atendida, pauta e encaminhamentos.');
+      }
+    }
+
+    // RCR (A19.001)
+    if (selectedOp.codigo_natureza === 'A19.001') {
+      if (!confirmRcrEnvolvidos) {
+        errors.push('Confirme que há no mínimo 3 (três) envolvidos cadastrados no REDS da Reunião Comunitária Rural.');
+      }
+      if (!confirmRcrRural || !areaRural) {
+        errors.push('Confirme que a Reunião Comunitária Rural foi realizada em Área Rural.');
+      }
+      if (!confirmRcrHistorico) {
+        errors.push('Confirme que foram registradas no histórico do REDS a comunidade rural, pauta e encaminhamentos.');
+      }
+    }
+
+    // MRPP (A19.006)
+    if (selectedOp.codigo_natureza.startsWith('A19.006')) {
+      if (!confirmMrppEnvolvidos) {
+        errors.push('Confirme que há no mínimo 3 (três) envolvidos cadastrados no REDS da Manutenção de Rede.');
+      }
+      if (!confirmMrppHistorico) {
+        errors.push('Confirme que foram descritas no histórico do REDS a rede atendida e as providências adotadas.');
+      }
+    }
+
+    // VT (A20.028) ou VTCV (A20.001)
+    if (selectedOp.codigo_natureza === 'A20.028' || selectedOp.codigo_natureza === 'A20.001') {
+      if (!confirmVtVitima) {
+        errors.push('Confirme que a vítima foi devidamente cadastrada no REDS.');
+      }
+      if (!confirmVtRedsOrigem) {
+        errors.push('Confirme que citou no histórico do REDS o número do REDS de origem do fato.');
+      }
+      if (selectedOp.requer_reds_origem && (!redsOrigem || redsOrigem.replace(/\D/g, '').length < 16)) {
+        errors.push('Informe o número do REDS de origem do delito completo (16 dígitos).');
+      }
+    }
+
+    if (errors.length > 0) {
+      setValidationErrors(errors);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -325,15 +415,13 @@ export default function OperacoesExecutadasPage() {
       area_rural: areaRural,
       quantidade_envolvidos: quantidadeEnvolvidos,
       detalhes_interacao: {
-        entidade_comunidade: entidadeComunidade || undefined,
-        pauta: pauta || undefined,
-        encaminhamentos: encaminhamentos || undefined,
-        orientacoes: orientacoes || undefined,
-        demanda_identificada: demandaIdentificada || undefined,
-        rede_atendida: redeAtendida || undefined,
-        providencias: providencias || undefined,
-        pessoa_atendida: pessoaAtendida || undefined,
-        vitima_atendida: vitimaAtendida || undefined
+        orientacoes: confirmVcpHistorico ? 'Confirmado no REDS' : undefined,
+        demanda_identificada: confirmVcpHistorico ? 'Confirmado no REDS' : undefined,
+        pauta: (confirmRcHistorico || confirmRcrHistorico) ? 'Confirmado no REDS' : undefined,
+        encaminhamentos: (confirmRcHistorico || confirmRcrHistorico) ? 'Confirmado no REDS' : undefined,
+        rede_atendida: confirmMrppHistorico ? 'Confirmado no REDS' : undefined,
+        providencias: confirmMrppHistorico ? 'Confirmado no REDS' : undefined,
+        vitima_atendida: confirmVtVitima ? 'Vítima confirmada no REDS' : undefined
       },
       observacoes: observacoes || undefined,
       created_by: user?.id,
@@ -343,23 +431,30 @@ export default function OperacoesExecutadasPage() {
 
     setLogs(storage.getLogs());
     setSuccessMsg(`Operação "${selectedOp.titulo}" registrada com sucesso para a equipe ${equipe}!`);
-    setTimeout(() => setSuccessMsg(''), 4500);
+    setTimeout(() => setSuccessMsg(''), 5000);
 
-    // Limpar campos de entrada variáveis
+    // Resetar campos e voltar para a Etapa 1
     setRedsNumero('');
     setRedsOrigem('');
     setObservacoes('');
-    setPessoaAtendida('');
-    setVitimaAtendida('');
-    setOrientacoes('');
-    setDemandaIdentificada('');
-    setPauta('');
-    setEncaminhamentos('');
-    setProvidencias('');
+    setConfirmVcpEnvolvidos(false);
+    setConfirmVcpHistorico(false);
+    setConfirmRcEnvolvidos(false);
+    setConfirmRcHistorico(false);
+    setConfirmRcrRural(false);
+    setConfirmRcrEnvolvidos(false);
+    setConfirmRcrHistorico(false);
+    setConfirmMrppEnvolvidos(false);
+    setConfirmMrppHistorico(false);
+    setConfirmVtVitima(false);
+    setConfirmVtRedsOrigem(false);
+
+    setCurrentStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
       
       {/* Header */}
       <div className="pb-1 border-b border-gray-200 dark:border-[#1F242F]">
@@ -384,7 +479,7 @@ export default function OperacoesExecutadasPage() {
         <div className="p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-800 dark:text-rose-300 text-xs space-y-2 animate-in slide-in-from-top-2">
           <div className="flex items-center gap-2 font-bold text-rose-700 dark:text-rose-300">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>Validações necessárias:</span>
+            <span>Pendências para validação do lançamento:</span>
           </div>
           <ul className="list-disc pl-5 space-y-1 font-medium">
             {validationErrors.map((err, idx) => (
@@ -394,18 +489,116 @@ export default function OperacoesExecutadasPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        {/* Form Container */}
-        <div className="lg:col-span-2 untitled-card p-6 space-y-5">
-          <form onSubmit={handleSubmit} className="space-y-5 text-xs">
-            
-            {/* ETAPA 1: SELEÇÃO DO GRUPO OPERACIONAL */}
-            <div className="space-y-2">
-              <label className="block font-bold text-gray-800 dark:text-gray-200 text-xs">
-                1. Grupo de Operações *
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {/* Painel Principal do Assistente (Wizard) */}
+        <div className="lg:col-span-2 untitled-card p-6 space-y-6">
+          
+          {/* STEPPER / BARRA DE ETAPAS */}
+          <div className="border-b border-gray-100 dark:border-[#222938] pb-4">
+            <div className="grid grid-cols-3 gap-2">
+              
+              {/* Etapa 1 */}
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className={`flex items-center gap-2 p-2 rounded-xl transition-all text-left ${
+                  currentStep === 1
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-500'
+                    : currentStep > 1
+                    ? 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 hover:bg-gray-100'
+                    : 'text-gray-400 opacity-60'
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 ${
+                  currentStep === 1
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : currentStep > 1
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}>
+                  {currentStep > 1 ? <Check className="w-3.5 h-3.5" /> : '1'}
+                </div>
+                <div className="min-w-0 hidden sm:block">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Etapa 1</p>
+                  <p className="text-xs font-bold truncate">Grupo</p>
+                </div>
+              </button>
+
+              {/* Etapa 2 */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedGroup) setCurrentStep(2);
+                }}
+                disabled={!selectedGroup}
+                className={`flex items-center gap-2 p-2 rounded-xl transition-all text-left ${
+                  currentStep === 2
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-500'
+                    : currentStep > 2
+                    ? 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 hover:bg-gray-100'
+                    : 'text-gray-400 opacity-60'
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 ${
+                  currentStep === 2
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : currentStep > 2
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}>
+                  {currentStep > 2 ? <Check className="w-3.5 h-3.5" /> : '2'}
+                </div>
+                <div className="min-w-0 hidden sm:block">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Etapa 2</p>
+                  <p className="text-xs font-bold truncate">Natureza</p>
+                </div>
+              </button>
+
+              {/* Etapa 3 */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedOpId) setCurrentStep(3);
+                }}
+                disabled={!selectedOpId}
+                className={`flex items-center gap-2 p-2 rounded-xl transition-all text-left ${
+                  currentStep === 3
+                    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-500'
+                    : 'text-gray-400 opacity-60'
+                }`}
+              >
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 ${
+                  currentStep === 3
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                }`}>
+                  3
+                </div>
+                <div className="min-w-0 hidden sm:block">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Etapa 3</p>
+                  <p className="text-xs font-bold truncate">Execução</p>
+                </div>
+              </button>
+
+            </div>
+          </div>
+
+          {/* ========================================================= */}
+          {/* ETAPA 1: SELEÇÃO DO GRUPO OPERACIONAL */}
+          {/* ========================================================= */}
+          {currentStep === 1 && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="space-y-1">
+                <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                  1. Selecione o Grupo de Operações
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Escolha o grupo ao qual a operação executada pertence para filtrar as naturezas disponíveis.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 {groups.map((g) => {
                   const Icon = getGroupIcon(g.icone);
                   const color = getGroupColor(g.cor);
@@ -413,393 +606,602 @@ export default function OperacoesExecutadasPage() {
                   const countInGroup = operations.filter(o => o.grupo === g.id).length;
 
                   return (
-                    <button
+                    <div
                       key={g.id}
-                      type="button"
-                      onClick={() => setSelectedGroup(g.id)}
-                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      onClick={() => handleSelectGroupAndNext(g.id)}
+                      className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between space-y-3 ${
                         isSelected 
-                          ? `${color.activeClass} ring-2 ring-emerald-500 shadow-xs` 
-                          : 'border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-gray-300 dark:hover:border-gray-700 text-gray-700 dark:text-gray-300'
+                          ? `${color.activeClass} ring-2 ring-emerald-500 shadow-md transform -translate-y-0.5` 
+                          : 'border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-xs'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-1 w-full mb-2">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                          isSelected ? color.badgeClass : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                        }`}>
-                          <Icon className="w-4 h-4" />
+                      <div className="flex items-center justify-between">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-xs ${color.badgeClass}`}>
+                          <Icon className="w-5 h-5" />
                         </div>
-                        {isSelected && (
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        )}
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                          {countInGroup} {countInGroup === 1 ? 'natureza' : 'naturezas'}
+                        </span>
                       </div>
+
                       <div>
-                        <p className="font-bold text-xs leading-tight line-clamp-1">{g.nome}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{countInGroup} naturezas</p>
+                        <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+                          {g.nome}
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                          {g.descricao || 'Atividades e diretrizes operacionais do grupo.'}
+                        </p>
                       </div>
-                    </button>
+
+                      <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span>Ver naturezas</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             </div>
+          )}
 
-            {/* ETAPA 2: SELEÇÃO DA NATUREZA / OPERAÇÃO */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="block font-bold text-gray-800 dark:text-gray-200 text-xs">
-                  2. Natureza / Tipo de Operação *
-                </label>
-                {selectedOp && (
-                  <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                    Código: {selectedOp.codigo_natureza}
+          {/* ========================================================= */}
+          {/* ETAPA 2: SELEÇÃO DA NATUREZA / OPERAÇÃO */}
+          {/* ========================================================= */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                    2. Escolha a Natureza / Operação
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Grupo selecionado: <strong className="text-gray-800 dark:text-gray-200">{selectedGroupDef?.nome}</strong>
+                  </p>
+                </div>
+
+                {/* Busca Rápida */}
+                <div className="relative w-full sm:w-56">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar natureza..."
+                    value={opSearchTerm}
+                    onChange={(e) => setOpSearchTerm(e.target.value)}
+                    className="untitled-input pl-8 py-1.5 text-xs w-full"
+                  />
+                </div>
+              </div>
+
+              {searchedOpsInGroup.length === 0 ? (
+                <div className="p-8 text-center bg-gray-50 dark:bg-[#151A23] rounded-2xl border border-gray-200 dark:border-[#222938] space-y-2">
+                  <Target className="w-8 h-8 text-gray-400 mx-auto" />
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                    Nenhuma operação encontrada para este filtro.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1">
+                  {searchedOpsInGroup.map((op) => {
+                    const isSelected = selectedOpId === op.id;
+                    
+                    // Checar se a equipe tem meta nesta operação
+                    const [anoStr, mesStr] = dataExecucao.split('-');
+                    const target = allTargets.find(t => t.tipo_operacao_id === op.id && t.mes === parseInt(mesStr, 10) && t.ano === parseInt(anoStr, 10));
+                    const teamAlloc = target?.distribuicoes?.find(d => d.equipe === equipe);
+                    const hasTeamGoal = !!teamAlloc && (teamAlloc.meta_quantitativa > 0 || teamAlloc.percentual_alocado > 0);
+
+                    return (
+                      <div
+                        key={op.id}
+                        onClick={() => handleSelectOpAndNext(op.id)}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between space-y-3 ${
+                          isSelected
+                            ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500 shadow-md'
+                            : 'border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-gray-300 dark:hover:border-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-mono font-bold text-xs border border-emerald-200 dark:border-emerald-800">
+                            {op.codigo_natureza}
+                          </span>
+
+                          <div className="flex items-center gap-1">
+                            {op.area_rural_obrigatoria && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                Rural
+                              </span>
+                            )}
+                            {hasTeamGoal ? (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                                <FileCheck className="w-3 h-3" />
+                                <span>Meta: {teamAlloc?.meta_quantitativa}</span>
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                                Sem meta
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-xs text-gray-900 dark:text-white leading-snug line-clamp-2">
+                            {op.titulo}
+                          </h4>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                            {op.descricao || 'Sem descrição cadastrada.'}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          <span>Selecionar e Avançar</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-[#222938]">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Voltar aos Grupos</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* ETAPA 3: DADOS DA EXECUÇÃO & CONFIRMAÇÃO DE REQUISITOS */}
+          {/* ========================================================= */}
+          {currentStep === 3 && selectedOp && (
+            <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-200 text-xs">
+              
+              {/* Card Resumo da Operação Selecionada */}
+              <div className="p-3.5 bg-gray-50 dark:bg-[#0E121A] rounded-2xl border border-gray-200 dark:border-[#222938] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs ${getGroupColor(selectedGroupDef?.cor).badgeClass}`}>
+                    {React.createElement(getGroupIcon(selectedGroupDef?.icone), { className: 'w-5 h-5' })}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                        [{selectedOp.codigo_natureza}]
+                      </span>
+                      <span className="text-[11px] text-gray-400 truncate">
+                        • {selectedGroupDef?.nome}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                      {selectedOp.titulo}
+                    </h4>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 flex-shrink-0"
+                >
+                  Alterar Natureza
+                </button>
+              </div>
+
+              {/* Status da Meta da Equipe */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+                teamGoalInfo.hasGoal
+                  ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {teamGoalInfo.hasGoal ? (
+                    <FileCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  )}
+                  <span className="font-semibold">
+                    {teamGoalInfo.hasGoal 
+                      ? `Meta da equipe ${equipe}: ${teamGoalInfo.count} execuções (${teamGoalInfo.percent}% da meta total)`
+                      : `A equipe "${equipe}" não possui meta atribuída para esta natureza neste mês.`
+                    }
+                  </span>
+                </div>
+                {!teamGoalInfo.hasGoal && (
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+                    Sem meta
                   </span>
                 )}
               </div>
-              
-              <select
-                value={selectedOpId}
-                onChange={(e) => setSelectedOpId(e.target.value)}
-                className="untitled-input font-medium py-2 text-xs"
-                required
-              >
-                {opsInGroup.length === 0 && (
-                  <option value="" disabled>Nenhuma operação cadastrada neste grupo</option>
-                )}
-                {opsInGroup.map((op) => (
-                  <option key={op.id} value={op.id}>
-                    [{op.codigo_natureza}] {op.titulo}
-                  </option>
-                ))}
-              </select>
 
-              {/* Status da Meta da Equipe */}
-              {selectedOp && (
-                <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                  teamGoalInfo.hasGoal
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    {teamGoalInfo.hasGoal ? (
-                      <FileCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                    )}
-                    <span className="font-semibold">
-                      {teamGoalInfo.hasGoal 
-                        ? `Meta da equipe ${equipe}: ${teamGoalInfo.count} execuções (${teamGoalInfo.percent}% da meta total)`
-                        : `A equipe "${equipe}" não possui meta atribuída para esta natureza neste mês.`
-                      }
-                    </span>
+              {/* Linha 1: Data, Equipe Executora e Militar Responsável */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Data de Execução *
+                  </label>
+                  <input
+                    type="date"
+                    max={todayStr}
+                    value={dataExecucao}
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    className="untitled-input"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Equipe Executora *
+                  </label>
+                  <select
+                    value={equipe}
+                    onChange={(e) => setEquipe(e.target.value)}
+                    className="untitled-input font-medium"
+                    required
+                  >
+                    {teams.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Militar Responsável *
+                  </label>
+                  <select
+                    value={militarId}
+                    onChange={(e) => setMilitarId(e.target.value)}
+                    className="untitled-input"
+                    required
+                  >
+                    <option value="">Selecione o militar...</option>
+                    {militares.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.graduacao} {m.nome_guerra} ({m.numero_pm})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Linha 2: REDS, Bairro e Local */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Nº REDS Gerado
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="2026-004512345-001"
+                    value={redsNumero}
+                    onChange={(e) => setRedsNumero(formatReds(e.target.value))}
+                    maxLength={18}
+                    className="untitled-input font-mono tracking-wide"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-0.5">Máscara: 20xx-xxxxxxxxx-001 (16 dígitos)</p>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Bairro
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Centro, São Geraldo"
+                    value={bairro}
+                    onChange={(e) => setBairro(e.target.value)}
+                    className="untitled-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Local / Endereço
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Praça Coronel Ramos"
+                    value={localFato}
+                    onChange={(e) => setLocalFato(e.target.value)}
+                    className="untitled-input"
+                  />
+                </div>
+              </div>
+
+              {/* Flags: Área Rural e Envolvidos */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-gray-50 dark:bg-[#0C111D]/40 rounded-xl border border-gray-200 dark:border-gray-800">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={areaRural}
+                    onChange={(e) => setAreaRural(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded"
+                  />
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">
+                    Operação em Área Rural
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-600 dark:text-gray-400">Pessoas Envolvidas:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={quantidadeEnvolvidos}
+                    onChange={(e) => setQuantidadeEnvolvidos(Number(e.target.value))}
+                    className="w-16 p-1 text-center bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* ========================================================= */}
+              {/* CHECKBOXES DE CONFIRMAÇÃO DE REQUISITOS NO REDS */}
+              {/* ========================================================= */}
+
+              {/* VCP (A21.007) */}
+              {selectedOp.codigo_natureza === 'A21.007' && (
+                <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    <span>Confirmação de Requisitos da VCP no REDS</span>
                   </div>
-                  {!teamGoalInfo.hasGoal && (
-                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
-                      Sem meta
-                    </span>
-                  )}
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    Confirme se os requisitos institucionais foram incluídos no Boletim de Ocorrência:
+                  </p>
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmVcpEnvolvidos}
+                        onChange={(e) => setConfirmVcpEnvolvidos(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que há no mínimo 1 (um) envolvido cadastrado no REDS.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmVcpHistorico}
+                        onChange={(e) => setConfirmVcpHistorico(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que descrevi no histórico do REDS as orientações de autoproteção repassadas e a demanda identificada.
+                      </span>
+                    </label>
+                  </div>
                 </div>
               )}
-            </div>
 
-            {/* Linha 1: Data, Equipe e Militar Responsável */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Data de Execução *
-                </label>
-                <input
-                  type="date"
-                  max={todayStr}
-                  value={dataExecucao}
-                  onChange={(e) => handleDateChange(e.target.value)}
-                  className="untitled-input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Equipe Executora *
-                </label>
-                <select
-                  value={equipe}
-                  onChange={(e) => setEquipe(e.target.value)}
-                  className="untitled-input font-medium"
-                  required
-                >
-                  {teams.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Militar Responsável *
-                </label>
-                <select
-                  value={militarId}
-                  onChange={(e) => setMilitarId(e.target.value)}
-                  className="untitled-input"
-                  required
-                >
-                  <option value="">Selecione o militar...</option>
-                  {militares.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.graduacao} {m.nome_guerra} ({m.numero_pm})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Linha 2: REDS, Bairro e Local */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Nº REDS Gerado
-                </label>
-                <input
-                  type="text"
-                  placeholder="2026-004512345-001"
-                  value={redsNumero}
-                  onChange={(e) => setRedsNumero(formatReds(e.target.value))}
-                  maxLength={18}
-                  className="untitled-input font-mono tracking-wide"
-                />
-                <p className="text-[10px] text-gray-400 mt-0.5">Máscara: 20xx-xxxxxxxxx-001 (16 dígitos)</p>
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Bairro
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Centro, São Geraldo"
-                  value={bairro}
-                  onChange={(e) => setBairro(e.target.value)}
-                  className="untitled-input"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Local / Endereço
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Praça Coronel Ramos"
-                  value={localFato}
-                  onChange={(e) => setLocalFato(e.target.value)}
-                  className="untitled-input"
-                />
-              </div>
-            </div>
-
-            {/* Flags: Área Rural e Envolvidos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-gray-50 dark:bg-[#0C111D]/40 rounded-xl border border-gray-200 dark:border-gray-800">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={areaRural}
-                  onChange={(e) => setAreaRural(e.target.checked)}
-                  className="w-4 h-4 text-emerald-600 rounded"
-                />
-                <span className="font-semibold text-gray-800 dark:text-gray-200">
-                  Operação em Área Rural
-                </span>
-              </label>
-
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-600 dark:text-gray-400">Pessoas Envolvidas:</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={quantidadeEnvolvidos}
-                  onChange={(e) => setQuantidadeEnvolvidos(Number(e.target.value))}
-                  className="w-16 p-1 text-center bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg font-bold"
-                />
-              </div>
-            </div>
-
-            {/* CAMPOS CONDICIONAIS DE INTERAÇÕES COMUNITÁRIAS */}
-            {selectedOp?.codigo_natureza === 'A21.007' && ( // VCP
-              <div className="p-4 bg-gray-50 dark:bg-[#0C111D]/50 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                <h4 className="font-semibold text-gray-900 dark:text-white">
-                  Requisitos da VCP (Visita Comunitária Preventiva):
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Orientações Repassadas *</label>
-                    <textarea
-                      rows={2}
-                      placeholder="Orientações de autoproteção e prevenção..."
-                      value={orientacoes}
-                      onChange={(e) => setOrientacoes(e.target.value)}
-                      className="untitled-input"
-                    />
+              {/* RC (A19.000) */}
+              {(selectedOp.codigo_natureza === 'A19.000' || (selectedOp.codigo_natureza.startsWith('A19.000') && selectedOp.codigo_natureza !== 'A19.001')) && (
+                <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    <span>Confirmação de Requisitos da Reunião Comunitária (RC) no REDS</span>
                   </div>
-                  <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Demanda Identificada *</label>
-                    <textarea
-                      rows={2}
-                      placeholder="Demandas trazidas pelo morador..."
-                      value={demandaIdentificada}
-                      onChange={(e) => setDemandaIdentificada(e.target.value)}
-                      className="untitled-input"
-                    />
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmRcEnvolvidos}
+                        onChange={(e) => setConfirmRcEnvolvidos(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que há no mínimo 3 (três) envolvidos cadastrados no REDS.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmRcHistorico}
+                        onChange={(e) => setConfirmRcHistorico(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que registrei no histórico do REDS a entidade/comunidade atendida, a pauta tratada e os encaminhamentos.
+                      </span>
+                    </label>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {(selectedOp?.codigo_natureza.startsWith('A19.000') || selectedOp?.codigo_natureza === 'A19.001') && ( // RC
-              <div className="p-4 bg-gray-50 dark:bg-[#0C111D]/50 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                <h4 className="font-semibold text-gray-900 dark:text-white">
-                  Requisitos da Reunião Comunitária (RC):
-                </h4>
-                <div className="space-y-2">
-                  <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Entidade / Comunidade *</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Associação de Moradores"
-                      value={entidadeComunidade}
-                      onChange={(e) => setEntidadeComunidade(e.target.value)}
-                      className="untitled-input"
-                    />
+              {/* RCR (A19.001) */}
+              {selectedOp.codigo_natureza === 'A19.001' && (
+                <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    <span>Confirmação de Requisitos da Reunião Comunitária Rural (RCR) no REDS</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Pauta *</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Pauta da reunião..."
-                        value={pauta}
-                        onChange={(e) => setPauta(e.target.value)}
-                        className="untitled-input"
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmRcrEnvolvidos}
+                        onChange={(e) => setConfirmRcrEnvolvidos(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
                       />
-                    </div>
-                    <div>
-                      <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Encaminhamentos *</label>
-                      <textarea
-                        rows={2}
-                        placeholder="Encaminhamentos acertados..."
-                        value={encaminhamentos}
-                        onChange={(e) => setEncaminhamentos(e.target.value)}
-                        className="untitled-input"
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que há no mínimo 3 (três) envolvidos cadastrados no REDS.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmRcrRural}
+                        onChange={(e) => {
+                          setConfirmRcrRural(e.target.checked);
+                          if (e.target.checked) setAreaRural(true);
+                        }}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que a reunião foi realizada efetivamente na Área Rural.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmRcrHistorico}
+                        onChange={(e) => setConfirmRcrHistorico(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que registrei no histórico a comunidade rural atendida, pauta e encaminhamentos.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* MRPP (A19.006) */}
+              {selectedOp.codigo_natureza.startsWith('A19.006') && (
+                <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                    <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    <span>Confirmação de Requisitos da Manutenção de Rede (MRPP) no REDS</span>
+                  </div>
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmMrppEnvolvidos}
+                        onChange={(e) => setConfirmMrppEnvolvidos(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que há no mínimo 3 (três) envolvidos cadastrados no REDS.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmMrppHistorico}
+                        onChange={(e) => setConfirmMrppHistorico(e.target.checked)}
+                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que foram descritas no histórico do REDS a rede atendida (Comerciantes, Vizinhos, etc.) e as providências.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* VT (A20.028) ou VTCV (A20.001) */}
+              {(selectedOp.codigo_natureza === 'A20.028' || selectedOp.codigo_natureza === 'A20.001') && (
+                <div className="p-4 bg-amber-50/70 dark:bg-amber-950/30 rounded-2xl border border-amber-200 dark:border-amber-800 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+                    <CheckSquare className="w-4 h-4 text-amber-600" />
+                    <span>Confirmação de Requisitos da Visita Tranquilizadora no REDS</span>
+                  </div>
+                  
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmVtVitima}
+                        onChange={(e) => setConfirmVtVitima(e.target.checked)}
+                        className="w-4 h-4 text-amber-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que a vítima foi devidamente cadastrada como envolvida no REDS.
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={confirmVtRedsOrigem}
+                        onChange={(e) => setConfirmVtRedsOrigem(e.target.checked)}
+                        className="w-4 h-4 text-amber-600 rounded mt-0.5"
+                      />
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        Confirmo que citei no histórico do REDS o número do REDS de origem do delito.
+                      </span>
+                    </label>
+
+                    <div className="pt-2">
+                      <label className="block font-medium text-amber-900 dark:text-amber-300 mb-1">
+                        Nº REDS de Origem do Delito * (16 dígitos)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="2026-004500123-001"
+                        value={redsOrigem}
+                        onChange={(e) => setRedsOrigem(formatReds(e.target.value))}
+                        maxLength={18}
+                        className="untitled-input font-mono font-bold border-amber-300 dark:border-amber-700"
+                        required
                       />
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {selectedOp?.codigo_natureza.startsWith('A19.006') && ( // MRPP
-              <div className="p-4 bg-gray-50 dark:bg-[#0C111D]/50 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                <h4 className="font-semibold text-gray-900 dark:text-white">
-                  Requisitos da MRPP (Manutenção de Rede):
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Rede Atendida *</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Rede de Vizinhos Protegidos"
-                      value={redeAtendida}
-                      onChange={(e) => setRedeAtendida(e.target.value)}
-                      className="untitled-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Providências *</label>
-                    <input
-                      type="text"
-                      placeholder="Ações adotadas..."
-                      value={providencias}
-                      onChange={(e) => setProvidencias(e.target.value)}
-                      className="untitled-input"
-                    />
-                  </div>
+              {/* Observações */}
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Resultados / Observações Complementares
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Pessoas abordadas, veículos fiscalizados, apreensões..."
+                  value={observacoes}
+                  onChange={(e) => setObservacoes(e.target.value)}
+                  className="untitled-input"
+                />
+              </div>
+
+              {/* Auditoria & Informações do Usuário Logado */}
+              <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] flex items-center justify-between text-[11px] text-gray-500">
+                <div className="flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Usuário que está registrando (Auditoria):</span>
+                  <strong className="text-gray-700 dark:text-gray-300 font-semibold">
+                    {user ? `${user.graduacao} ${user.nome_guerra} (${user.numero_pm})` : 'Usuário Autenticado'}
+                  </strong>
                 </div>
+                <span className="text-gray-400">Rastreabilidade Ativa</span>
               </div>
-            )}
 
-            {(selectedOp?.codigo_natureza === 'A20.028' || selectedOp?.codigo_natureza === 'A20.001') && ( // VT
-              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/60 space-y-3">
-                <h4 className="font-semibold text-amber-900 dark:text-amber-200">
-                  Requisitos da Visita Tranquilizadora:
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {selectedOp.codigo_natureza === 'A20.028' ? 'Pessoa Atendida (Vítima de Furto) *' : 'Vítima Atendida *'}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Nome da pessoa atendida"
-                      value={selectedOp.codigo_natureza === 'A20.028' ? pessoaAtendida : vitimaAtendida}
-                      onChange={(e) => selectedOp.codigo_natureza === 'A20.028' ? setPessoaAtendida(e.target.value) : setVitimaAtendida(e.target.value)}
-                      className="untitled-input"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-amber-800 dark:text-amber-300 mb-1">
-                      REDS de Origem do Delito * (OBRIGATÓRIO)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="2026-004500123-001"
-                      value={redsOrigem}
-                      onChange={(e) => setRedsOrigem(formatReds(e.target.value))}
-                      maxLength={18}
-                      className="untitled-input font-mono font-bold border-amber-300 dark:border-amber-700"
-                      required
-                    />
-                  </div>
-                </div>
+              {/* Botões de Ação */}
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Voltar</span>
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-primary py-2.5 px-6 font-bold flex items-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Salvar Operação Executada</span>
+                </button>
               </div>
-            )}
 
-            {/* Observações */}
-            <div>
-              <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Resultados / Observações
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Pessoas abordadas, veículos fiscalizados, apreensões..."
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                className="untitled-input"
-              />
-            </div>
+            </form>
+          )}
 
-            {/* Auditoria & Informações do Usuário Logado */}
-            <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] flex items-center justify-between text-[11px] text-gray-500">
-              <div className="flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Usuário que está registrando (Auditoria):</span>
-                <strong className="text-gray-700 dark:text-gray-300 font-semibold">
-                  {user ? `${user.graduacao} ${user.nome_guerra} (${user.numero_pm})` : 'Usuário Autenticado'}
-                </strong>
-              </div>
-              <span className="text-gray-400">Rastreabilidade Ativa</span>
-            </div>
-
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end">
-              <button
-                type="submit"
-                className="btn-primary py-2.5 px-6 font-bold flex items-center gap-2"
-              >
-                <Check className="w-4 h-4" />
-                <span>Salvar Operação Executada</span>
-              </button>
-            </div>
-
-          </form>
         </div>
 
         {/* Histórico Recente */}
