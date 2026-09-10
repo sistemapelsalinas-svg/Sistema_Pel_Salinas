@@ -904,7 +904,7 @@ export default function GestaoMetasPage() {
                               {tgt.regra_agendamento === 'dias_semana' && (
                                 <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />
-                                  <span>Dias úteis</span>
+                                  <span>Seg a Sex</span>
                                 </span>
                               )}
                               {tgt.regra_agendamento === 'finais_semana' && (
@@ -1232,7 +1232,7 @@ export default function GestaoMetasPage() {
                           onClick={handleSelectWeekdaysOnly}
                           className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
                         >
-                          Dias Úteis
+                          Seg a Sex
                         </button>
                         <button
                           type="button"
