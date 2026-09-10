@@ -17,6 +17,7 @@ import {
   Check, 
   Pencil, 
   Trash2, 
+  Copy,
   AlertCircle,
   Compass,
   HeartHandshake,
@@ -148,6 +149,22 @@ export default function OperacoesCatalogoPage() {
       grupo: op.grupo,
       codigo_natureza: op.codigo_natureza,
       titulo: op.titulo,
+      descricao: op.descricao || '',
+      link_google_drive: op.link_google_drive || '',
+      requer_reds_origem: !!op.requer_reds_origem,
+      min_envolvidos: op.min_envolvidos || 0,
+      area_rural_obrigatoria: !!op.area_rural_obrigatoria
+    });
+    setIsQuickGroupOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const handleDuplicate = (op: OperationType) => {
+    setEditingOpId(null);
+    setFormData({
+      grupo: op.grupo,
+      codigo_natureza: op.codigo_natureza,
+      titulo: `${op.titulo} (Cópia)`,
       descricao: op.descricao || '',
       link_google_drive: op.link_google_drive || '',
       requer_reds_origem: !!op.requer_reds_origem,
@@ -407,9 +424,16 @@ export default function OperacoesCatalogoPage() {
                       </span>
                     )}
 
-                    {/* Ações de Edição e Exclusão (Admin) */}
+                    {/* Ações de Duplicação, Edição e Exclusão (Admin) */}
                     {isAdmin && (
                       <div className="flex items-center gap-0.5 ml-1">
+                        <button
+                          onClick={() => handleDuplicate(op)}
+                          title="Duplicar Operação"
+                          className="p-1 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => handleOpenEdit(op)}
                           title="Editar Operação"

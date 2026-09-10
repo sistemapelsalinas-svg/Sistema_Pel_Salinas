@@ -88,6 +88,8 @@ export interface OperationExecutionLog {
   };
   observacoes?: string;
   created_by?: string;
+  created_by_nome?: string;
+  created_by_pm?: string;
   created_at: string;
 }
 
