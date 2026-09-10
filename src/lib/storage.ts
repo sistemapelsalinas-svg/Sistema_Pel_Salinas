@@ -237,7 +237,9 @@ class StorageService {
   }
 
   // --- METAS MENSAIS ---
-  getTargets(mes: number = 8, ano: number = 2026): MonthlyTarget[] {
+  getTargets(mes?: number, ano?: number): MonthlyTarget[] {
+    const targetMes = mes !== undefined ? mes : (new Date().getMonth() + 1);
+    const targetAno = ano !== undefined ? ano : (new Date().getFullYear());
     if (!this.isBrowser()) return INITIAL_MONTHLY_TARGETS;
     const data = localStorage.getItem(STORAGE_KEYS.TARGETS);
     if (!data) {
@@ -246,7 +248,7 @@ class StorageService {
     }
     try {
       const targets: MonthlyTarget[] = JSON.parse(data);
-      return targets.filter(t => t.mes === mes && t.ano === ano);
+      return targets.filter(t => t.mes === targetMes && t.ano === targetAno);
     } catch {
       return INITIAL_MONTHLY_TARGETS;
     }

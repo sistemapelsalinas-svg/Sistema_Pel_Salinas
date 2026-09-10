@@ -108,11 +108,13 @@ const COLOR_MAP: Record<string, { badge: string; bgLight: string; border: string
 };
 
 export default function GestaoMetasPage() {
-  const currentYear = new Date().getFullYear();
-  const currentDateFormatted = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentDateFormatted = format(currentDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
-  const [mes, setMes] = useState(8);
-  const [ano, setAno] = useState(2026);
+  const [mes, setMes] = useState(currentMonth);
+  const [ano, setAno] = useState(currentYear);
   const [pendingYear, setPendingYear] = useState<number | null>(null);
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
   const [operations, setOperations] = useState<OperationType[]>([]);
