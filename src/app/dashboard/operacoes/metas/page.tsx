@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { storage } from '@/lib/storage';
-import { MonthlyTarget, OperationType, OperationGroup, OperationGroupDef, TeamTargetAllocation } from '@/lib/types';
+import { MonthlyTarget, OperationType, OperationGroup, OperationGroupDef, TeamTargetAllocation, TargetScheduleRule } from '@/lib/types';
 import { distributeEqually, distributeByPercentages } from '@/lib/validation';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,7 +34,9 @@ import {
   Briefcase,
   Zap,
   Bookmark,
-  Folder
+  Folder,
+  Clock,
+  CalendarDays
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -122,14 +124,20 @@ export default function GestaoMetasPage() {
   const [selectedTabGroup, setSelectedTabGroup] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal de Distribuição para uma Operação
+  // Modal de Planejamento & Distribuição
   const [selectedTarget, setSelectedTarget] = useState<MonthlyTarget | null>(null);
-  const [distributionMode, setDistributionMode] = useState<'EQUAL' | 'PERCENTAGE'>('PERCENTAGE');
+  const [modalMetaTotal, setModalMetaTotal] = useState<number>(15);
+  const [modalScheduleRule, setModalScheduleRule] = useState<TargetScheduleRule>('qualquer_dia');
+  const [modalSpecificDays, setModalSpecificDays] = useState<number[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [customPercentages, setCustomPercentages] = useState<{ [team: string]: number }>({});
   const [autoBalanceOthers, setAutoBalanceOthers] = useState<boolean>(true);
 
   const availableYears = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+
+  const daysInSelectedMonth = useMemo(() => {
+    return new Date(ano, mes, 0).getDate();
+  }, [ano, mes]);
 
   useEffect(() => {
     setOperations(storage.getOperations());
@@ -230,12 +238,13 @@ export default function GestaoMetasPage() {
     }
   };
 
-  // Ao adicionar meta para uma operação, as equipes vêm ZERADAS (sem pré-seleção forçada)
+  // Ao adicionar meta para uma operação, abre o modal de configuração imediatamente
   const handleAddTargetForOp = (opId: string) => {
     const op = operations.find(o => o.id === opId);
     if (!op) return;
 
     const defaultTotal = 15;
+    const isOS = op.grupo === 'ORDENS_SERVICO' || op.grupo.toLowerCase().includes('ordem');
 
     const newTarget: MonthlyTarget = {
       id: `tgt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -243,22 +252,29 @@ export default function GestaoMetasPage() {
       ano,
       tipo_operacao_id: opId,
       meta_total: defaultTotal,
-      distribuicoes: [] // Inicializa sem equipes pré-selecionadas
+      regra_agendamento: isOS ? 'dias_especificos' : 'qualquer_dia',
+      dias_especificos: [],
+      distribuicoes: []
     };
 
     const all = storage.getAllTargets();
     const updated = [...all, newTarget];
     storage.saveTargets(updated);
     loadTargets();
-    showToast('success', `Meta para ${op.titulo} criada. Aloque as equipes clicando em "Distribuir Equipes".`);
+    
+    // Abre o modal diretamente para configurar
+    handleOpenDistributionModal(newTarget);
+    showToast('success', `Operação "${op.titulo}" incluída na grade. Configure a meta total, periodicidade e equipes.`);
   };
 
   // Ao abrir o modal de distribuição:
-  // Se a meta já tem equipes salvas, carrega-as. Se não tem nenhuma equipe (nova), NÃO pré-seleciona nada (array vazio).
   const handleOpenDistributionModal = (target: MonthlyTarget) => {
     const currentTeams = storage.getTeams();
     setAllTeams(currentTeams);
     setSelectedTarget(target);
+    setModalMetaTotal(target.meta_total || 15);
+    setModalScheduleRule(target.regra_agendamento || 'qualquer_dia');
+    setModalSpecificDays(target.dias_especificos || []);
 
     const existingTeams = target.distribuicoes && target.distribuicoes.length > 0
       ? target.distribuicoes.map(d => d.equipe).filter(eq => currentTeams.includes(eq))
@@ -341,12 +357,11 @@ export default function GestaoMetasPage() {
     setCustomPercentages(nextPcts);
   };
 
-  // Atualização dinâmica inteligente de porcentagem para uma equipe
+  // Atualização dinâmica de porcentagem para uma equipe
   const handlePercentageChange = (team: string, rawVal: number) => {
     const val = Math.max(0, Math.min(100, isNaN(rawVal) ? 0 : rawVal));
     
     if (!autoBalanceOthers || selectedTeams.length <= 1) {
-      // Modo sem balanceamento automático: define diretamente o valor digitado
       setCustomPercentages(prev => ({
         ...prev,
         [team]: val
@@ -354,7 +369,6 @@ export default function GestaoMetasPage() {
       return;
     }
 
-    // Modo com auto-balanceamento: distribui os (100 - val)% restantes proporcionalmente entre as outras equipes
     const remaining = Math.max(0, 100 - val);
     const otherTeams = selectedTeams.filter(t => t !== team);
 
@@ -394,11 +408,11 @@ export default function GestaoMetasPage() {
     setCustomPercentages(nextPcts);
   };
 
-  // Atualização direta pelo número de operações
-  const handleOpsCountChange = (team: string, opsCount: number) => {
-    if (!selectedTarget || selectedTarget.meta_total <= 0) return;
-    const clampedOps = Math.max(0, Math.min(selectedTarget.meta_total, isNaN(opsCount) ? 0 : opsCount));
-    const calculatedPct = Number(((clampedOps / selectedTarget.meta_total) * 100).toFixed(1));
+  // Atualização direta pelo número de operações digitado manualmente
+  const handleOpsCountChange = (team: string, rawOps: number) => {
+    if (!selectedTarget || modalMetaTotal <= 0) return;
+    const clampedOps = Math.max(0, Math.min(modalMetaTotal, isNaN(rawOps) ? 0 : rawOps));
+    const calculatedPct = Number(((clampedOps / modalMetaTotal) * 100).toFixed(1));
     handlePercentageChange(team, calculatedPct);
   };
 
@@ -410,11 +424,10 @@ export default function GestaoMetasPage() {
   }, [selectedTeams, customPercentages]);
 
   // Distribuição calculada em tempo real com o método dos maiores restos (Hare-Niemeyer)
-  // Garante que a soma das operações NUNCA ultrapasse a meta_total
   const dynamicModalDistribution = useMemo(() => {
-    if (!selectedTarget || selectedTeams.length === 0) return {};
-    return distributeByPercentages(selectedTarget.meta_total, customPercentages);
-  }, [selectedTarget, selectedTeams, customPercentages]);
+    if (!selectedTarget || selectedTeams.length === 0 || modalMetaTotal <= 0) return {};
+    return distributeByPercentages(modalMetaTotal, customPercentages);
+  }, [selectedTarget, selectedTeams, modalMetaTotal, customPercentages]);
 
   const currentTotalAllocatedOps = useMemo(() => {
     if (!selectedTarget || selectedTeams.length === 0) return 0;
@@ -423,8 +436,54 @@ export default function GestaoMetasPage() {
 
   const isPercentageExceeded = currentTotalPercentage > 100.05;
 
+  // Alternar dia específico selecionado
+  const toggleSpecificDay = (day: number) => {
+    setModalSpecificDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort((a, b) => a - b)
+    );
+  };
+
+  const handleSelectWeekdaysOnly = () => {
+    const days: number[] = [];
+    for (let d = 1; d <= daysInSelectedMonth; d++) {
+      const dayOfWeek = new Date(ano, mes - 1, d).getDay();
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        days.push(d);
+      }
+    }
+    setModalSpecificDays(days);
+  };
+
+  const handleSelectWeekendsOnly = () => {
+    const days: number[] = [];
+    for (let d = 1; d <= daysInSelectedMonth; d++) {
+      const dayOfWeek = new Date(ano, mes - 1, d).getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        days.push(d);
+      }
+    }
+    setModalSpecificDays(days);
+  };
+
+  const handleSelectAllMonthDays = () => {
+    const days: number[] = [];
+    for (let d = 1; d <= daysInSelectedMonth; d++) {
+      days.push(d);
+    }
+    setModalSpecificDays(days);
+  };
+
+  const handleClearSpecificDays = () => {
+    setModalSpecificDays([]);
+  };
+
   const handleSaveDistribution = () => {
     if (!selectedTarget) return;
+
+    if (modalMetaTotal <= 0) {
+      showToast('error', 'A meta total deve ser de no mínimo 1 operação.');
+      return;
+    }
 
     if (isPercentageExceeded) {
       showToast('error', `A soma das porcentagens é ${currentTotalPercentage}%, excedendo o limite de 100%. Ajuste antes de salvar.`);
@@ -433,25 +492,14 @@ export default function GestaoMetasPage() {
 
     let newDistributions: TeamTargetAllocation[] = [];
     if (selectedTeams.length > 0) {
-      if (distributionMode === 'EQUAL') {
-        const dist = distributeEqually(selectedTarget.meta_total, selectedTeams);
-        newDistributions = Object.entries(dist).map(([team, data]) => ({
-          id: `dst-${Date.now()}-${team}`,
-          meta_mensal_id: selectedTarget.id,
-          equipe: team,
-          percentual_alocado: data.percent,
-          meta_quantitativa: data.count
-        }));
-      } else {
-        const dist = distributeByPercentages(selectedTarget.meta_total, customPercentages);
-        newDistributions = Object.entries(dist).map(([team, data]) => ({
-          id: `dst-${Date.now()}-${team}`,
-          meta_mensal_id: selectedTarget.id,
-          equipe: team,
-          percentual_alocado: data.percent,
-          meta_quantitativa: data.count
-        }));
-      }
+      const dist = distributeByPercentages(modalMetaTotal, customPercentages);
+      newDistributions = Object.entries(dist).map(([team, data]) => ({
+        id: `dst-${Date.now()}-${team}`,
+        meta_mensal_id: selectedTarget.id,
+        equipe: team,
+        percentual_alocado: data.percent,
+        meta_quantitativa: data.count
+      }));
     }
 
     const all = storage.getAllTargets();
@@ -459,52 +507,19 @@ export default function GestaoMetasPage() {
     if (idx !== -1) {
       all[idx] = {
         ...all[idx],
+        meta_total: modalMetaTotal,
+        regra_agendamento: modalScheduleRule,
+        dias_especificos: modalScheduleRule === 'dias_especificos' ? modalSpecificDays : undefined,
         distribuicoes: newDistributions
       };
       storage.saveTargets(all);
       loadTargets();
       showToast('success', selectedTeams.length > 0 
-        ? `Distribuição salva com sucesso para ${selectedTeams.length} equipes.` 
-        : 'Meta definida como geral da fração (sem equipes específicas alocadas).'
+        ? `Meta de ${modalMetaTotal} ops salva com sucesso para ${selectedTeams.length} equipes.` 
+        : `Meta de ${modalMetaTotal} ops definida como cota geral da fração.`
       );
     }
     setSelectedTarget(null);
-  };
-
-  const handleTotalChange = (targetId: string, newTotal: number) => {
-    const all = storage.getAllTargets();
-    const idx = all.findIndex(t => t.id === targetId);
-    if (idx === -1) return;
-
-    const t = all[idx];
-    const teams = t.distribuicoes && t.distribuicoes.length > 0
-      ? t.distribuicoes.map(d => d.equipe)
-      : [];
-
-    let newDistributions: TeamTargetAllocation[] = [];
-    if (teams.length > 0) {
-      const pcts: { [team: string]: number } = {};
-      t.distribuicoes?.forEach(d => {
-        pcts[d.equipe] = d.percentual_alocado;
-      });
-      const dist = distributeByPercentages(newTotal, pcts);
-      newDistributions = Object.entries(dist).map(([team, data]) => ({
-        id: `dst-${Date.now()}-${team}`,
-        meta_mensal_id: t.id,
-        equipe: team,
-        percentual_alocado: data.percent,
-        meta_quantitativa: data.count
-      }));
-    }
-
-    all[idx] = {
-      ...t,
-      meta_total: newTotal,
-      distribuicoes: newDistributions
-    };
-
-    storage.saveTargets(all);
-    loadTargets();
   };
 
   const handleDeleteTarget = (targetId: string) => {
@@ -876,22 +891,36 @@ export default function GestaoMetasPage() {
                               </div>
                             </div>
 
-                            {/* Controles de Meta Total e Distribuição */}
-                            <div className="flex items-center gap-2 self-end sm:self-auto">
-                              {/* Input Meta Total */}
+                            {/* Controles de Meta Total e Distribuição (Sem Input direto no Card) */}
+                            <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                              {/* Badge Meta Total */}
                               <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938]">
                                 <span className="text-xs text-gray-500 font-medium">Meta:</span>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={tgt.meta_total}
-                                  onChange={(e) => handleTotalChange(tgt.id, Math.max(1, parseInt(e.target.value) || 1))}
-                                  className="w-12 bg-transparent text-right font-extrabold text-xs text-gray-900 dark:text-white focus:outline-none"
-                                />
+                                <span className="font-extrabold text-xs text-gray-900 dark:text-white">{tgt.meta_total}</span>
                                 <span className="text-xs text-gray-400 font-semibold">ops</span>
                               </div>
 
-                              {/* Botão de Distribuir Equipes */}
+                              {/* Badge de Regra de Periodicidade */}
+                              {tgt.regra_agendamento === 'dias_semana' && (
+                                <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>Dias úteis</span>
+                                </span>
+                              )}
+                              {tgt.regra_agendamento === 'finais_semana' && (
+                                <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>Fins de semana</span>
+                                </span>
+                              )}
+                              {tgt.regra_agendamento === 'dias_especificos' && (
+                                <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{tgt.dias_especificos?.length || 0} dias certos</span>
+                                </span>
+                              )}
+
+                              {/* Botão de Ajustar Meta & Equipes */}
                               <button
                                 type="button"
                                 onClick={() => handleOpenDistributionModal(tgt)}
@@ -902,7 +931,7 @@ export default function GestaoMetasPage() {
                                 }`}
                               >
                                 <PieChart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                <span>{hasTeamsAllocated ? `Distribuído (${tgt.distribuicoes?.length} eq.)` : 'Distribuir Equipes'}</span>
+                                <span>{hasTeamsAllocated ? `Distribuído (${tgt.distribuicoes?.length} eq.)` : 'Definir Meta e Equipes'}</span>
                               </button>
 
                               {/* Botão de Excluir Meta */}
@@ -1084,7 +1113,7 @@ export default function GestaoMetasPage() {
                 onClick={confirmYearChange}
                 className="py-2 px-4 flex-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors"
               >
-                Sim, Alterar para {pendingYear}
+                Confirmar e Alterar Ano
               </button>
             </div>
           </div>
@@ -1092,24 +1121,29 @@ export default function GestaoMetasPage() {
       )}
 
       {/* ========================================================= */}
-      {/* 6. MODAL DE DISTRIBUIÇÃO DAS EQUIPES DINÂMICO & INTELIGENTE */}
+      {/* 6. MODAL DE PLANEJAMENTO DA META & DISTRIBUIÇÃO */}
       {/* ========================================================= */}
       {selectedTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] my-auto overflow-hidden animate-in zoom-in-95">
+          <div className="w-full max-w-3xl bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] my-auto overflow-hidden animate-in zoom-in-95">
             
             {/* Header Fixo */}
             <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-[#222938] flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-                  <PieChart className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                  <Target className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
-                    Distribuição da Meta por Equipe
-                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-mono font-bold text-[11px] border border-emerald-200 dark:border-emerald-800">
+                      {operations.find(o => o.id === selectedTarget.tipo_operacao_id)?.codigo_natureza}
+                    </span>
+                    <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
+                      {operations.find(o => o.id === selectedTarget.tipo_operacao_id)?.titulo}
+                    </h3>
+                  </div>
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    Operação: <strong>{operations.find(o => o.id === selectedTarget.tipo_operacao_id)?.titulo}</strong> · Cota Total: <strong className="text-emerald-600 dark:text-emerald-400">{selectedTarget.meta_total} ops</strong>
+                    Planejamento mensal: <strong>{monthNames[mes - 1]} de {ano}</strong>
                   </p>
                 </div>
               </div>
@@ -1122,14 +1156,152 @@ export default function GestaoMetasPage() {
             </div>
 
             {/* Conteúdo com Rolagem Interna */}
-            <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
+            <div className="p-4 sm:p-5 space-y-5 text-xs overflow-y-auto flex-1">
               
-              {/* Seleção de Equipes (NÃO VEM PRÉ-SELECIONADO) */}
+              {/* SEÇÃO 1: QUANTIDADE TOTAL E PERIODICIDADE DA OPERAÇÃO */}
+              <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#222938] space-y-3.5">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-gray-900 dark:text-white">
+                    1. Meta Total e Regra de Periodicidade
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  
+                  {/* Definição da Quantidade Total */}
+                  <div className="bg-white dark:bg-[#151A23] p-3 rounded-xl border border-gray-200 dark:border-[#283042] space-y-1.5">
+                    <label className="block font-bold text-gray-700 dark:text-gray-300 text-[11px]">
+                      Meta Total no Mês (Ações) *
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        value={modalMetaTotal}
+                        onChange={(e) => {
+                          const val = Math.max(1, parseInt(e.target.value) || 1);
+                          setModalMetaTotal(val);
+                        }}
+                        className="untitled-input font-mono font-extrabold text-base text-emerald-600 dark:text-emerald-400 py-1.5"
+                      />
+                      <span className="text-xs font-semibold text-gray-400">operações</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      Total de execuções planejadas para esta natureza em {monthNames[mes - 1]}/{ano}.
+                    </p>
+                  </div>
+
+                  {/* Periodicidade / Restrição de Datas */}
+                  <div className="bg-white dark:bg-[#151A23] p-3 rounded-xl border border-gray-200 dark:border-[#283042] space-y-1.5">
+                    <label className="block font-bold text-gray-700 dark:text-gray-300 text-[11px]">
+                      Quando pode ser executada? *
+                    </label>
+                    <select
+                      value={modalScheduleRule}
+                      onChange={(e) => setModalScheduleRule(e.target.value as TargetScheduleRule)}
+                      className="untitled-input font-bold text-xs py-2"
+                    >
+                      <option value="qualquer_dia">📅 Qualquer data do mês (Livre)</option>
+                      <option value="dias_semana">🏢 Apenas dias de semana (Segunda a Sexta)</option>
+                      <option value="finais_semana">🌴 Apenas finais de semana (Sábado e Domingo)</option>
+                      <option value="dias_especificos">🎯 Datas / Dias específicos do mês</option>
+                    </select>
+                    <p className="text-[10px] text-gray-400">
+                      {modalScheduleRule === 'qualquer_dia' && 'Permite lançamento em qualquer dia do mês corrente.'}
+                      {modalScheduleRule === 'dias_semana' && 'Operação destinada exclusivamente aos dias úteis.'}
+                      {modalScheduleRule === 'finais_semana' && 'Operação destinada aos sábados e domingos.'}
+                      {modalScheduleRule === 'dias_especificos' && 'Operação com dias certos definidos (ex: O.S., eventos, datas fixas).'}
+                    </p>
+                  </div>
+
+                </div>
+
+                {/* Seção de Seleção de Dias Específicos do Mês */}
+                {modalScheduleRule === 'dias_especificos' && (
+                  <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-2 animate-in fade-in">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+                        <CalendarDays className="w-4 h-4 text-amber-600" />
+                        <span>Selecione os dias do mês de {monthNames[mes - 1]}:</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleSelectWeekdaysOnly}
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
+                        >
+                          Dias Úteis
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSelectWeekendsOnly}
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
+                        >
+                          Finais de Semana
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSelectAllMonthDays}
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
+                        >
+                          Todos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearSpecificDays}
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Grade de Dias do Mês */}
+                    <div className="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-11 gap-1 pt-1">
+                      {Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1).map((day) => {
+                        const isDaySelected = modalSpecificDays.includes(day);
+                        const dayDate = new Date(ano, mes - 1, day);
+                        const dayOfWeekStr = format(dayDate, 'EEE', { locale: ptBR }).toUpperCase().slice(0, 3);
+                        const isWeekend = dayDate.getDay() === 0 || dayDate.getDay() === 6;
+
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => toggleSpecificDay(day)}
+                            className={`p-1 rounded-lg text-center transition-all flex flex-col items-center justify-center ${
+                              isDaySelected
+                                ? 'bg-amber-600 text-white font-bold shadow-xs'
+                                : isWeekend
+                                ? 'bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 hover:border-amber-400'
+                                : 'bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#283042] text-gray-700 dark:text-gray-300 hover:border-amber-400'
+                            }`}
+                          >
+                            <span className="text-[9px] opacity-75 leading-none">{dayOfWeekStr}</span>
+                            <span className="text-xs font-bold leading-tight">{day}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <p className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold pt-1">
+                      {modalSpecificDays.length === 0
+                        ? '⚠️ Nenhum dia selecionado (marque as datas em que a operação poderá ser lançada).'
+                        : `✓ ${modalSpecificDays.length} dias selecionados: ${modalSpecificDays.join(', ')}`}
+                    </p>
+                  </div>
+                )}
+
+              </div>
+              
+              {/* SEÇÃO 2: SELEÇÃO DE EQUIPES PARTICIPANTES */}
               <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                   <div>
                     <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase tracking-wider block">
-                      1. Selecione as Equipes Participantes
+                      2. Selecione as Equipes Participantes
                     </label>
                     <span className="text-[11px] text-gray-400">
                       {selectedTeams.length === 0 ? 'Nenhuma equipe marcada' : `${selectedTeams.length} de ${allTeams.length} equipes selecionadas`}
@@ -1172,7 +1344,7 @@ export default function GestaoMetasPage() {
                 </div>
 
                 {/* Grade das Equipes */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-40 overflow-y-auto p-1.5 border border-gray-200 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 max-h-36 overflow-y-auto p-1.5 border border-gray-200 dark:border-[#222938] rounded-xl bg-gray-50/50 dark:bg-[#0E121A]/50">
                   {allTeams.map((team) => {
                     const isSelected = selectedTeams.includes(team);
                     return (
@@ -1198,16 +1370,16 @@ export default function GestaoMetasPage() {
                 </div>
               </div>
 
-              {/* 2. Ajuste das Porcentagens e Cotas com Digitação e Sliders */}
+              {/* SEÇÃO 3: DISTRIBUIÇÃO DAS COTAS (SEM SLIDERS) */}
               {selectedTeams.length > 0 && (
                 <div className="space-y-3 pt-2 border-t border-gray-100 dark:border-[#222938]">
                   
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <label className="font-bold text-gray-700 dark:text-gray-300 text-[11px] uppercase tracking-wider block">
-                      2. Ajuste a Cota ou Porcentagem (%) por Equipe
+                      3. Distribuição das Cotas por Equipe
                     </label>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {/* Checkbox de Auto-Equilíbrio */}
                       <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-gray-600 dark:text-gray-300 font-medium select-none">
                         <input
@@ -1216,25 +1388,25 @@ export default function GestaoMetasPage() {
                           onChange={(e) => setAutoBalanceOthers(e.target.checked)}
                           className="rounded text-emerald-600 focus:ring-emerald-500"
                         />
-                        <span>Auto-adequar demais (%)</span>
+                        <span>Auto-adequar restante (%)</span>
                       </label>
 
-                      {/* Botão de Reset Igualitário */}
+                      {/* Botão de Distribuição Automática Igualitária */}
                       <button
                         type="button"
                         onClick={() => rebalanceEqually(selectedTeams)}
-                        className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex items-center gap-1"
-                        title="Dividir 100% igualmente entre as equipes"
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shadow-xs transition-colors"
+                        title="Dividir meta igualmente entre as equipes"
                       >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>Equilibrar 100%</span>
+                        <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Distribuir Igualmente</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Lista de Equipes com Inputs Digitáveis e Sliders */}
-                  <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-2xl border border-gray-200 dark:border-[#222938] space-y-2.5">
-                    <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                  {/* Lista de Equipes com Inputs Digitáveis de Quantidade e % (Sem Slider) */}
+                  <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-2xl border border-gray-200 dark:border-[#222938] space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
                       {selectedTeams.map((team) => {
                         const pct = customPercentages[team] || 0;
                         const opsCalc = dynamicModalDistribution[team]?.count ?? 0;
@@ -1242,29 +1414,38 @@ export default function GestaoMetasPage() {
                         return (
                           <div
                             key={team}
-                            className="p-2 rounded-xl bg-white dark:bg-[#151A23] border border-gray-200/90 dark:border-[#283042] space-y-1.5 shadow-2xs"
+                            className="p-2.5 rounded-xl bg-white dark:bg-[#151A23] border border-gray-200/90 dark:border-[#283042] flex items-center justify-between gap-2 shadow-2xs"
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="font-bold text-xs text-gray-900 dark:text-white truncate max-w-[160px]">
+                            <div className="min-w-0">
+                              <span className="font-bold text-xs text-gray-900 dark:text-white truncate block">
                                 {team}
                               </span>
+                              <span className="text-[10px] text-gray-400 font-medium">
+                                Cota calculada: <strong>{opsCalc} ops</strong>
+                              </span>
+                            </div>
 
-                              <div className="flex items-center gap-2">
-                                {/* Input Digitável de Quantidade de Operações */}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {/* Input Manual de Quantidade de Operações */}
+                              <div className="flex flex-col items-end">
+                                <span className="text-[9px] text-gray-400 font-bold uppercase">Quantidade</span>
                                 <div className="flex items-center gap-1 bg-gray-50 dark:bg-[#0E121A] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-[#283042]">
                                   <input
                                     type="number"
                                     min="0"
-                                    max={selectedTarget.meta_total}
+                                    max={modalMetaTotal}
                                     value={opsCalc}
                                     onChange={(e) => handleOpsCountChange(team, parseInt(e.target.value) || 0)}
                                     className="w-10 bg-transparent text-right font-extrabold text-xs text-emerald-600 dark:text-emerald-400 focus:outline-none"
                                   />
                                   <span className="text-[10px] text-gray-400 font-medium">ops</span>
                                 </div>
+                              </div>
 
-                                {/* Input Digitável de % */}
-                                <div className="flex items-center gap-1 bg-gray-50 dark:bg-[#0E121A] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-[#222938]">
+                              {/* Input Manual de Porcentagem (%) */}
+                              <div className="flex flex-col items-end">
+                                <span className="text-[9px] text-gray-400 font-bold uppercase">Porcentagem</span>
+                                <div className="flex items-center gap-1 bg-gray-50 dark:bg-[#0E121A] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-[#283042]">
                                   <input
                                     type="number"
                                     min="0"
@@ -1277,19 +1458,6 @@ export default function GestaoMetasPage() {
                                   <span className="text-[10px] text-gray-500 font-bold">%</span>
                                 </div>
                               </div>
-                            </div>
-
-                            {/* Barra Deslizante (Slider) Sincronizada */}
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min={0}
-                                max={100}
-                                step={0.5}
-                                value={pct}
-                                onChange={(e) => handlePercentageChange(team, Number(e.target.value))}
-                                className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg"
-                              />
                             </div>
                           </div>
                         );
@@ -1316,11 +1484,11 @@ export default function GestaoMetasPage() {
 
                       <span>
                         {isPercentageExceeded ? (
-                          <strong>A soma atual é {currentTotalPercentage}% ({currentTotalAllocatedOps} ops), extrapolando os 100% da meta ({selectedTarget.meta_total} ops). O salvamento está bloqueado.</strong>
+                          <strong>A soma atual é {currentTotalPercentage}% ({currentTotalAllocatedOps} ops), ultrapassando os 100% da meta ({modalMetaTotal} ops). O salvamento está bloqueado.</strong>
                         ) : currentTotalPercentage === 100 ? (
-                          <strong>Soma das operações: exatamente {currentTotalAllocatedOps} de {selectedTarget.meta_total} ops (100% da cota distribuída perfeitamente).</strong>
+                          <strong>Soma das operações: exatamente {currentTotalAllocatedOps} de {modalMetaTotal} ops (100% da cota distribuída perfeitamente).</strong>
                         ) : (
-                          <span>Soma atual: <strong>{currentTotalAllocatedOps} de {selectedTarget.meta_total} ops</strong> ({currentTotalPercentage}% alocado · resta <strong>{(100 - currentTotalPercentage).toFixed(1)}%</strong>).</span>
+                          <span>Soma atual: <strong>{currentTotalAllocatedOps} de {modalMetaTotal} ops</strong> ({currentTotalPercentage}% alocado · resta <strong>{(100 - currentTotalPercentage).toFixed(1)}%</strong>).</span>
                         )}
                       </span>
                     </div>
@@ -1344,7 +1512,7 @@ export default function GestaoMetasPage() {
                 <div className="p-3 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/60 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
                   <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                   <span>
-                    Nenhuma equipe selecionada. Se você salvar sem selecionar equipes, a meta permanecerá como cota global da fração (sem divisão individual por equipe).
+                    Nenhuma equipe selecionada. A meta de <strong>{modalMetaTotal} operações</strong> permanecerá como cota global da fração (sem divisão individual por equipe).
                   </span>
                 </div>
               )}
@@ -1371,7 +1539,7 @@ export default function GestaoMetasPage() {
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Salvar Distribuição</span>
+                <span>Salvar Planejamento & Distribuição</span>
               </button>
             </div>
 

@@ -43,12 +43,16 @@ export interface OperationType {
   ativo: boolean;
 }
 
+export type TargetScheduleRule = 'qualquer_dia' | 'dias_semana' | 'finais_semana' | 'dias_especificos';
+
 export interface MonthlyTarget {
   id: string;
   mes: number;
   ano: number;
   tipo_operacao_id: string;
   meta_total: number;
+  regra_agendamento?: TargetScheduleRule;
+  dias_especificos?: number[];
   tipo_operacao?: OperationType;
   distribuicoes?: TeamTargetAllocation[];
 }
