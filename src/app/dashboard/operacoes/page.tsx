@@ -847,13 +847,12 @@ export default function OperacoesCatalogoPage() {
                   )}
                 </div>
 
-                {/* Pré-visualização ao Vivo do Grupo */}
+                {/* Pré-visualização do Grupo */}
                 <div className="p-3 bg-white dark:bg-[#151A23] rounded-xl border border-dashed border-gray-300 dark:border-[#283042] space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
                       Pré-visualização do Ícone & Grupo
                     </span>
-                    <span className="text-[10px] text-emerald-600 font-mono font-semibold">Ao vivo</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs ${getGroupColor(groupFormData.cor).badgeClass}`}>
