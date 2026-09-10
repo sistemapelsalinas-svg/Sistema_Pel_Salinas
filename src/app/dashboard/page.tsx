@@ -27,21 +27,25 @@ import { RiskBadge } from '@/components/risk-badge';
 
 export default function DashboardOverviewPage() {
   const { user } = useAuth();
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+
   const [operations, setOperations] = useState(storage.getOperations());
   const [logs, setLogs] = useState(storage.getLogs());
   const [alerts, setAlerts] = useState(storage.getAlerts());
-  const [targets, setTargets] = useState(storage.getTargets(8, 2026));
-  const [schedule, setSchedule] = useState(storage.getSchedule(8, 2026));
+  const [targets, setTargets] = useState(storage.getTargets(currentMonth, currentYear));
+  const [schedule, setSchedule] = useState(storage.getSchedule(currentMonth, currentYear));
   const [teams, setTeams] = useState<string[]>(storage.getTeams());
 
   useEffect(() => {
     setOperations(storage.getOperations());
     setLogs(storage.getLogs());
     setAlerts(storage.getAlerts());
-    setTargets(storage.getTargets(8, 2026));
-    setSchedule(storage.getSchedule(8, 2026));
+    setTargets(storage.getTargets(currentMonth, currentYear));
+    setSchedule(storage.getSchedule(currentMonth, currentYear));
     setTeams(storage.getTeams());
-  }, []);
+  }, [currentMonth, currentYear]);
 
   const totalMetas = targets.reduce((acc, t) => acc + t.meta_total, 0);
   const totalExecutadas = logs.length;

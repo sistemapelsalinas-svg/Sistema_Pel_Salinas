@@ -12,12 +12,23 @@ import {
 } from 'lucide-react';
 
 export default function RelatoriosPage() {
-  const [mes, setMes] = useState(8);
-  const [ano, setAno] = useState(2026);
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+
+  const [mes, setMes] = useState(currentMonth);
+  const [ano, setAno] = useState(currentYear);
   const [operations, setOperations] = useState<OperationType[]>([]);
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
   const [logs, setLogs] = useState<OperationExecutionLog[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const availableYears = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
 
   useEffect(() => {
     setOperations(storage.getOperations());
@@ -93,12 +104,24 @@ export default function RelatoriosPage() {
               onChange={(e) => setMes(Number(e.target.value))}
               className="bg-transparent font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
             >
-              <option value={8}>Agosto</option>
-              <option value={9}>Setembro</option>
-              <option value={10}>Outubro</option>
+              {monthNames.map((name, index) => (
+                <option key={index + 1} value={index + 1}>
+                  {name}
+                </option>
+              ))}
             </select>
             <span className="text-gray-300 dark:text-gray-600">/</span>
-            <span className="font-semibold text-gray-700 dark:text-gray-300">{ano}</span>
+            <select
+              value={ano}
+              onChange={(e) => setAno(Number(e.target.value))}
+              className="bg-transparent font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
           </div>
 
           <button

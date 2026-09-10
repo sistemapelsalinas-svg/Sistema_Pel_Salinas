@@ -689,14 +689,16 @@ class StorageService {
     localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedules));
   }
 
-  getSchedule(mes: number = 8, ano: number = 2026): MonthlySchedule | null {
+  getSchedule(mes?: number, ano?: number): MonthlySchedule | null {
+    const targetMes = mes !== undefined ? mes : (new Date().getMonth() + 1);
+    const targetAno = ano !== undefined ? ano : (new Date().getFullYear());
     if (!this.isBrowser()) return null;
     const schedules = this.getSchedules();
-    const sch = schedules.find(s => s.mes === mes && s.ano === ano);
+    const sch = schedules.find(s => s.mes === targetMes && s.ano === targetAno);
     if (!sch) return null;
 
     const militares = this.getMilitaresEscala();
-    const daysInMonth = new Date(ano, mes, 0).getDate();
+    const daysInMonth = new Date(targetAno, targetMes, 0).getDate();
 
     // Garante que a escala contenha EXCLUSIVAMENTE os militares cadastrados no efetivo
     const validMilitarIds = new Set(militares.map(m => m.id));
