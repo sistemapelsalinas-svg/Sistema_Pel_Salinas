@@ -85,6 +85,8 @@ export interface OperationExecutionLog {
     providencias?: string;
     pessoa_atendida?: string;
     vitima_atendida?: string;
+    envolvidos_confirmados?: string;
+    [key: string]: string | undefined;
   };
   observacoes?: string;
   created_by?: string;

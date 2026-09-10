@@ -128,18 +128,10 @@ export default function OperacoesExecutadasPage() {
 
   // Checkboxes de confirmação de requisitos institucionais (Interações Comunitárias e Visitas)
   const [confirmVcpEnvolvidos, setConfirmVcpEnvolvidos] = useState<boolean>(false);
-  const [confirmVcpHistorico, setConfirmVcpHistorico] = useState<boolean>(false);
-  
   const [confirmRcEnvolvidos, setConfirmRcEnvolvidos] = useState<boolean>(false);
-  const [confirmRcHistorico, setConfirmRcHistorico] = useState<boolean>(false);
-  
   const [confirmRcrRural, setConfirmRcrRural] = useState<boolean>(false);
   const [confirmRcrEnvolvidos, setConfirmRcrEnvolvidos] = useState<boolean>(false);
-  const [confirmRcrHistorico, setConfirmRcrHistorico] = useState<boolean>(false);
-  
   const [confirmMrppEnvolvidos, setConfirmMrppEnvolvidos] = useState<boolean>(false);
-  const [confirmMrppHistorico, setConfirmMrppHistorico] = useState<boolean>(false);
-  
   const [confirmVtVitima, setConfirmVtVitima] = useState<boolean>(false);
   const [confirmVtRedsOrigem, setConfirmVtRedsOrigem] = useState<boolean>(false);
 
@@ -338,18 +330,12 @@ export default function OperacoesExecutadasPage() {
       if (!confirmVcpEnvolvidos) {
         errors.push('Confirme que há no mínimo 1 (um) envolvido cadastrado no REDS.');
       }
-      if (!confirmVcpHistorico) {
-        errors.push('Confirme que foram descritas no histórico do REDS as orientações repassadas e a demanda identificada.');
-      }
     }
 
     // RC (A19.000)
     if (selectedOp.codigo_natureza === 'A19.000' || selectedOp.codigo_natureza.startsWith('A19.000')) {
       if (!confirmRcEnvolvidos) {
         errors.push('Confirme que há no mínimo 3 (três) envolvidos cadastrados no REDS da Reunião Comunitária.');
-      }
-      if (!confirmRcHistorico) {
-        errors.push('Confirme que foram descritas no histórico do REDS a entidade atendida, pauta e encaminhamentos.');
       }
     }
 
@@ -361,18 +347,12 @@ export default function OperacoesExecutadasPage() {
       if (!confirmRcrRural || !areaRural) {
         errors.push('Confirme que a Reunião Comunitária Rural foi realizada em Área Rural.');
       }
-      if (!confirmRcrHistorico) {
-        errors.push('Confirme que foram registradas no histórico do REDS a comunidade rural, pauta e encaminhamentos.');
-      }
     }
 
     // MRPP (A19.006)
     if (selectedOp.codigo_natureza.startsWith('A19.006')) {
       if (!confirmMrppEnvolvidos) {
         errors.push('Confirme que há no mínimo 3 (três) envolvidos cadastrados no REDS da Manutenção de Rede.');
-      }
-      if (!confirmMrppHistorico) {
-        errors.push('Confirme que foram descritas no histórico do REDS a rede atendida e as providências adotadas.');
       }
     }
 
@@ -415,12 +395,7 @@ export default function OperacoesExecutadasPage() {
       area_rural: areaRural,
       quantidade_envolvidos: quantidadeEnvolvidos,
       detalhes_interacao: {
-        orientacoes: confirmVcpHistorico ? 'Confirmado no REDS' : undefined,
-        demanda_identificada: confirmVcpHistorico ? 'Confirmado no REDS' : undefined,
-        pauta: (confirmRcHistorico || confirmRcrHistorico) ? 'Confirmado no REDS' : undefined,
-        encaminhamentos: (confirmRcHistorico || confirmRcrHistorico) ? 'Confirmado no REDS' : undefined,
-        rede_atendida: confirmMrppHistorico ? 'Confirmado no REDS' : undefined,
-        providencias: confirmMrppHistorico ? 'Confirmado no REDS' : undefined,
+        envolvidos_confirmados: (confirmVcpEnvolvidos || confirmRcEnvolvidos || confirmRcrEnvolvidos || confirmMrppEnvolvidos) ? 'Confirmado no REDS' : undefined,
         vitima_atendida: confirmVtVitima ? 'Vítima confirmada no REDS' : undefined
       },
       observacoes: observacoes || undefined,
@@ -438,14 +413,10 @@ export default function OperacoesExecutadasPage() {
     setRedsOrigem('');
     setObservacoes('');
     setConfirmVcpEnvolvidos(false);
-    setConfirmVcpHistorico(false);
     setConfirmRcEnvolvidos(false);
-    setConfirmRcHistorico(false);
     setConfirmRcrRural(false);
     setConfirmRcrEnvolvidos(false);
-    setConfirmRcrHistorico(false);
     setConfirmMrppEnvolvidos(false);
-    setConfirmMrppHistorico(false);
     setConfirmVtVitima(false);
     setConfirmVtRedsOrigem(false);
 
@@ -628,9 +599,6 @@ export default function OperacoesExecutadasPage() {
                         <h4 className="font-bold text-sm text-gray-900 dark:text-white">
                           {g.nome}
                         </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                          {g.descricao || 'Atividades e diretrizes operacionais do grupo.'}
-                        </p>
                       </div>
 
                       <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -725,12 +693,9 @@ export default function OperacoesExecutadasPage() {
                         </div>
 
                         <div>
-                          <h4 className="font-bold text-xs text-gray-900 dark:text-white leading-snug line-clamp-2">
+                          <h4 className="font-bold text-xs text-gray-900 dark:text-white leading-snug">
                             {op.titulo}
                           </h4>
-                          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                            {op.descricao || 'Sem descrição cadastrada.'}
-                          </p>
                         </div>
 
                         <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -951,10 +916,7 @@ export default function OperacoesExecutadasPage() {
                     <CheckSquare className="w-4 h-4 text-emerald-600" />
                     <span>Confirmação de Requisitos da VCP no REDS</span>
                   </div>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                    Confirme se os requisitos institucionais foram incluídos no Boletim de Ocorrência:
-                  </p>
-                  <div className="space-y-2 pt-1">
+                  <div className="pt-1">
                     <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
@@ -964,18 +926,6 @@ export default function OperacoesExecutadasPage() {
                       />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">
                         Confirmo que há no mínimo 1 (um) envolvido cadastrado no REDS.
-                      </span>
-                    </label>
-
-                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={confirmVcpHistorico}
-                        onChange={(e) => setConfirmVcpHistorico(e.target.checked)}
-                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
-                      />
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        Confirmo que descrevi no histórico do REDS as orientações de autoproteção repassadas e a demanda identificada.
                       </span>
                     </label>
                   </div>
@@ -989,7 +939,7 @@ export default function OperacoesExecutadasPage() {
                     <CheckSquare className="w-4 h-4 text-emerald-600" />
                     <span>Confirmação de Requisitos da Reunião Comunitária (RC) no REDS</span>
                   </div>
-                  <div className="space-y-2 pt-1">
+                  <div className="pt-1">
                     <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
@@ -999,18 +949,6 @@ export default function OperacoesExecutadasPage() {
                       />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">
                         Confirmo que há no mínimo 3 (três) envolvidos cadastrados no REDS.
-                      </span>
-                    </label>
-
-                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={confirmRcHistorico}
-                        onChange={(e) => setConfirmRcHistorico(e.target.checked)}
-                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
-                      />
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        Confirmo que registrei no histórico do REDS a entidade/comunidade atendida, a pauta tratada e os encaminhamentos.
                       </span>
                     </label>
                   </div>
@@ -1051,18 +989,6 @@ export default function OperacoesExecutadasPage() {
                         Confirmo que a reunião foi realizada efetivamente na Área Rural.
                       </span>
                     </label>
-
-                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={confirmRcrHistorico}
-                        onChange={(e) => setConfirmRcrHistorico(e.target.checked)}
-                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
-                      />
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        Confirmo que registrei no histórico a comunidade rural atendida, pauta e encaminhamentos.
-                      </span>
-                    </label>
                   </div>
                 </div>
               )}
@@ -1074,7 +1000,7 @@ export default function OperacoesExecutadasPage() {
                     <CheckSquare className="w-4 h-4 text-emerald-600" />
                     <span>Confirmação de Requisitos da Manutenção de Rede (MRPP) no REDS</span>
                   </div>
-                  <div className="space-y-2 pt-1">
+                  <div className="pt-1">
                     <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
                       <input
                         type="checkbox"
@@ -1084,18 +1010,6 @@ export default function OperacoesExecutadasPage() {
                       />
                       <span className="font-semibold text-gray-800 dark:text-gray-200">
                         Confirmo que há no mínimo 3 (três) envolvidos cadastrados no REDS.
-                      </span>
-                    </label>
-
-                    <label className="flex items-start gap-2.5 cursor-pointer bg-white dark:bg-[#151A23] p-2.5 rounded-xl border border-gray-200 dark:border-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={confirmMrppHistorico}
-                        onChange={(e) => setConfirmMrppHistorico(e.target.checked)}
-                        className="w-4 h-4 text-emerald-600 rounded mt-0.5"
-                      />
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        Confirmo que foram descritas no histórico do REDS a rede atendida (Comerciantes, Vizinhos, etc.) e as providências.
                       </span>
                     </label>
                   </div>
