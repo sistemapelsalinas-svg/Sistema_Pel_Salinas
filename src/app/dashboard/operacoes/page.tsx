@@ -523,7 +523,7 @@ export default function OperacoesCatalogoPage() {
 
                   {/* Painel de Criação Rápida de Grupo Inline */}
                   {isQuickGroupOpen && (
-                    <div className="mb-3 p-3 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2.5 animate-in fade-in">
+                    <div className="mb-3 p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-3 animate-in fade-in">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-emerald-900 dark:text-emerald-200 text-[11px] flex items-center gap-1">
                           <Tag className="w-3.5 h-3.5" />
@@ -538,6 +538,24 @@ export default function OperacoesCatalogoPage() {
                         </button>
                       </div>
 
+                      {/* Pré-visualização do Ícone e Grupo */}
+                      <div className="p-2.5 bg-white dark:bg-[#151A23] rounded-xl border border-dashed border-gray-300 dark:border-[#283042] flex items-center gap-2.5">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs ${getGroupColor(quickGroupColor).badgeClass}`}>
+                          {React.createElement(getGroupIcon(quickGroupIcon), { className: 'w-4 h-4' })}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-xs text-gray-900 dark:text-white truncate">
+                              {quickGroupName.trim() || 'Nome do Grupo'}
+                            </span>
+                            <span className="text-[9px] text-emerald-600 font-mono">Prévia</span>
+                          </div>
+                          <p className="text-[10px] text-gray-400 truncate">
+                            {quickGroupDesc.trim() || 'Descrição resumida...'}
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                           <label className="text-[10px] text-gray-500 font-semibold block mb-0.5">Nome do Grupo *</label>
@@ -550,31 +568,69 @@ export default function OperacoesCatalogoPage() {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-gray-500 font-semibold block mb-0.5">Ícone</label>
-                          <select
-                            value={quickGroupIcon}
-                            onChange={(e) => setQuickGroupIcon(e.target.value)}
+                          <label className="text-[10px] text-gray-500 font-semibold block mb-0.5">Descrição Curta</label>
+                          <input
+                            type="text"
+                            placeholder="Objetivo principal..."
+                            value={quickGroupDesc}
+                            onChange={(e) => setQuickGroupDesc(e.target.value)}
                             className="untitled-input text-xs py-1.5"
-                          >
-                            {ICON_OPTIONS.map(i => (
-                              <option key={i.key} value={i.key}>{i.label}</option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
 
-                      <div>
-                        <label className="text-[10px] text-gray-500 font-semibold block mb-0.5">Descrição Curta</label>
-                        <input
-                          type="text"
-                          placeholder="Objetivo principal deste grupo..."
-                          value={quickGroupDesc}
-                          onChange={(e) => setQuickGroupDesc(e.target.value)}
-                          className="untitled-input text-xs py-1.5"
-                        />
+                      {/* Grade Visual de Ícones para Escolha Rápida */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-semibold block">Escolha o Ícone</label>
+                        <div className="grid grid-cols-7 gap-1 p-1.5 bg-white dark:bg-[#151A23] rounded-lg border border-gray-200 dark:border-[#283042]">
+                          {ICON_OPTIONS.map((opt) => {
+                            const IconComp = opt.icon;
+                            const isSel = quickGroupIcon === opt.key;
+                            return (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                onClick={() => setQuickGroupIcon(opt.key)}
+                                className={`p-1.5 rounded-md flex flex-col items-center justify-center transition-all ${
+                                  isSel
+                                    ? 'bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-400'
+                                    : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                }`}
+                                title={opt.label}
+                              >
+                                <IconComp className="w-3.5 h-3.5" />
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-1">
+                      {/* Seletor de Cores */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-semibold block">Cor de Destaque</label>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {COLOR_OPTIONS.map((c) => {
+                            const isSel = quickGroupColor === c.key;
+                            return (
+                              <button
+                                key={c.key}
+                                type="button"
+                                onClick={() => setQuickGroupColor(c.key)}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 transition-all ${
+                                  isSel
+                                    ? `${c.badgeClass} ring-1 ring-emerald-500 font-extrabold`
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+                                }`}
+                              >
+                                <span className={`w-2 h-2 rounded-full ${c.bgClass}`} />
+                                <span>{c.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60">
                         <button
                           type="button"
                           onClick={() => setIsQuickGroupOpen(false)}
@@ -774,7 +830,7 @@ export default function OperacoesCatalogoPage() {
               )}
 
               {/* Formulário de Criação / Edição de Grupo */}
-              <form onSubmit={handleSaveGroup} className="p-3.5 bg-gray-50 dark:bg-[#0E121A] rounded-2xl border border-gray-200 dark:border-[#222938] space-y-3">
+              <form onSubmit={handleSaveGroup} className="p-4 bg-gray-50 dark:bg-[#0E121A] rounded-2xl border border-gray-200 dark:border-[#222938] space-y-3.5">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-xs text-gray-900 dark:text-white flex items-center gap-1.5">
                     {editingGroupId ? <Pencil className="w-3.5 h-3.5 text-amber-500" /> : <Plus className="w-3.5 h-3.5 text-emerald-500" />}
@@ -791,51 +847,107 @@ export default function OperacoesCatalogoPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                      Nome do Grupo *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Policiamento de Trânsito"
-                      value={groupFormData.nome}
-                      onChange={(e) => setGroupFormData({ ...groupFormData, nome: e.target.value })}
-                      className="untitled-input"
-                      required
-                    />
+                {/* Pré-visualização ao Vivo do Grupo */}
+                <div className="p-3 bg-white dark:bg-[#151A23] rounded-xl border border-dashed border-gray-300 dark:border-[#283042] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block">
+                      Pré-visualização do Ícone & Grupo
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-mono font-semibold">Ao vivo</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                        Ícone
-                      </label>
-                      <select
-                        value={groupFormData.icone}
-                        onChange={(e) => setGroupFormData({ ...groupFormData, icone: e.target.value })}
-                        className="untitled-input"
-                      >
-                        {ICON_OPTIONS.map(i => (
-                          <option key={i.key} value={i.key}>{i.label}</option>
-                        ))}
-                      </select>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs ${getGroupColor(groupFormData.cor).badgeClass}`}>
+                      {React.createElement(getGroupIcon(groupFormData.icone), { className: 'w-5 h-5' })}
                     </div>
-
-                    <div>
-                      <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                        Cor
-                      </label>
-                      <select
-                        value={groupFormData.cor}
-                        onChange={(e) => setGroupFormData({ ...groupFormData, cor: e.target.value })}
-                        className="untitled-input"
-                      >
-                        {COLOR_OPTIONS.map(c => (
-                          <option key={c.key} value={c.key}>{c.label}</option>
-                        ))}
-                      </select>
+                    <div className="min-w-0">
+                      <h5 className="font-extrabold text-xs text-gray-900 dark:text-white truncate">
+                        {groupFormData.nome.trim() || 'Nome do Grupo'}
+                      </h5>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                        {groupFormData.descricao.trim() || 'Descrição e objetivo tático das operações...'}
+                      </p>
                     </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Nome do Grupo *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Policiamento de Trânsito"
+                    value={groupFormData.nome}
+                    onChange={(e) => setGroupFormData({ ...groupFormData, nome: e.target.value })}
+                    className="untitled-input"
+                    required
+                  />
+                </div>
+
+                {/* Seletor Visual de Ícones com Grade e Tooltips */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-semibold text-gray-700 dark:text-gray-300 text-[11px]">
+                      Selecione o Ícone Visual *
+                    </label>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      Selecionado: <strong>{ICON_OPTIONS.find(i => i.key === groupFormData.icone)?.label || groupFormData.icone}</strong>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 p-2 bg-white dark:bg-[#151A23] rounded-xl border border-gray-200 dark:border-[#283042] max-h-28 overflow-y-auto">
+                    {ICON_OPTIONS.map((opt) => {
+                      const IconComp = opt.icon;
+                      const isSel = groupFormData.icone === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setGroupFormData({ ...groupFormData, icone: opt.key })}
+                          className={`p-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-all ${
+                            isSel
+                              ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-400'
+                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          }`}
+                          title={opt.label}
+                        >
+                          <IconComp className="w-4 h-4" />
+                          <span className="text-[9px] truncate max-w-full font-medium">{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Seletor Visual de Cores de Destaque */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-semibold text-gray-700 dark:text-gray-300 text-[11px]">
+                      Cor do Grupo & Badges
+                    </label>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      Cor: <strong>{COLOR_OPTIONS.find(c => c.key === groupFormData.cor)?.label || groupFormData.cor}</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap p-1.5 bg-white dark:bg-[#151A23] rounded-xl border border-gray-200 dark:border-[#283042]">
+                    {COLOR_OPTIONS.map((c) => {
+                      const isSel = groupFormData.cor === c.key;
+                      return (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={() => setGroupFormData({ ...groupFormData, cor: c.key })}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all ${
+                            isSel
+                              ? `${c.badgeClass} ring-2 ring-offset-1 ring-emerald-500 font-extrabold`
+                              : 'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-100'
+                          }`}
+                        >
+                          <span className={`w-2.5 h-2.5 rounded-full ${c.bgClass}`} />
+                          <span>{c.label}</span>
+                          {isSel && <Check className="w-3 h-3 ml-0.5 stroke-[3]" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
