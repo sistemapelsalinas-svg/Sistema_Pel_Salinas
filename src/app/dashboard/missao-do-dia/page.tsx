@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { storage } from '@/lib/storage';
-import { DailyMissionData, UserProfile, OperationGroup } from '@/lib/types';
+import { DailyMissionData, UserProfile, OperationGroup, OperationGroupDef } from '@/lib/types';
 import { 
   Target, 
   AlertTriangle, 
@@ -13,14 +13,18 @@ import {
   Users, 
   Flame, 
   Sparkles,
-  Printer,
-  PlusCircle,
-  Check,
-  TrendingUp,
-  FileText,
-  Radio,
-  UserCheck,
-  MapPin
+  Award, 
+  MapPin, 
+  Calendar, 
+  Shield, 
+  FileText, 
+  PlusCircle, 
+  Printer, 
+  Check, 
+  Radio, 
+  TrendingUp, 
+  Zap, 
+  UserCheck 
 } from 'lucide-react';
 import { RiskBadge } from '@/components/risk-badge';
 
@@ -28,6 +32,7 @@ export default function MissaoDoDiaPage() {
   const { user } = useAuth();
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [allTeams, setAllTeams] = useState<string[]>([]);
+  const [operationGroups, setOperationGroups] = useState<OperationGroupDef[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [mission, setMission] = useState<DailyMissionData | null>(null);
@@ -36,8 +41,10 @@ export default function MissaoDoDiaPage() {
   useEffect(() => {
     const users = storage.getUsers();
     const teams = storage.getTeams();
+    const grps = storage.getOperationGroups();
     setAllUsers(users);
     setAllTeams(teams);
+    setOperationGroups(grps);
     if (user) {
       setSelectedUserId(user.id);
       const initialMission = storage.getDailyMission(user);
@@ -90,13 +97,12 @@ export default function MissaoDoDiaPage() {
     ? mission.metasEquipe
     : mission.metasEquipe.filter(m => m.operacao.grupo === selectedGroup);
 
-  const groupCounts = {
-    TODAS: mission.metasEquipe.length,
-    POG: mission.metasEquipe.filter(m => m.operacao.grupo === 'POG').length,
-    ORDENS_SERVICO: mission.metasEquipe.filter(m => m.operacao.grupo === 'ORDENS_SERVICO').length,
-    INTERACOES_COMUNITARIAS: mission.metasEquipe.filter(m => m.operacao.grupo === 'INTERACOES_COMUNITARIAS').length,
-    PROXIMIDADE: mission.metasEquipe.filter(m => m.operacao.grupo === 'PROXIMIDADE').length,
+  const groupCounts: Record<string, number> = {
+    TODAS: mission.metasEquipe.length
   };
+  operationGroups.forEach(g => {
+    groupCounts[g.id] = mission.metasEquipe.filter(m => m.operacao.grupo === g.id).length;
+  });
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto print:p-0 print:m-0 print:max-w-none">
@@ -405,52 +411,28 @@ export default function MissaoDoDiaPage() {
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200'
               }`}
             >
-              Todas ({groupCounts.TODAS})
+              Todas ({groupCounts.TODAS || 0})
             </button>
-            <button
-              type="button"
-              onClick={() => setSelectedGroup('POG')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                selectedGroup === 'POG'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              POG ({groupCounts.POG})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedGroup('ORDENS_SERVICO')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                selectedGroup === 'ORDENS_SERVICO'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              OS ({groupCounts.ORDENS_SERVICO})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedGroup('INTERACOES_COMUNITARIAS')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                selectedGroup === 'INTERACOES_COMUNITARIAS'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              Comunitárias ({groupCounts.INTERACOES_COMUNITARIAS})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedGroup('PROXIMIDADE')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                selectedGroup === 'PROXIMIDADE'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              Proximidade ({groupCounts.PROXIMIDADE})
-            </button>
+
+            {operationGroups.map((grp) => {
+              const isSelected = selectedGroup === grp.id;
+              const count = groupCounts[grp.id] || 0;
+
+              return (
+                <button
+                  key={grp.id}
+                  type="button"
+                  onClick={() => setSelectedGroup(grp.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    isSelected
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 hover:bg-gray-200'
+                  }`}
+                >
+                  {grp.nome} ({count})
+                </button>
+              );
+            })}
           </div>
         </div>
 

@@ -51,6 +51,41 @@ export const DEFAULT_LEGENDS: ScheduleLegend[] = [
   { codigo: 'SN', descricao: 'Serviço Noturno', conta_como_servico: true, cor_badge: 'bg-indigo-600 text-white font-bold' }
 ];
 
+export const DEFAULT_OPERATION_GROUPS: { id: string; nome: string; descricao: string; icone: string; cor: string; is_default: boolean }[] = [
+  {
+    id: 'POG',
+    nome: 'POG',
+    descricao: 'Ações de policiamento ostensivo geral, trânsito, batidas policiais, abordagens e presença em ZQC.',
+    icone: 'Shield',
+    cor: 'blue',
+    is_default: true
+  },
+  {
+    id: 'PROXIMIDADE',
+    nome: 'Policiamento de Proximidade',
+    descricao: 'Patrulha Rural, Patrulha Escolar/PROERD, GEPAR, Bases de Segurança Comunitária e Redes de Proteção Mulher (RPPM).',
+    icone: 'Compass',
+    cor: 'emerald',
+    is_default: true
+  },
+  {
+    id: 'INTERACOES_COMUNITARIAS',
+    nome: 'Interações Comunitárias',
+    descricao: 'Visitas comunitárias (VCP), reuniões com moradores/rurais, redes protegidas (MRPP) e visitas tranquilizadoras (VT).',
+    icone: 'HeartHandshake',
+    cor: 'purple',
+    is_default: true
+  },
+  {
+    id: 'ORDENS_SERVICO',
+    nome: 'Ordens de Serviço',
+    descricao: 'Ordens de serviço específicas, fiscalização em bares, visibilidade e Operação AgroGerais Segura no campo.',
+    icone: 'FileSpreadsheet',
+    cor: 'amber',
+    is_default: true
+  }
+];
+
 export const INITIAL_OPERATIONS: OperationType[] = [
   // 1. POG
   {

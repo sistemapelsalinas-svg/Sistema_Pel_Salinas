@@ -1,6 +1,15 @@
 export type UserRole = 'ADMIN' | 'SOF' | 'ALERTA_HOMICIDIO' | 'EQUIPE';
 
-export type OperationGroup = 'POG' | 'PROXIMIDADE' | 'INTERACOES_COMUNITARIAS' | 'ORDENS_SERVICO';
+export type OperationGroup = string;
+
+export interface OperationGroupDef {
+  id: string;
+  nome: string;
+  descricao?: string;
+  icone?: string;
+  cor?: string;
+  is_default?: boolean;
+}
 
 export type RiskLevel = 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO';
 

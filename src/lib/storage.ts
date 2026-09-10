@@ -1,6 +1,7 @@
 import { 
   UserProfile, 
   OperationType, 
+  OperationGroupDef,
   MonthlyTarget, 
   OperationExecutionLog, 
   HomicideAlert, 
@@ -15,6 +16,7 @@ import {
 import { 
   INITIAL_USERS, 
   INITIAL_OPERATIONS, 
+  DEFAULT_OPERATION_GROUPS,
   INITIAL_MONTHLY_TARGETS, 
   INITIAL_LOGS, 
   INITIAL_ALERTS, 
@@ -27,6 +29,7 @@ import {
 const STORAGE_KEYS = {
   USERS: 'sgp_salinas_users_v1',
   OPERATIONS: 'sgp_salinas_operations_v1',
+  OPERATION_GROUPS: 'sgp_salinas_operation_groups_v1',
   TARGETS: 'sgp_salinas_targets_v1',
   LOGS: 'sgp_salinas_logs_v1',
   ALERTS: 'sgp_salinas_alerts_v1',
@@ -149,6 +152,88 @@ class StorageService {
     if (filtered.length === ops.length) return false;
     this.saveOperations(filtered);
     return true;
+  }
+
+  // --- GRUPOS DE OPERAÇÕES ---
+  getOperationGroups(): OperationGroupDef[] {
+    if (!this.isBrowser()) return DEFAULT_OPERATION_GROUPS;
+    const data = localStorage.getItem(STORAGE_KEYS.OPERATION_GROUPS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.OPERATION_GROUPS, JSON.stringify(DEFAULT_OPERATION_GROUPS));
+      return DEFAULT_OPERATION_GROUPS;
+    }
+    try {
+      const groups: OperationGroupDef[] = JSON.parse(data);
+      // Garante que os 4 grupos essenciais existam
+      let missing = false;
+      DEFAULT_OPERATION_GROUPS.forEach(def => {
+        if (!groups.some(g => g.id === def.id)) {
+          groups.push(def);
+          missing = true;
+        }
+      });
+      if (missing) {
+        this.saveOperationGroups(groups);
+      }
+      return groups;
+    } catch {
+      return DEFAULT_OPERATION_GROUPS;
+    }
+  }
+
+  saveOperationGroups(groups: OperationGroupDef[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.OPERATION_GROUPS, JSON.stringify(groups));
+  }
+
+  addOperationGroup(group: Omit<OperationGroupDef, 'id'> & { id?: string }): OperationGroupDef {
+    const groups = this.getOperationGroups();
+    const id = group.id && group.id.trim() 
+      ? group.id.trim().toUpperCase().replace(/\s+/g, '_')
+      : `GRP_${Date.now()}`;
+    
+    // Se já existe com mesmo ID, retorna o existente
+    const exists = groups.find(g => g.id === id);
+    if (exists) {
+      return exists;
+    }
+
+    const newGroup: OperationGroupDef = {
+      ...group,
+      id,
+      is_default: false
+    };
+    groups.push(newGroup);
+    this.saveOperationGroups(groups);
+    return newGroup;
+  }
+
+  updateOperationGroup(id: string, updates: Partial<OperationGroupDef>): OperationGroupDef | null {
+    const groups = this.getOperationGroups();
+    const idx = groups.findIndex(g => g.id === id);
+    if (idx === -1) return null;
+    groups[idx] = { ...groups[idx], ...updates };
+    this.saveOperationGroups(groups);
+    return groups[idx];
+  }
+
+  deleteOperationGroup(id: string): { success: boolean; message?: string } {
+    const ops = this.getOperations();
+    const linkedOps = ops.filter(o => o.grupo === id);
+    if (linkedOps.length > 0) {
+      return {
+        success: false,
+        message: `Não é possível excluir este grupo pois existem ${linkedOps.length} operação(ões) vinculada(s) a ele. Remova ou altere o grupo dessas operações primeiro.`
+      };
+    }
+
+    const groups = this.getOperationGroups();
+    const filtered = groups.filter(g => g.id !== id);
+    if (filtered.length === groups.length) {
+      return { success: false, message: 'Grupo não encontrado.' };
+    }
+    this.saveOperationGroups(filtered);
+    return { success: true };
   }
 
   // --- METAS MENSAIS ---

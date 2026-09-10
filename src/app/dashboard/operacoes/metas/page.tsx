@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { storage } from '@/lib/storage';
-import { MonthlyTarget, OperationType, OperationGroup, TeamTargetAllocation } from '@/lib/types';
+import { MonthlyTarget, OperationType, OperationGroup, OperationGroupDef, TeamTargetAllocation } from '@/lib/types';
 import { distributeEqually, distributeByPercentages } from '@/lib/validation';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -15,70 +15,93 @@ import {
   Calendar, 
   Users, 
   AlertCircle,
-  X,
-  Check,
-  AlertTriangle,
-  Search,
-  Layers,
-  Shield,
-  FileSpreadsheet,
-  HeartHandshake,
-  Compass,
-  CheckCircle2,
-  ChevronRight,
-  SlidersHorizontal,
-  RefreshCw
+  X, 
+  Check, 
+  AlertTriangle, 
+  Search, 
+  Layers, 
+  Shield, 
+  FileSpreadsheet, 
+  HeartHandshake, 
+  Compass, 
+  CheckCircle2, 
+  ChevronRight, 
+  SlidersHorizontal, 
+  RefreshCw,
+  Activity,
+  Flag,
+  Sparkles,
+  Briefcase,
+  Zap,
+  Bookmark,
+  Folder
 } from 'lucide-react';
 
-const GROUP_CONFIG: Record<OperationGroup, {
-  label: string;
-  shortLabel: string;
-  badgeColor: string;
-  bgLight: string;
-  borderColor: string;
-  textColor: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-}> = {
-  POG: {
-    label: 'POG',
-    shortLabel: 'POG',
-    badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border-blue-300 dark:border-blue-800',
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Shield,
+  Compass,
+  HeartHandshake,
+  FileSpreadsheet,
+  Layers,
+  Target,
+  Users,
+  Activity,
+  Flag,
+  Sparkles,
+  Briefcase,
+  Zap,
+  Bookmark,
+  Folder
+};
+
+const COLOR_MAP: Record<string, { badge: string; bgLight: string; border: string; text: string }> = {
+  blue: {
+    badge: 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border-blue-300 dark:border-blue-800',
     bgLight: 'bg-blue-50/40 dark:bg-blue-950/10',
-    borderColor: 'border-blue-200 dark:border-blue-900/60',
-    textColor: 'text-blue-700 dark:text-blue-400',
-    icon: Shield,
-    description: 'Ações de policiamento ostensivo geral, trânsito, batidas policiais, abordagens e presença em ZQC.'
+    border: 'border-blue-200 dark:border-blue-900/60',
+    text: 'text-blue-700 dark:text-blue-400'
   },
-  PROXIMIDADE: {
-    label: 'Policiamento de Proximidade',
-    shortLabel: 'Policiamento de Proximidade',
-    badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+  emerald: {
+    badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
     bgLight: 'bg-emerald-50/40 dark:bg-emerald-950/10',
-    borderColor: 'border-emerald-200 dark:border-emerald-900/60',
-    textColor: 'text-emerald-700 dark:text-emerald-400',
-    icon: Compass,
-    description: 'Patrulha Rural, Patrulha Escolar/PROERD, GEPAR, Bases de Segurança Comunitária e Redes de Proteção Mulher (RPPM).'
+    border: 'border-emerald-200 dark:border-emerald-900/60',
+    text: 'text-emerald-700 dark:text-emerald-400'
   },
-  INTERACOES_COMUNITARIAS: {
-    label: 'Interações Comunitárias',
-    shortLabel: 'Interações Comunitárias',
-    badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-300 dark:border-purple-800',
+  purple: {
+    badge: 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border-purple-300 dark:border-purple-800',
     bgLight: 'bg-purple-50/40 dark:bg-purple-950/10',
-    borderColor: 'border-purple-200 dark:border-purple-900/60',
-    textColor: 'text-purple-700 dark:text-purple-400',
-    icon: HeartHandshake,
-    description: 'Visitas comunitárias (VCP), reuniões com moradores/rurais, redes protegidas (MRPP) e visitas tranquilizadoras (VT).'
+    border: 'border-purple-200 dark:border-purple-900/60',
+    text: 'text-purple-700 dark:text-purple-400'
   },
-  ORDENS_SERVICO: {
-    label: 'Ordens de Serviço',
-    shortLabel: 'Ordens de Serviço',
-    badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+  amber: {
+    badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-800',
     bgLight: 'bg-amber-50/40 dark:bg-amber-950/10',
-    borderColor: 'border-amber-200 dark:border-amber-900/60',
-    textColor: 'text-amber-700 dark:text-amber-400',
-    icon: FileSpreadsheet,
-    description: 'Ordens de serviço específicas, fiscalização em bares, visibilidade e Operação AgroGerais Segura no campo.'
+    border: 'border-amber-200 dark:border-amber-900/60',
+    text: 'text-amber-700 dark:text-amber-400'
+  },
+  rose: {
+    badge: 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border-rose-300 dark:border-rose-800',
+    bgLight: 'bg-rose-50/40 dark:bg-rose-950/10',
+    border: 'border-rose-200 dark:border-rose-900/60',
+    text: 'text-rose-700 dark:text-rose-400'
+  },
+  indigo: {
+    badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800',
+    bgLight: 'bg-indigo-50/40 dark:bg-indigo-950/10',
+    border: 'border-indigo-200 dark:border-indigo-900/60',
+    text: 'text-indigo-700 dark:text-indigo-400'
+  },
+  cyan: {
+    badge: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/80 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800',
+    bgLight: 'bg-cyan-50/40 dark:bg-cyan-950/10',
+    border: 'border-cyan-200 dark:border-cyan-900/60',
+    text: 'text-cyan-700 dark:text-cyan-400'
+  },
+  slate: {
+    badge: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700',
+    bgLight: 'bg-gray-50/40 dark:bg-gray-900/10',
+    border: 'border-gray-200 dark:border-gray-800',
+    text: 'text-gray-700 dark:text-gray-300'
   }
 };
 
@@ -91,11 +114,12 @@ export default function GestaoMetasPage() {
   const [pendingYear, setPendingYear] = useState<number | null>(null);
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
   const [operations, setOperations] = useState<OperationType[]>([]);
+  const [operationGroups, setOperationGroups] = useState<OperationGroupDef[]>([]);
   const [allTeams, setAllTeams] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Filtros de visualização
-  const [selectedTabGroup, setSelectedTabGroup] = useState<OperationGroup | 'ALL'>('ALL');
+  const [selectedTabGroup, setSelectedTabGroup] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modal de Distribuição para uma Operação
@@ -109,9 +133,27 @@ export default function GestaoMetasPage() {
 
   useEffect(() => {
     setOperations(storage.getOperations());
+    setOperationGroups(storage.getOperationGroups());
     setAllTeams(storage.getTeams());
     loadTargets();
   }, [mes, ano]);
+
+  const getGroupConfig = (grpKey: string) => {
+    const grp = operationGroups.find(g => g.id === grpKey);
+    const colorKey = grp?.cor || 'blue';
+    const colorCfg = COLOR_MAP[colorKey] || COLOR_MAP.blue;
+    const Icon = (grp?.icone && ICON_MAP[grp.icone]) || Shield;
+    return {
+      label: grp?.nome || grpKey,
+      shortLabel: grp?.nome || grpKey,
+      badgeColor: colorCfg.badge,
+      bgLight: colorCfg.bgLight,
+      borderColor: colorCfg.border,
+      textColor: colorCfg.text,
+      icon: Icon,
+      description: grp?.descricao || ''
+    };
+  };
 
   const loadTargets = () => {
     const currentTargets = storage.getTargets(mes, ano);
@@ -519,39 +561,40 @@ export default function GestaoMetasPage() {
 
   // Agrupamento das operações disponíveis para adicionar
   const availableOpsByGroup = useMemo(() => {
-    const groups: Record<OperationGroup, OperationType[]> = {
-      POG: [],
-      PROXIMIDADE: [],
-      INTERACOES_COMUNITARIAS: [],
-      ORDENS_SERVICO: []
-    };
+    const groups: Record<string, OperationType[]> = {};
+    operationGroups.forEach(g => {
+      groups[g.id] = [];
+    });
     availableOps.forEach(op => {
-      if (groups[op.grupo]) {
-        groups[op.grupo].push(op);
+      if (!groups[op.grupo]) {
+        groups[op.grupo] = [];
       }
+      groups[op.grupo].push(op);
     });
     return groups;
-  }, [availableOps]);
+  }, [availableOps, operationGroups]);
 
   // Contagens para os cards e tabs
   const groupStats = useMemo(() => {
     const counts: Record<string, { count: number; totalOps: number }> = {
-      ALL: { count: targets.length, totalOps: targets.reduce((acc, t) => acc + t.meta_total, 0) },
-      POG: { count: 0, totalOps: 0 },
-      PROXIMIDADE: { count: 0, totalOps: 0 },
-      INTERACOES_COMUNITARIAS: { count: 0, totalOps: 0 },
-      ORDENS_SERVICO: { count: 0, totalOps: 0 }
+      ALL: { count: targets.length, totalOps: targets.reduce((acc, t) => acc + t.meta_total, 0) }
     };
+    operationGroups.forEach(g => {
+      counts[g.id] = { count: 0, totalOps: 0 };
+    });
 
     enrichedTargets.forEach(t => {
-      if (t.opDetails?.grupo && counts[t.opDetails.grupo]) {
+      if (t.opDetails?.grupo) {
+        if (!counts[t.opDetails.grupo]) {
+          counts[t.opDetails.grupo] = { count: 0, totalOps: 0 };
+        }
         counts[t.opDetails.grupo].count++;
         counts[t.opDetails.grupo].totalOps += t.meta_total;
       }
     });
 
     return counts;
-  }, [enrichedTargets, targets]);
+  }, [enrichedTargets, targets, operationGroups]);
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -685,17 +728,17 @@ export default function GestaoMetasPage() {
             </span>
           </button>
 
-          {(['POG', 'PROXIMIDADE', 'INTERACOES_COMUNITARIAS', 'ORDENS_SERVICO'] as OperationGroup[]).map((grpKey) => {
-            const cfg = GROUP_CONFIG[grpKey];
+          {operationGroups.map((grp) => {
+            const cfg = getGroupConfig(grp.id);
             const Icon = cfg.icon;
-            const isSelected = selectedTabGroup === grpKey;
-            const stat = groupStats[grpKey] || { count: 0, totalOps: 0 };
+            const isSelected = selectedTabGroup === grp.id;
+            const stat = groupStats[grp.id] || { count: 0, totalOps: 0 };
 
             return (
               <button
-                key={grpKey}
+                key={grp.id}
                 type="button"
-                onClick={() => setSelectedTabGroup(grpKey)}
+                onClick={() => setSelectedTabGroup(grp.id)}
                 className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 whitespace-nowrap transition-all ${
                   isSelected
                     ? `${cfg.badgeColor} shadow-xs font-extrabold`
@@ -750,13 +793,14 @@ export default function GestaoMetasPage() {
             </p>
           </div>
         ) : (
-          (['POG', 'PROXIMIDADE', 'INTERACOES_COMUNITARIAS', 'ORDENS_SERVICO'] as OperationGroup[])
+          operationGroups
+            .map(g => g.id)
             .filter(grpKey => selectedTabGroup === 'ALL' || selectedTabGroup === grpKey)
             .map((groupKey) => {
               const groupTargets = filteredTargets.filter(t => t.opDetails?.grupo === groupKey);
               if (groupTargets.length === 0) return null;
 
-              const groupCfg = GROUP_CONFIG[groupKey];
+              const groupCfg = getGroupConfig(groupKey);
               const GroupIcon = groupCfg.icon;
 
               return (
@@ -960,15 +1004,15 @@ export default function GestaoMetasPage() {
           </div>
 
           <div className="space-y-4 pt-1">
-            {(['POG', 'PROXIMIDADE', 'INTERACOES_COMUNITARIAS', 'ORDENS_SERVICO'] as OperationGroup[]).map((groupKey) => {
-              const opsInGroup = availableOpsByGroup[groupKey];
+            {operationGroups.map((grp) => {
+              const opsInGroup = availableOpsByGroup[grp.id] || [];
               if (opsInGroup.length === 0) return null;
 
-              const cfg = GROUP_CONFIG[groupKey];
+              const cfg = getGroupConfig(grp.id);
               const Icon = cfg.icon;
 
               return (
-                <div key={groupKey} className="space-y-2">
+                <div key={grp.id} className="space-y-2">
                   <div className="flex items-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-gray-300">
                     <Icon className="w-3.5 h-3.5 text-emerald-600" />
                     <span>{cfg.label}</span>
