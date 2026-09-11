@@ -144,6 +144,7 @@ export interface ScheduleItem {
   militar_numero_pm?: string;
   dia_mes: number;
   legenda_codigo: string;
+  conferido?: boolean;
 }
 
 export interface MonthlySchedule {
@@ -153,6 +154,7 @@ export interface MonthlySchedule {
   titulo: string;
   status: 'RASCUNHO' | 'PUBLICADA';
   itens: ScheduleItem[];
+  dias_conferidos?: number[];
   created_at: string;
 }
 

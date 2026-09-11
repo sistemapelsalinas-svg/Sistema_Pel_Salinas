@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { storage } from '@/lib/storage';
 import { DEFAULT_TEAMS, DEFAULT_LEGENDS } from '@/lib/mock-data';
 import { MonthlySchedule, ScheduleLegend, ScheduleItem, EscalaMilitar } from '@/lib/types';
@@ -13,6 +13,7 @@ import {
   Save, 
   Trash2, 
   CheckCircle, 
+  CheckCircle2,
   Users, 
   Calendar,
   Info,
@@ -27,10 +28,20 @@ import {
   Clock,
   Layers,
   ChevronRight,
+  ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Sparkles,
   Tag,
   Palette,
-  Settings2
+  Settings2,
+  Table,
+  CheckSquare,
+  Square,
+  Printer,
+  UserCheck,
+  BadgeCheck,
+  ListFilter
 } from 'lucide-react';
 
 interface EditingShiftData {
@@ -70,6 +81,16 @@ export default function EscalaPage() {
   const [teamFilter, setTeamFilter] = useState('TODAS');
   const [notification, setNotification] = useState<string | null>(null);
   const [deleteScheduleConfirm, setDeleteScheduleConfirm] = useState(false);
+
+  // Modo de Visualização: 'GRADE' (Matriz Geral) ou 'DIARIA' (Conferência Diária)
+  const [activeViewMode, setActiveViewMode] = useState<'GRADE' | 'DIARIA'>('GRADE');
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    const today = new Date().getDate();
+    return Math.min(today, 31);
+  });
+  const [isFolgasExpandedInDaily, setIsFolgasExpandedInDaily] = useState<boolean>(false);
+  const [dailyTeamFilter, setDailyTeamFilter] = useState<string>('TODAS');
+  const [dailySearchTerm, setDailySearchTerm] = useState<string>('');
 
   // Editor do Plantão Diário
   const [editingShift, setEditingShift] = useState<EditingShiftData | null>(null);
@@ -616,6 +637,175 @@ export default function EscalaPage() {
     return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium';
   };
 
+  // Helper para verificar se a legenda conta como serviço
+  const isServiceCode = (code: string) => {
+    const leg = legends.find(l => l.codigo === code);
+    if (leg) return leg.conta_como_servico;
+    return code === 'S' || code === 'SN' || code === 'EX';
+  };
+
+  // Alternar confirmação/conferência de um militar específico no dia
+  const handleToggleCheckMilitar = (militarId: string, day: number) => {
+    if (!schedule) return;
+    const updatedItens = schedule.itens.map(it => {
+      if (it.militar_id === militarId && it.dia_mes === day) {
+        return {
+          ...it,
+          conferido: !it.conferido
+        };
+      }
+      return it;
+    });
+
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+  };
+
+  // Marcar/desmarcar todos os militares de serviço do dia como conferidos
+  const handleToggleAllDailyChecks = (day: number, checked: boolean) => {
+    if (!schedule) return;
+    const updatedItens = schedule.itens.map(it => {
+      if (it.dia_mes === day && isServiceCode(it.legenda_codigo)) {
+        return {
+          ...it,
+          conferido: checked
+        };
+      }
+      return it;
+    });
+
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+    showToast(checked 
+      ? `Todos os militares de serviço do dia ${day} foram marcados como conferidos.`
+      : `Conferências do dia ${day} foram desmarcadas.`
+    );
+  };
+
+  // Marcar/desmarcar todos de uma equipe específica no dia
+  const handleToggleTeamDailyChecks = (day: number, teamName: string, checked: boolean) => {
+    if (!schedule) return;
+    const updatedItens = schedule.itens.map(it => {
+      if (it.dia_mes === day && it.equipe === teamName) {
+        return {
+          ...it,
+          conferido: checked
+        };
+      }
+      return it;
+    });
+
+    const updatedSchedule = { ...schedule, itens: updatedItens };
+    setSchedule(updatedSchedule);
+    storage.saveSchedule(updatedSchedule);
+    showToast(checked 
+      ? `Equipe ${teamName} do dia ${day} marcada como conferida.`
+      : `Equipe ${teamName} do dia ${day} desmarcada.`
+    );
+  };
+
+  // Mapa de resumo de conferência por dia para a régua de dias
+  const dailySummaryMap = useMemo(() => {
+    if (!schedule) return {};
+    const map: Record<number, { serviceCount: number; checkedCount: number; isAllChecked: boolean }> = {};
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayItems = schedule.itens.filter(i => i.dia_mes === d);
+      const servItems = dayItems.filter(i => isServiceCode(i.legenda_codigo));
+      const chkCount = servItems.filter(i => i.conferido).length;
+      map[d] = {
+        serviceCount: servItems.length,
+        checkedCount: chkCount,
+        isAllChecked: servItems.length > 0 && chkCount === servItems.length
+      };
+    }
+    return map;
+  }, [schedule, daysInMonth, legends]);
+
+  // Dados do dia selecionado para a Visão Diária
+  const dailyData = useMemo(() => {
+    if (!schedule) return null;
+    const clampedDay = Math.max(1, Math.min(daysInMonth, selectedDay));
+    const itemsForDay = schedule.itens.filter(i => i.dia_mes === clampedDay);
+
+    const enriched = itemsForDay.map(it => {
+      const mil = militares.find(m => m.id === it.militar_id);
+      const leg = legends.find(l => l.codigo === it.legenda_codigo);
+      const isServico = leg ? leg.conta_como_servico : (it.legenda_codigo === 'S' || it.legenda_codigo === 'SN' || it.legenda_codigo === 'EX');
+      return {
+        ...it,
+        ordem: mil?.ordem || 999,
+        graduacao: mil?.graduacao || '',
+        nome_guerra: mil?.nome_guerra || it.militar_nome || '',
+        nomeCompleto: `${mil?.graduacao || ''} ${mil?.nome_guerra || it.militar_nome || ''}`.trim(),
+        numero_pm: mil?.numero_pm || it.militar_numero_pm || '',
+        equipe_padrao: mil?.equipe_padrao || '',
+        legenda_descricao: leg?.descricao || it.legenda_codigo,
+        legenda_cor: getBadgeForLegend(it.legenda_codigo),
+        isServico,
+        conferido: !!it.conferido
+      };
+    }).sort((a, b) => a.ordem - b.ordem);
+
+    const serviceItems = enriched.filter(i => i.isServico);
+    const nonServiceItems = enriched.filter(i => !i.isServico);
+
+    // Agrupamento de serviço por equipe
+    const serviceByTeam: Record<string, typeof serviceItems> = {};
+    serviceItems.forEach(item => {
+      const teamKey = item.equipe || 'SEM EQUIPE DEFINIDA';
+      if (!serviceByTeam[teamKey]) {
+        serviceByTeam[teamKey] = [];
+      }
+      serviceByTeam[teamKey].push(item);
+    });
+
+    const totalService = serviceItems.length;
+    const checkedService = serviceItems.filter(i => i.conferido).length;
+    const pctChecked = totalService > 0 ? Math.round((checkedService / totalService) * 100) : 100;
+    const isFullyChecked = totalService > 0 && checkedService === totalService;
+
+    // Filtros de busca na visão diária
+    const filteredServiceByTeam: Record<string, typeof serviceItems> = {};
+    Object.entries(serviceByTeam).forEach(([teamName, list]) => {
+      if (dailyTeamFilter !== 'TODAS' && teamName !== dailyTeamFilter) return;
+      const filteredList = list.filter(m => {
+        if (!dailySearchTerm.trim()) return true;
+        const q = dailySearchTerm.toLowerCase();
+        return m.nomeCompleto.toLowerCase().includes(q) || m.numero_pm.includes(q) || teamName.toLowerCase().includes(q);
+      });
+      if (filteredList.length > 0) {
+        filteredServiceByTeam[teamName] = filteredList;
+      }
+    });
+
+    const filteredNonServiceItems = nonServiceItems.filter(m => {
+      if (!dailySearchTerm.trim()) return true;
+      const q = dailySearchTerm.toLowerCase();
+      return m.nomeCompleto.toLowerCase().includes(q) || m.numero_pm.includes(q) || m.legenda_descricao.toLowerCase().includes(q);
+    });
+
+    return {
+      clampedDay,
+      dayInfo: getDayOfWeekInfo(clampedDay),
+      itemsForDay: enriched,
+      serviceItems,
+      nonServiceItems,
+      serviceByTeam,
+      filteredServiceByTeam,
+      filteredNonServiceItems,
+      totalService,
+      checkedService,
+      pctChecked,
+      isFullyChecked,
+      totalMilitares: enriched.length,
+      totalFolgas: nonServiceItems.length,
+      teamCount: Object.keys(serviceByTeam).length
+    };
+  }, [schedule, selectedDay, daysInMonth, militares, legends, dailyTeamFilter, dailySearchTerm]);
+
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       
@@ -795,230 +985,775 @@ export default function EscalaPage() {
         </div>
       ) : (
         <>
-          {/* Barra de Busca e Filtros */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
-            {/* Busca por Militar / Nº PM */}
-            <div className="flex items-center gap-2 flex-1 max-w-sm">
-              <div className="relative w-full">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nome, graduação ou Nº PM..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
+          {/* Alternador de Modo de Visualização: Grade Geral vs Visão Diária & Conferência */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white dark:bg-[#151A23] p-2.5 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
+            <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-[#0E121A] rounded-xl border border-gray-200/80 dark:border-[#283042]">
+              <button
+                type="button"
+                onClick={() => setActiveViewMode('GRADE')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activeViewMode === 'GRADE'
+                    ? 'bg-white dark:bg-[#1E2636] text-gray-900 dark:text-white shadow-xs'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <Table className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Visão Mensal (Grade)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveViewMode('DIARIA')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activeViewMode === 'DIARIA'
+                    ? 'bg-white dark:bg-[#1E2636] text-gray-900 dark:text-white shadow-xs'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Visão Diária & Conferência</span>
+                {dailyData && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    dailyData.isFullyChecked 
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300' 
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                  }`}>
+                    Dia {dailyData.clampedDay} ({dailyData.checkedService}/{dailyData.totalService})
+                  </span>
+                )}
+              </button>
             </div>
 
-            {/* Filtro por Equipe */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-3.5 h-3.5 text-gray-400" />
-              <select
-                value={teamFilter}
-                onChange={(e) => setTeamFilter(e.target.value)}
-                className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
-              >
-                <option value="TODAS">Todas as Equipes ({militares.length})</option>
-                <option value="SEM_EQUIPE">
-                  Sem Equipe ({sortedMilitaryList.filter(m => !m.equipe).length})
-                </option>
-                {teams.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+            {/* Ações Rápidas na barra de visualização */}
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {activeViewMode === 'DIARIA' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDay(new Date().getDate())}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 flex items-center gap-1.5 transition-colors"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Ir para Hoje ({new Date().getDate().toString().padStart(2, '0')}/{mes.toString().padStart(2, '0')})</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Tabela Matriz da Escala com Scroll Interno e Cabeçalho Fixo (Sticky Header) */}
-          <div className="untitled-card overflow-hidden">
-            <div className="overflow-x-auto overflow-y-auto max-w-full max-h-[70vh] relative border-b border-gray-100 dark:border-[#222938]">
-              <table className="w-full text-center border-collapse text-xs">
-                <thead className="sticky top-0 z-30 bg-gray-50/95 dark:bg-[#0E121A]/95 backdrop-blur-md shadow-xs">
-                  <tr className="border-b border-gray-200 dark:border-[#222938]">
-                    <th className="p-2.5 text-center w-10 sticky top-0 left-0 bg-gray-100 dark:bg-[#151A23] z-40 text-[11px] font-bold text-gray-600 dark:text-gray-300">
-                      Nº
-                    </th>
-                    <th className="p-2.5 text-left min-w-[180px] sticky top-0 left-10 bg-gray-100 dark:bg-[#151A23] z-40 text-[11px] font-bold text-gray-600 dark:text-gray-300">
-                      Militar
-                    </th>
-                    <th className="p-2.5 text-left min-w-[130px] sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95 text-[11px] font-bold text-gray-600 dark:text-gray-300">
-                      Equipe Base
-                    </th>
-                    
-                    {/* Cabeçalho dos Dias: Número do Dia + Dia da Semana (Sáb/Dom em Vermelho) */}
-                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                      const dayInfo = getDayOfWeekInfo(day);
-                      return (
-                        <th 
-                          key={day} 
-                          className={`p-1 min-w-[34px] text-center border-l border-gray-200/60 dark:border-[#222938] sticky top-0 ${dayInfo.isWeekend ? 'bg-red-50/80 dark:bg-red-950/60' : 'bg-gray-50/95 dark:bg-[#0E121A]/95'}`}
-                        >
-                          <span className="font-mono text-[11px] block font-bold text-gray-800 dark:text-gray-200">
-                            {day.toString().padStart(2, '0')}
-                          </span>
-                          <span className={`text-[9px] block uppercase font-extrabold ${dayInfo.isWeekend ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
-                            {dayInfo.name}
-                          </span>
+          {/* ========================================================================= */}
+          {/* MODO 1: VISÃO MENSAL (GRADE MATRIZ) */}
+          {/* ========================================================================= */}
+          {activeViewMode === 'GRADE' && (
+            <div className="space-y-4">
+              {/* Barra de Busca e Filtros da Grade */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs">
+                {/* Busca por Militar / Nº PM */}
+                <div className="flex items-center gap-2 flex-1 max-w-sm">
+                  <div className="relative w-full">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, graduação ou Nº PM..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Filtro por Equipe */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-gray-400" />
+                  <select
+                    value={teamFilter}
+                    onChange={(e) => setTeamFilter(e.target.value)}
+                    className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+                  >
+                    <option value="TODAS">Todas as Equipes ({militares.length})</option>
+                    <option value="SEM_EQUIPE">
+                      Sem Equipe ({sortedMilitaryList.filter(m => !m.equipe).length})
+                    </option>
+                    {teams.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tabela Matriz da Escala com Scroll Interno e Cabeçalho Fixo */}
+              <div className="untitled-card overflow-hidden">
+                <div className="overflow-x-auto overflow-y-auto max-w-full max-h-[70vh] relative border-b border-gray-100 dark:border-[#222938]">
+                  <table className="w-full text-center border-collapse text-xs">
+                    <thead className="sticky top-0 z-30 bg-gray-50/95 dark:bg-[#0E121A]/95 backdrop-blur-md shadow-xs">
+                      <tr className="border-b border-gray-200 dark:border-[#222938]">
+                        <th className="p-2.5 text-center w-10 sticky top-0 left-0 bg-gray-100 dark:bg-[#151A23] z-40 text-[11px] font-bold text-gray-600 dark:text-gray-300">
+                          Nº
                         </th>
-                      );
-                    })}
-
-                    <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">
-                      Total Sv.
-                    </th>
-                    {isAdmin && <th className="p-2.5 text-center w-20 text-[11px] font-bold text-gray-500 sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">Ações</th>}
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 font-sans">
-                  {filteredMilitaryList.map((militar, idx) => {
-                    const milData = militares.find(m => m.id === militar.id);
-                    const militarScheduleItems = schedule?.itens.filter(i => i.militar_id === militar.id) || [];
-                    
-                    // Conta dias com serviço conforme cadastro da legenda
-                    const totalServicos = militarScheduleItems.filter(i => {
-                      const leg = legends.find(l => l.codigo === i.legenda_codigo);
-                      return leg ? leg.conta_como_servico : (i.legenda_codigo === 'S' || i.legenda_codigo === 'SN' || i.legenda_codigo === 'E');
-                    }).length;
-
-                    return (
-                      <tr key={militar.id} className="hover:bg-gray-50/60 dark:hover:bg-[#1D2432]/40 transition-colors">
+                        <th className="p-2.5 text-left min-w-[180px] sticky top-0 left-10 bg-gray-100 dark:bg-[#151A23] z-40 text-[11px] font-bold text-gray-600 dark:text-gray-300">
+                          Militar
+                        </th>
+                        <th className="p-2.5 text-left min-w-[130px] sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95 text-[11px] font-bold text-gray-600 dark:text-gray-300">
+                          Equipe Base
+                        </th>
                         
-                        {/* Número de Ordem */}
-                        <td className="p-2 text-center text-gray-400 font-mono font-semibold sticky left-0 bg-white dark:bg-[#151A23] z-10">
-                          {milData?.ordem || idx + 1}
-                        </td>
-
-                        {/* Nome do Militar e Nº PM */}
-                        <td className="p-2 text-left sticky left-10 bg-white dark:bg-[#151A23] z-10 min-w-[180px]">
-                          <div className="min-w-0">
-                            <span className="font-bold text-gray-900 dark:text-white block truncate text-xs">
-                              {militar.nome}
-                            </span>
-                            <span className="text-[10px] font-mono text-gray-400 block">
-                              PM {militar.numero_pm}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Dropdown de Equipe Base do Militar */}
-                        <td className="p-2 text-left min-w-[130px]">
-                          {isAdmin ? (
-                            <select
-                              value={militar.equipe || ''}
-                              onChange={(e) => handleBaseTeamChange(militar.id, e.target.value)}
-                              className={`w-full border rounded-lg px-2 py-1 text-[11px] font-semibold focus:outline-none cursor-pointer transition-colors ${
-                                !militar.equipe
-                                  ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 text-amber-700 dark:text-amber-300'
-                                  : 'bg-gray-50 dark:bg-[#0E121A] border-gray-200 dark:border-[#283042] text-gray-800 dark:text-gray-200'
-                              }`}
-                            >
-                              <option value="">— Sem Equipe —</option>
-                              {teams.map((t) => (
-                                <option key={t} value={t}>{t}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              !militar.equipe
-                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                            }`}>
-                              {militar.equipe || '— Sem Equipe —'}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Células dos Dias 1 a 31 com botão X para apagar/transformar em folga */}
+                        {/* Cabeçalho dos Dias: Número do Dia + Dia da Semana */}
                         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                          const item = militarScheduleItems.find(it => it.dia_mes === day);
-                          const code = item?.legenda_codigo || 'F';
-                          const dayTeam = item?.equipe || militar.equipe;
-                          const isDifferentTeam = dayTeam !== militar.equipe;
                           const dayInfo = getDayOfWeekInfo(day);
-                          const badgeClass = getBadgeForLegend(code);
-                          const isDuty = code !== 'F';
-
                           return (
-                            <td 
+                            <th 
                               key={day} 
-                              className={`p-1 text-center border-l border-gray-100 dark:border-[#222938]/60 ${dayInfo.isWeekend ? 'bg-red-50/20 dark:bg-red-950/10' : ''}`}
+                              className={`p-1 min-w-[34px] text-center border-l border-gray-200/60 dark:border-[#222938] sticky top-0 ${dayInfo.isWeekend ? 'bg-red-50/80 dark:bg-red-950/60' : 'bg-gray-50/95 dark:bg-[#0E121A]/95'}`}
                             >
-                              {isAdmin ? (
-                                <div className="relative inline-flex items-center justify-center group/cell">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenShiftEditor(militar.id, militar.nome, militar.numero_pm, militar.equipe, day)}
-                                    title={`Dia ${day} (${dayInfo.name}): ${code} | Equipe: ${dayTeam} (Clique para editar)`}
-                                    className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center relative ${badgeClass}`}
-                                  >
-                                    <span>{code}</span>
-                                    {isDifferentTeam && (
-                                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white" title={`Equipe especial: ${dayTeam}`} />
-                                    )}
-                                  </button>
-
-                                  {/* Botão X rápido para apagar o serviço e transformar em Folga */}
-                                  {isDuty && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleQuickClearShift(militar.id, day);
-                                      }}
-                                      title={`Apagar serviço do dia ${day} -> transformar em Folga (F)`}
-                                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shadow-md text-[10px] font-black opacity-0 group-hover/cell:opacity-100 hover:scale-125 transition-all z-20 cursor-pointer"
-                                    >
-                                      ×
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className={`w-7 h-7 rounded-lg text-[10px] font-mono flex items-center justify-center mx-auto ${badgeClass}`}>
-                                  {code}
-                                </span>
-                              )}
-                            </td>
+                              <span className="font-mono text-[11px] block font-bold text-gray-800 dark:text-gray-200">
+                                {day.toString().padStart(2, '0')}
+                              </span>
+                              <span className={`text-[9px] block uppercase font-extrabold ${dayInfo.isWeekend ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
+                                {dayInfo.name}
+                              </span>
+                            </th>
                           );
                         })}
 
-                        {/* Total de Serviços no Mês */}
-                        <td className="p-2 text-center font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                          {totalServicos}
-                        </td>
-
-                        {/* Ações: Lançar Padrão / Remover da Escala */}
-                        {isAdmin && (
-                          <td className="p-2 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenBatchPattern(militar.id)}
-                                title="Aplicar modelo de escala (Administrativa ou Dobradinha) para este militar"
-                                className="p-1 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
-                              >
-                                <Sparkles className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveMilitaryFromSchedule(militar.id)}
-                                title="Remover militar desta escala"
-                                className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        )}
-
+                        <th className="p-2.5 text-center min-w-[65px] font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">
+                          Total Sv.
+                        </th>
+                        {isAdmin && <th className="p-2.5 text-center w-20 text-[11px] font-bold text-gray-500 sticky top-0 bg-gray-50/95 dark:bg-[#0E121A]/95">Ações</th>}
                       </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 font-sans">
+                      {filteredMilitaryList.map((militar, idx) => {
+                        const milData = militares.find(m => m.id === militar.id);
+                        const militarScheduleItems = schedule?.itens.filter(i => i.militar_id === militar.id) || [];
+                        
+                        // Conta dias com serviço conforme cadastro da legenda
+                        const totalServicos = militarScheduleItems.filter(i => {
+                          const leg = legends.find(l => l.codigo === i.legenda_codigo);
+                          return leg ? leg.conta_como_servico : (i.legenda_codigo === 'S' || i.legenda_codigo === 'SN' || i.legenda_codigo === 'E');
+                        }).length;
+
+                        return (
+                          <tr key={militar.id} className="hover:bg-gray-50/60 dark:hover:bg-[#1D2432]/40 transition-colors">
+                            
+                            {/* Número de Ordem */}
+                            <td className="p-2 text-center text-gray-400 font-mono font-semibold sticky left-0 bg-white dark:bg-[#151A23] z-10">
+                              {milData?.ordem || idx + 1}
+                            </td>
+
+                            {/* Nome do Militar e Nº PM */}
+                            <td className="p-2 text-left sticky left-10 bg-white dark:bg-[#151A23] z-10 min-w-[180px]">
+                              <div className="min-w-0">
+                                <span className="font-bold text-gray-900 dark:text-white block truncate text-xs">
+                                  {militar.nome}
+                                </span>
+                                <span className="text-[10px] font-mono text-gray-400 block">
+                                  PM {militar.numero_pm}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Dropdown de Equipe Base do Militar */}
+                            <td className="p-2 text-left min-w-[130px]">
+                              {isAdmin ? (
+                                <select
+                                  value={militar.equipe || ''}
+                                  onChange={(e) => handleBaseTeamChange(militar.id, e.target.value)}
+                                  className={`w-full border rounded-lg px-2 py-1 text-[11px] font-semibold focus:outline-none cursor-pointer transition-colors ${
+                                    !militar.equipe
+                                      ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 text-amber-700 dark:text-amber-300'
+                                      : 'bg-gray-50 dark:bg-[#0E121A] border-gray-200 dark:border-[#283042] text-gray-800 dark:text-gray-200'
+                                  }`}
+                                >
+                                  <option value="">— Sem Equipe —</option>
+                                  {teams.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  !militar.equipe
+                                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {militar.equipe || '— Sem Equipe —'}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Células dos Dias 1 a 31 */}
+                            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                              const item = militarScheduleItems.find(it => it.dia_mes === day);
+                              const code = item?.legenda_codigo || 'F';
+                              const dayTeam = item?.equipe || militar.equipe;
+                              const isDifferentTeam = dayTeam !== militar.equipe;
+                              const dayInfo = getDayOfWeekInfo(day);
+                              const badgeClass = getBadgeForLegend(code);
+                              const isDuty = code !== 'F';
+                              const isItemChecked = !!item?.conferido;
+
+                              return (
+                                <td 
+                                  key={day} 
+                                  className={`p-1 text-center border-l border-gray-100 dark:border-[#222938]/60 ${dayInfo.isWeekend ? 'bg-red-50/20 dark:bg-red-950/10' : ''}`}
+                                >
+                                  {isAdmin ? (
+                                    <div className="relative inline-flex items-center justify-center group/cell">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenShiftEditor(militar.id, militar.nome, militar.numero_pm, militar.equipe, day)}
+                                        title={`Dia ${day} (${dayInfo.name}): ${code} | Equipe: ${dayTeam}${isItemChecked ? ' [Conferido ✓]' : ''} (Clique para editar)`}
+                                        className={`w-7 h-7 rounded-lg text-[10px] font-mono transition-transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center relative ${badgeClass} ${
+                                          isItemChecked ? 'ring-1 ring-emerald-500' : ''
+                                        }`}
+                                      >
+                                        <span>{code}</span>
+                                        {isDifferentTeam && (
+                                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white" title={`Equipe especial: ${dayTeam}`} />
+                                        )}
+                                        {isItemChecked && isDuty && (
+                                          <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[7px] font-bold shadow-2xs" title="Conferido com sistema">
+                                            ✓
+                                          </span>
+                                        )}
+                                      </button>
+
+                                      {/* Botão X rápido para apagar o serviço e transformar em Folga */}
+                                      {isDuty && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleQuickClearShift(militar.id, day);
+                                          }}
+                                          title={`Apagar serviço do dia ${day} -> transformar em Folga (F)`}
+                                          className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shadow-md text-[10px] font-black opacity-0 group-hover/cell:opacity-100 hover:scale-125 transition-all z-20 cursor-pointer"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className={`w-7 h-7 rounded-lg text-[10px] font-mono flex items-center justify-center mx-auto relative ${badgeClass}`}>
+                                      {code}
+                                      {isItemChecked && isDuty && (
+                                        <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[7px] font-bold" title="Conferido">
+                                          ✓
+                                        </span>
+                                      )}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+
+                            {/* Total de Serviços no Mês */}
+                            <td className="p-2 text-center font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                              {totalServicos}
+                            </td>
+
+                            {/* Ações: Lançar Padrão / Remover da Escala */}
+                            {isAdmin && (
+                              <td className="p-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenBatchPattern(militar.id)}
+                                    title="Aplicar modelo de escala (Administrativa ou Dobradinha) para este militar"
+                                    className="p-1 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                                  >
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMilitaryFromSchedule(militar.id)}
+                                    title="Remover militar desta escala"
+                                    className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            )}
+
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODO 2: VISÃO DIÁRIA & CONFERÊNCIA COM SISTEMA EXTERNO */}
+          {/* ========================================================================= */}
+          {activeViewMode === 'DIARIA' && dailyData && (
+            <div className="space-y-5 animate-in fade-in">
+              
+              {/* 1. RÉGUA HORIZONTAL DE SELEÇÃO DE DIAS DO MÊS */}
+              <div className="bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs space-y-2">
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Selecione o Dia para Conferência ({monthNames[mes - 1]}/{ano}):
+                  </span>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                    ✓ Ícone verde indica dia 100% conferido
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                    const dayInfo = getDayOfWeekInfo(day);
+                    const isSelected = day === dailyData.clampedDay;
+                    const summary = dailySummaryMap[day] || { serviceCount: 0, checkedCount: 0, isAllChecked: false };
+
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => setSelectedDay(day)}
+                        className={`flex flex-col items-center justify-center min-w-[52px] py-2 px-1.5 rounded-xl border transition-all text-xs flex-shrink-0 ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm font-bold scale-[1.03]'
+                            : summary.isAllChecked
+                            ? 'bg-emerald-50/80 hover:bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                            : dayInfo.isWeekend
+                            ? 'bg-red-50/60 hover:bg-red-100 text-red-900 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/60'
+                            : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border-gray-200 dark:bg-[#0E121A] dark:text-gray-200 dark:border-[#283042]'
+                        }`}
+                      >
+                        <span className="font-extrabold text-sm leading-none font-mono">
+                          {day.toString().padStart(2, '0')}
+                        </span>
+                        <span className={`text-[9px] uppercase font-bold mt-0.5 ${
+                          isSelected ? 'text-emerald-100' : dayInfo.isWeekend ? 'text-red-600 dark:text-red-400' : 'text-gray-400'
+                        }`}>
+                          {dayInfo.name}
+                        </span>
+                        
+                        <div className="flex items-center gap-0.5 mt-1">
+                          <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-extrabold ${
+                            isSelected 
+                              ? 'bg-emerald-700/80 text-white' 
+                              : 'bg-white/80 dark:bg-black/40 text-gray-600 dark:text-gray-300'
+                          }`}>
+                            {summary.serviceCount} sv
+                          </span>
+                          {summary.isAllChecked && (
+                            <CheckCircle2 className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} />
+                          )}
+                        </div>
+                      </button>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              </div>
+
+              {/* 2. CABEÇALHO DO DIA SELECIONADO & PAINEL DE CONTROLE DE CONFERÊNCIA */}
+              <div className="bg-white dark:bg-[#151A23] p-5 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs space-y-4">
+                
+                {/* Linha Superior: Navegação do Dia + Título */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-[#222938]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                      <CalendarDays className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white">
+                          Dia {dailyData.clampedDay.toString().padStart(2, '0')} de {monthNames[mes - 1]} de {ano}
+                        </h2>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          dailyData.dayInfo.isWeekend
+                            ? 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-200 dark:border-red-800'
+                            : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        }`}>
+                          {dailyData.dayInfo.name} {dailyData.dayInfo.isWeekend && '· Fim de Semana'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Conferência diária de militares escalados, equipes ativas e validação de plantão.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Botões de Navegação Anterior / Próximo */}
+                  <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                    <button
+                      type="button"
+                      disabled={dailyData.clampedDay <= 1}
+                      onClick={() => setSelectedDay(prev => Math.max(1, prev - 1))}
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 disabled:opacity-40"
+                      title="Dia anterior"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Anterior</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={dailyData.clampedDay >= daysInMonth}
+                      onClick={() => setSelectedDay(prev => Math.min(daysInMonth, prev + 1))}
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 disabled:opacity-40"
+                      title="Próximo dia"
+                    >
+                      <span>Próximo</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 Cards de Métricas & Status de Conferência do Dia */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  
+                  {/* Card 1: Militares de Serviço */}
+                  <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#283042] space-y-1">
+                    <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 text-xs font-semibold">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Efetivo de Serviço</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-blue-600 dark:text-blue-400">
+                        {dailyData.teamCount} equipes
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                        {dailyData.totalService}
+                      </span>
+                      <span className="text-xs text-gray-400 font-medium">militares escalados</span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Folgas e Afastamentos */}
+                  <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#283042] space-y-1">
+                    <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 text-xs font-semibold">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Folgas / Afastamentos</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                        {dailyData.totalMilitares} total
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                        {dailyData.totalFolgas}
+                      </span>
+                      <span className="text-xs text-gray-400 font-medium">militares em folga (F)</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3 & 4 (Span 2): Status de Conferência com Sistema Externo */}
+                  <div className={`p-3.5 rounded-xl border sm:col-span-2 space-y-2 ${
+                    dailyData.isFullyChecked
+                      ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800'
+                      : 'bg-amber-50/70 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800'
+                  }`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-2">
+                        {dailyData.isFullyChecked ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                        )}
+                        <div>
+                          <span className="font-extrabold text-xs text-gray-900 dark:text-white block">
+                            Conferência com Sistema Externo ({dailyData.checkedService} de {dailyData.totalService} conferidos)
+                          </span>
+                          <span className={`text-[11px] font-semibold ${
+                            dailyData.isFullyChecked ? 'text-emerald-800 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'
+                          }`}>
+                            {dailyData.isFullyChecked 
+                              ? 'Escala do dia 100% conferida e validada!' 
+                              : `Restam ${dailyData.totalService - dailyData.checkedService} militares para conferir no dia.`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Botões de Ação em Massa */}
+                      <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAllDailyChecks(dailyData.clampedDay, true)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors"
+                        >
+                          Conferir Todos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAllDailyChecks(dailyData.clampedDay, false)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-gray-800 hover:bg-gray-100 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 transition-colors"
+                        >
+                          Desmarcar
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Barra de Progresso */}
+                    <div className="w-full bg-white/80 dark:bg-black/40 rounded-full h-2 overflow-hidden border border-gray-200/60 dark:border-gray-800">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          dailyData.isFullyChecked ? 'bg-emerald-600' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${dailyData.pctChecked}%` }}
+                      />
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Filtro Rápido dentro do Dia */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-gray-100 dark:border-[#222938]">
+                  <div className="flex items-center gap-2 flex-1 max-w-sm">
+                    <div className="relative w-full">
+                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Filtrar por nome, PM ou equipe neste dia..."
+                        value={dailySearchTerm}
+                        onChange={(e) => setDailySearchTerm(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-gray-400 uppercase">Equipe:</span>
+                    <select
+                      value={dailyTeamFilter}
+                      onChange={(e) => setDailyTeamFilter(e.target.value)}
+                      className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+                    >
+                      <option value="TODAS">Todas as Equipes do Dia</option>
+                      {Object.keys(dailyData.serviceByTeam).map((t) => (
+                        <option key={t} value={t}>{t} ({dailyData.serviceByTeam[t].length})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* 3. CARDS DE EQUIPES ESCALADAS NO DIA (COM CHECKBOX DE CONFERÊNCIA) */}
+              {Object.keys(dailyData.filteredServiceByTeam).length === 0 ? (
+                <div className="untitled-card p-8 text-center space-y-2">
+                  <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+                  <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+                    Nenhum militar de serviço encontrado para os filtros selecionados no dia {dailyData.clampedDay}.
+                  </h4>
+                  <p className="text-xs text-gray-500">
+                    Verifique os filtros de pesquisa ou troque o dia na régua superior.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(dailyData.filteredServiceByTeam).map(([teamName, members]) => {
+                    const allTeamChecked = members.every(m => m.conferido);
+                    const checkedCount = members.filter(m => m.conferido).length;
+
+                    return (
+                      <div
+                        key={teamName}
+                        className={`untitled-card overflow-hidden border transition-all ${
+                          allTeamChecked 
+                            ? 'border-emerald-300 dark:border-emerald-800/80 shadow-xs' 
+                            : 'border-gray-200 dark:border-[#222938]'
+                        }`}
+                      >
+                        {/* Header da Equipe */}
+                        <div className={`p-3.5 border-b flex items-center justify-between gap-2 ${
+                          allTeamChecked
+                            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60'
+                            : 'bg-gray-50/80 dark:bg-[#0E121A] border-gray-100 dark:border-[#222938]'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+                              <Shield className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <h3 className="font-extrabold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                                <span>{teamName}</span>
+                                {allTeamChecked && (
+                                  <span className="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-extrabold border border-emerald-300 dark:border-emerald-800">
+                                    Conferida
+                                  </span>
+                                )}
+                              </h3>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                                {members.length} militar(es) escalados · {checkedCount}/{members.length} conferidos
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Botão de Conferir Toda a Equipe */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTeamDailyChecks(dailyData.clampedDay, teamName, !allTeamChecked)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1 ${
+                              allTeamChecked
+                                ? 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-2xs'
+                            }`}
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" />
+                            <span>{allTeamChecked ? 'Desmarcar Equipe' : 'Conferir Equipe'}</span>
+                          </button>
+                        </div>
+
+                        {/* Lista de Militares na Equipe */}
+                        <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                          {members.map((m) => (
+                            <div
+                              key={m.id}
+                              className={`p-3 flex items-center justify-between gap-3 transition-colors ${
+                                m.conferido
+                                  ? 'bg-emerald-50/30 dark:bg-emerald-950/10'
+                                  : 'hover:bg-gray-50/60 dark:hover:bg-[#151A23]/50'
+                              }`}
+                            >
+                              {/* Checkbox de Conferência */}
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={m.conferido}
+                                    onChange={() => handleToggleCheckMilitar(m.militar_id, dailyData.clampedDay)}
+                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700 cursor-pointer"
+                                  />
+                                  <span className={`text-[11px] font-bold ${
+                                    m.conferido ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-400'
+                                  }`}>
+                                    {m.conferido ? 'Conferido ✓' : 'Conferir'}
+                                  </span>
+                                </label>
+
+                                <div className="border-l border-gray-200 dark:border-gray-800 pl-2.5 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-gray-400 font-mono text-[10px]">#{m.ordem}</span>
+                                    <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
+                                      {m.nomeCompleto}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-mono text-gray-400 block">
+                                    PM {m.numero_pm}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Legenda & Ações Rápidas */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="text-right">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold inline-block ${m.legenda_cor}`}>
+                                    {m.legenda_codigo}
+                                  </span>
+                                  <span className="text-[9px] text-gray-400 block truncate max-w-[120px]">
+                                    {m.legenda_descricao}
+                                  </span>
+                                </div>
+
+                                {isAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenShiftEditor(m.militar_id, m.nome_guerra, m.numero_pm, m.equipe_padrao, dailyData.clampedDay)}
+                                    className="p-1 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    title="Editar plantão deste militar neste dia"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 4. SEÇÃO EXPANSÍVEL DE FOLGAS, FÉRIAS E AFASTAMENTOS */}
+              <div className="untitled-card overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsFolgasExpandedInDaily(prev => !prev)}
+                  className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-gray-50/60 dark:hover:bg-[#151A23]/60 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center font-bold text-xs">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-gray-900 dark:text-white uppercase tracking-wider">
+                        Folgas, Férias e Afastamentos ({dailyData.totalFolgas} militares)
+                      </h4>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Militares que não estão escalados em serviço operacional no dia {dailyData.clampedDay}.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 font-semibold">
+                      {isFolgasExpandedInDaily ? 'Ocultar' : 'Visualizar'}
+                    </span>
+                    {isFolgasExpandedInDaily ? (
+                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    )}
+                  </div>
+                </button>
+
+                {isFolgasExpandedInDaily && (
+                  <div className="p-4 border-t border-gray-100 dark:border-[#222938] bg-gray-50/40 dark:bg-[#0E121A]/40 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {dailyData.filteredNonServiceItems.map((m) => (
+                        <div
+                          key={m.id}
+                          className="p-2.5 rounded-xl bg-white dark:bg-[#151A23] border border-gray-200/90 dark:border-[#283042] flex items-center justify-between gap-2 shadow-2xs"
+                        >
+                          <div className="min-w-0 flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={m.conferido}
+                              onChange={() => handleToggleCheckMilitar(m.militar_id, dailyData.clampedDay)}
+                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700 cursor-pointer"
+                              title="Marcar conferência"
+                            />
+                            <div className="min-w-0">
+                              <span className="font-bold text-xs text-gray-900 dark:text-white block truncate">
+                                {m.nomeCompleto}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-mono block">
+                                PM {m.numero_pm}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${m.legenda_cor}`}>
+                              {m.legenda_codigo}
+                            </span>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenShiftEditor(m.militar_id, m.nome_guerra, m.numero_pm, m.equipe_padrao, dailyData.clampedDay)}
+                                className="p-1 text-gray-400 hover:text-emerald-600 rounded"
+                                title="Editar plantão"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
-          </div>
+          )}
 
           {/* Seção Inferior: Régua Completa de Legendas */}
           <div id="secao-legendas" className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs space-y-3">
