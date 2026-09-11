@@ -798,10 +798,10 @@ export default function GestaoMetasPage() {
       {/* ========================================================= */}
       {/* 3. LISTAGEM DE METAS AGRUPADAS DINAMICAMENTE */}
       {/* ========================================================= */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         {filteredTargets.length === 0 ? (
-          <div className="untitled-card p-10 text-center space-y-3">
-            <Target className="w-10 h-10 text-gray-400 mx-auto" />
+          <div className="untitled-card p-8 text-center space-y-2">
+            <Target className="w-8 h-8 text-gray-400 mx-auto" />
             <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm">
               Nenhuma meta encontrada para os filtros selecionados.
             </h3>
@@ -821,41 +821,36 @@ export default function GestaoMetasPage() {
               const GroupIcon = groupCfg.icon;
 
               return (
-                <div key={groupKey} className="space-y-3">
+                <div key={groupKey} className="space-y-2.5">
                   
-                  {/* Cabeçalho do Grupo */}
-                  <div className={`p-3 rounded-2xl border ${groupCfg.bgLight} ${groupCfg.borderColor} flex flex-col sm:flex-row sm:items-center justify-between gap-2`}>
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-xl ${groupCfg.badgeColor} flex items-center justify-center`}>
-                        <GroupIcon className="w-4 h-4" />
+                  {/* Cabeçalho do Grupo Compacto */}
+                  <div className={`p-2.5 px-3.5 rounded-xl border ${groupCfg.bgLight} ${groupCfg.borderColor} flex items-center justify-between gap-2`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-lg ${groupCfg.badgeColor} flex items-center justify-center`}>
+                        <GroupIcon className="w-3.5 h-3.5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="font-extrabold text-sm text-gray-900 dark:text-white">
-                            {groupCfg.label}
-                          </h2>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] text-gray-700 dark:text-gray-300">
-                            {groupTargets.length} {groupTargets.length === 1 ? 'operação' : 'operações'}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                          {groupCfg.description}
-                        </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="font-extrabold text-xs sm:text-sm text-gray-900 dark:text-white">
+                          {groupCfg.label}
+                        </h2>
+                        <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] text-gray-700 dark:text-gray-300">
+                          {groupTargets.length} {groupTargets.length === 1 ? 'operação' : 'operações'}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="text-right sm:self-auto self-end">
-                      <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 block">
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
                         Meta do Grupo:
                       </span>
-                      <span className={`text-base font-extrabold ${groupCfg.textColor}`}>
-                        {groupTargets.reduce((acc, t) => acc + t.meta_total, 0)} <span className="text-xs font-medium text-gray-400">ações</span>
+                      <span className={`text-xs sm:text-sm font-extrabold ${groupCfg.textColor}`}>
+                        {groupTargets.reduce((acc, t) => acc + t.meta_total, 0)} <span className="text-[10px] font-medium text-gray-400">ações</span>
                       </span>
                     </div>
                   </div>
 
-                  {/* Grid de Cards de Operações do Grupo */}
-                  <div className="space-y-3">
+                  {/* Grade Visual e Compacta de Cards de Operações */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
                     {groupTargets.map((tgt) => {
                       const op = tgt.opDetails;
                       if (!op) return null;
@@ -865,141 +860,113 @@ export default function GestaoMetasPage() {
                       return (
                         <div
                           key={tgt.id}
-                          className="untitled-card p-4 sm:p-5 space-y-3 hover:border-gray-300 dark:hover:border-[#283042] transition-all"
+                          className="bg-white dark:bg-[#151A23] p-3 rounded-xl border border-gray-200 dark:border-[#222938] space-y-2 hover:border-gray-300 dark:hover:border-[#283042] transition-all shadow-xs flex flex-col justify-between"
                         >
-                          {/* Linha Superior: Código, Título, Meta Total e Botão Distribuir */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
-                                <Target className="w-4 h-4 text-emerald-600" />
-                              </div>
-                              <div>
-                                <div className="flex items-center flex-wrap gap-2">
-                                  <span className="px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] font-mono font-bold text-xs text-gray-800 dark:text-gray-200">
-                                    {op.codigo_natureza}
+                          {/* Linha Superior: Código, Título, Meta Total e Ações */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                                <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] font-mono font-bold text-[11px] text-gray-800 dark:text-gray-200 flex-shrink-0">
+                                  {op.codigo_natureza}
+                                </span>
+                                <h3 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white truncate" title={op.titulo}>
+                                  {op.titulo}
+                                </h3>
+                                {op.area_rural_obrigatoria && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 flex-shrink-0">
+                                    Rural
                                   </span>
-                                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white">
-                                    {op.titulo}
-                                  </h3>
-                                  {op.area_rural_obrigatoria && (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
-                                      Zona Rural
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
-                                  {op.descricao}
-                                </p>
+                                )}
+                              </div>
+
+                              {/* Ações */}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDistributionModal(tgt)}
+                                  className="p-1 rounded-lg text-gray-500 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                  title="Definir Meta e Equipes"
+                                >
+                                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTarget(tgt.id)}
+                                  className="p-1 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                  title="Excluir meta desta operação"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             </div>
 
-                            {/* Controles de Meta Total e Distribuição (Sem Input direto no Card) */}
-                            <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-                              {/* Badge Meta Total */}
-                              <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938]">
-                                <span className="text-xs text-gray-500 font-medium">Meta:</span>
-                                <span className="font-extrabold text-xs text-gray-900 dark:text-white">{tgt.meta_total}</span>
-                                <span className="text-xs text-gray-400 font-semibold">ops</span>
+                            {/* Linha de Metas e Periodicidade */}
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] text-[11px] font-extrabold text-gray-900 dark:text-white">
+                                  Meta: {tgt.meta_total} ops
+                                </span>
+
+                                {/* Badge de Periodicidade */}
+                                {tgt.regra_agendamento === 'dias_semana' && (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>Seg a Sex</span>
+                                  </span>
+                                )}
+                                {tgt.regra_agendamento === 'finais_semana' && (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    <span>Fins de semana</span>
+                                  </span>
+                                )}
+                                {tgt.regra_agendamento === 'dias_especificos' && (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{tgt.dias_especificos?.length || 0} dias</span>
+                                  </span>
+                                )}
                               </div>
 
-                              {/* Badge de Regra de Periodicidade */}
-                              {tgt.regra_agendamento === 'dias_semana' && (
-                                <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  <span>Seg a Sex</span>
-                                </span>
-                              )}
-                              {tgt.regra_agendamento === 'finais_semana' && (
-                                <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  <span>Fins de semana</span>
-                                </span>
-                              )}
-                              {tgt.regra_agendamento === 'dias_especificos' && (
-                                <span className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  <span>{tgt.dias_especificos?.length || 0} dias certos</span>
-                                </span>
-                              )}
-
-                              {/* Botão de Ajustar Meta & Equipes */}
                               <button
                                 type="button"
                                 onClick={() => handleOpenDistributionModal(tgt)}
-                                className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                                  hasTeamsAllocated
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
-                                    : 'bg-white text-gray-700 border-dashed border-gray-300 dark:bg-[#151A23] dark:text-gray-200 dark:border-gray-700 hover:border-emerald-500 hover:text-emerald-600'
-                                }`}
+                                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
                               >
-                                <PieChart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                <span>{hasTeamsAllocated ? `Distribuído (${tgt.distribuicoes?.length} eq.)` : 'Definir Meta e Equipes'}</span>
-                              </button>
-
-                              {/* Botão de Excluir Meta */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteTarget(tgt.id)}
-                                className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                title="Excluir meta desta operação"
-                              >
-                                <Trash2 className="w-4 h-4" />
+                                {hasTeamsAllocated ? 'Ajustar' : 'Definir'}
                               </button>
                             </div>
                           </div>
 
-                          {/* Visualização da Distribuição das Equipes */}
+                          {/* Seção Inferior: Distribuição de Equipes ou Alerta de Sem Equipes */}
                           {hasTeamsAllocated ? (
                             <div className="pt-2 border-t border-gray-100 dark:border-[#222938]">
-                              <div className="flex items-center justify-between pb-1.5">
-                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                                  Alocação por Equipe ({tgt.distribuicoes?.length} equipes participantes):
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenDistributionModal(tgt)}
-                                  className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold flex items-center gap-0.5"
-                                >
-                                  <span>Ajustar cotas / %</span>
-                                  <ChevronRight className="w-3 h-3" />
-                                </button>
-                              </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                              <div className="flex flex-wrap gap-1">
                                 {tgt.distribuicoes?.map((dst) => (
-                                  <div
+                                  <span
                                     key={dst.id}
-                                    className="p-2 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#222938] flex items-center justify-between gap-2"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-50 dark:bg-[#0E121A] border border-gray-200/80 dark:border-[#283042] text-[10px] font-medium text-gray-700 dark:text-gray-300"
                                   >
-                                    <div className="min-w-0">
-                                      <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block truncate">
-                                        {dst.equipe}
-                                      </span>
-                                      <span className="text-[10px] text-gray-400 font-mono">
-                                        {dst.percentual_alocado}% da cota
-                                      </span>
-                                    </div>
-                                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/80">
-                                      {dst.meta_quantitativa} ops
-                                    </span>
-                                  </div>
+                                    <span className="font-bold">{dst.equipe}:</span>
+                                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">{dst.meta_quantitativa}</span>
+                                    <span className="text-gray-400 text-[9px]">({dst.percentual_alocado}%)</span>
+                                  </span>
                                 ))}
                               </div>
                             </div>
                           ) : (
-                            <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gray-50/60 dark:bg-[#0E121A]/50 p-2.5 rounded-xl text-xs text-gray-500">
-                              <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-                                <Users className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                                <span>
-                                  <strong>Sem equipes alocadas:</strong> Esta meta de {tgt.meta_total} operações conta como cota geral da fração até que você defina as equipes.
-                                </span>
-                              </div>
+                            <div className="pt-2 border-t border-gray-100 dark:border-[#222938] flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                Sem equipes alocadas
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => handleOpenDistributionModal(tgt)}
-                                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
+                                className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
                               >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Definir Equipes Agora</span>
+                                <Plus className="w-3 h-3" />
+                                <span>Definir Equipes</span>
                               </button>
                             </div>
                           )}
