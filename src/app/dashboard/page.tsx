@@ -12,6 +12,8 @@ import {
   MonthlySchedule, 
   OperationGroupDef 
 } from '@/lib/types';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { 
   Target, 
   AlertTriangle, 
@@ -25,22 +27,23 @@ import {
   Users, 
   Bookmark, 
   SlidersHorizontal, 
-  Info,
-  Layers,
-  Search,
-  CheckCircle2,
-  Compass,
-  HeartHandshake,
-  FileSpreadsheet,
-  Activity,
-  Flag,
-  Sparkles,
-  Briefcase,
-  Zap,
-  Folder,
-  ArrowUpRight,
-  Trash2,
-  X
+  Info, 
+  Layers, 
+  Search, 
+  CheckCircle2, 
+  Compass, 
+  HeartHandshake, 
+  FileSpreadsheet, 
+  Activity, 
+  Flag, 
+  Sparkles, 
+  Briefcase, 
+  Zap, 
+  Folder, 
+  ArrowUpRight, 
+  Trash2, 
+  X,
+  Printer
 } from 'lucide-react';
 import { RiskBadge } from '@/components/risk-badge';
 
@@ -394,6 +397,369 @@ export default function DashboardOverviewPage() {
     }).filter(t => t.meta > 0 || totalMetas === 0);
   }, [teams, targets, monthLogs, totalMetas]);
 
+  // Impressão de Relatório Analítico em PDF
+  const handlePrintReport = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const reportMonthName = monthNames[mes - 1];
+    const emissionDate = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    const saldo = totalMetas - totalExecutadas;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <title>Relatório Analítico de Operações e Metas - ${reportMonthName}/${ano}</title>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 12mm 12mm 15mm 12mm;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #1a202c;
+            background: #fff;
+            margin: 0;
+            padding: 0;
+            font-size: 11px;
+            line-height: 1.35;
+          }
+          .header-container {
+            border-bottom: 2px solid #1a365d;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+          .header-left {
+            display: flex;
+            flex-direction: column;
+          }
+          .header-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #1a365d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .header-subtitle {
+            font-size: 11px;
+            font-weight: 700;
+            color: #2b6cb0;
+            margin-top: 2px;
+          }
+          .header-info {
+            font-size: 9.5px;
+            color: #718096;
+            margin-top: 3px;
+          }
+          .header-badge {
+            background: #ebf8ff;
+            border: 1px solid #bee3f8;
+            color: #2b6cb0;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 11px;
+            text-align: right;
+          }
+          .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #2d3748;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 14px 0 6px 0;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+          }
+          .kpi-card {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 10px;
+          }
+          .kpi-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #718096;
+            text-transform: uppercase;
+          }
+          .kpi-value {
+            font-size: 16px;
+            font-weight: 800;
+            color: #1a202c;
+            margin-top: 2px;
+          }
+          .kpi-sub {
+            font-size: 8.5px;
+            color: #a0aec0;
+            margin-top: 1px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            margin-bottom: 12px;
+          }
+          th {
+            background-color: #edf2f7;
+            color: #2d3748;
+            font-weight: 700;
+            text-align: left;
+            padding: 5px 6px;
+            border: 1px solid #cbd5e0;
+            font-size: 9px;
+            text-transform: uppercase;
+          }
+          td {
+            padding: 5px 6px;
+            border: 1px solid #e2e8f0;
+            vertical-align: middle;
+          }
+          tr:nth-child(even) td {
+            background-color: #f8fafc;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .font-bold { font-weight: 700; }
+          .tag {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 8.5px;
+            font-weight: 700;
+          }
+          .tag-blue { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
+          .progress-bar-bg {
+            background: #edf2f7;
+            border-radius: 3px;
+            height: 6px;
+            width: 100%;
+            overflow: hidden;
+            display: inline-block;
+            margin-top: 2px;
+          }
+          .progress-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+          }
+          .fill-green { background: #38a169; }
+          .fill-blue { background: #3182ce; }
+          .fill-amber { background: #dd6b20; }
+          .footer-sign {
+            margin-top: 28px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            page-break-inside: avoid;
+          }
+          .sign-box {
+            border-top: 1px solid #718096;
+            text-align: center;
+            padding-top: 5px;
+            font-size: 9.5px;
+          }
+          .sign-title {
+            font-weight: 700;
+            color: #2d3748;
+          }
+          .sign-role {
+            color: #718096;
+            font-size: 8.5px;
+          }
+          @media print {
+            body { margin: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header-container">
+          <div class="header-left">
+            <div class="header-title">Polícia Militar de Minas Gerais</div>
+            <div class="header-subtitle">Relatório Analítico de Produtividade e Gestão de Metas Operacionais</div>
+            <div class="header-info">Fração Policial Militar • Emissão: ${emissionDate}</div>
+          </div>
+          <div class="header-badge">
+            <div>Mês de Referência</div>
+            <div style="font-size: 13px; font-weight: 800; color: #1a365d;">${reportMonthName} / ${ano}</div>
+          </div>
+        </div>
+
+        <!-- 1. RESUMO EXECUTIVO -->
+        <div class="section-title">1. Resumo Executivo da Fração (Meta Total)</div>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Meta Total Planejada</div>
+            <div class="kpi-value" style="color: #2b6cb0;">${totalMetas} <span style="font-size: 10px; font-weight: 500;">ops</span></div>
+            <div class="kpi-sub">${targets.length} naturezas configuradas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Operações Executadas</div>
+            <div class="kpi-value" style="color: #276749;">${totalExecutadas} <span style="font-size: 10px; font-weight: 500;">execuções</span></div>
+            <div class="kpi-sub">${detailedNaturesList.filter(n => n.executado > 0).length} com produtividade</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Cumprimento Global</div>
+            <div class="kpi-value" style="color: ${percentualGeral >= 100 ? '#276749' : percentualGeral >= 50 ? '#2b6cb0' : '#c53030'};">${percentualGeral}%</div>
+            <div class="kpi-sub">${percentualGeral >= 100 ? 'Meta global atingida' : 'Em andamento'}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Saldo de Operações</div>
+            <div class="kpi-value" style="color: ${saldo <= 0 ? '#276749' : '#d69e2e'};">${saldo <= 0 ? `+${Math.abs(saldo)}` : saldo}</div>
+            <div class="kpi-sub">${saldo <= 0 ? 'Superada em excesso' : 'Ainda a executar'}</div>
+          </div>
+        </div>
+
+        <!-- 2. QUADRO SINTÉTICO POR GRUPO DE OPERAÇÕES -->
+        <div class="section-title">2. Desempenho Sintético por Grupo Operacional</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Grupo de Operação</th>
+              <th class="text-center" style="width: 70px;">Metas Cad.</th>
+              <th class="text-center" style="width: 80px;">Meta Prevista</th>
+              <th class="text-center" style="width: 80px;">Executado</th>
+              <th class="text-center" style="width: 110px;">% Atingimento</th>
+              <th>Equipe Destaque</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${groupStats.map(stat => `
+              <tr>
+                <td class="font-bold">${stat.group.nome}</td>
+                <td class="text-center font-bold">${stat.metasCount}</td>
+                <td class="text-center font-bold">${stat.metaTotal}</td>
+                <td class="text-center font-bold" style="color: ${stat.executado >= stat.metaTotal && stat.metaTotal > 0 ? '#276749' : '#1a202c'};">${stat.executado}</td>
+                <td class="text-center">
+                  <span class="font-bold">${stat.percent}%</span>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill ${stat.percent >= 100 ? 'fill-green' : stat.percent >= 50 ? 'fill-blue' : 'fill-amber'}" style="width: ${Math.min(100, stat.percent)}%;"></div>
+                  </div>
+                </td>
+                <td class="font-bold">${stat.topTeam}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <!-- 3. QUADRO ANALÍTICO POR NATUREZA DE OPERAÇÃO -->
+        <div class="section-title">3. Detalhamento Analítico por Natureza de Operação</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 60px;">Código</th>
+              <th>Natureza / Operação</th>
+              <th style="width: 120px;">Grupo</th>
+              <th class="text-center" style="width: 85px;">Periodicidade</th>
+              <th class="text-center" style="width: 65px;">Meta</th>
+              <th class="text-center" style="width: 65px;">Realiz.</th>
+              <th class="text-center" style="width: 80px;">% Ating.</th>
+              <th>Alocação / Desempenho das Equipes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${detailedNaturesList.map(item => {
+              const ruleLabel = item.regraAgendamento === 'dias_especificos' && item.diasEspecificos?.length 
+                ? `Dias: ${item.diasEspecificos.sort((a,b)=>a-b).join(', ')}`
+                : item.regraAgendamento === 'dias_especificos' ? 'Dias Específicos' : 'Qualquer Dia';
+              
+              const teamsDistHtml = item.distribuicoes.length > 0 
+                ? item.distribuicoes.map(d => `<span style="font-size: 8.5px; background: #edf2f7; padding: 1px 4px; border-radius: 3px; margin-right: 3px; display: inline-block;">${d.equipe}: <b>${d.realizado}/${d.meta}</b></span>`).join('')
+                : '<span style="color: #a0aec0; font-style: italic;">Cota geral da fração</span>';
+
+              return `
+                <tr>
+                  <td class="font-bold" style="font-family: monospace;">${item.codigoNatureza}</td>
+                  <td>
+                    <div class="font-bold">${item.naturezaTitulo}</div>
+                    ${item.naturezaTitulo !== item.tituloOperacao ? `<div style="font-size: 8.5px; color: #718096;">OS: ${item.tituloOperacao}</div>` : ''}
+                  </td>
+                  <td><span class="tag tag-blue">${item.groupName}</span></td>
+                  <td class="text-center" style="font-size: 8.5px;">${ruleLabel}</td>
+                  <td class="text-center font-bold">${item.metaTotal}</td>
+                  <td class="text-center font-bold" style="color: ${item.executado >= item.metaTotal && item.metaTotal > 0 ? '#276749' : '#1a202c'};">${item.executado}</td>
+                  <td class="text-center font-bold">${item.percent}%</td>
+                  <td>${teamsDistHtml}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <!-- 4. DISTRIBUIÇÃO E PRODUTIVIDADE POR EQUIPE -->
+        <div class="section-title">4. Produtividade e Cumprimento por Equipe / Guarnição</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Equipe / Guarnição</th>
+              <th class="text-center" style="width: 100px;">Meta Alocada</th>
+              <th class="text-center" style="width: 100px;">Realizado</th>
+              <th class="text-center" style="width: 120px;">% Cumprimento</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${teamDistributionStats.map(team => `
+              <tr>
+                <td class="font-bold">${team.team}</td>
+                <td class="text-center font-bold">${team.meta} ops</td>
+                <td class="text-center font-bold" style="color: ${team.realizado >= team.meta && team.meta > 0 ? '#276749' : '#1a202c'};">${team.realizado} ops</td>
+                <td class="text-center">
+                  <span class="font-bold">${team.percentual}%</span>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill ${team.percentual >= 100 ? 'fill-green' : team.percentual >= 50 ? 'fill-blue' : 'fill-amber'}" style="width: ${Math.min(100, team.percentual)}%;"></div>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <!-- ASSINATURAS -->
+        <div class="footer-sign">
+          <div class="sign-box">
+            <div class="sign-title">Comandante da Fração / Pelotão</div>
+            <div class="sign-role">Polícia Militar de Minas Gerais</div>
+          </div>
+          <div class="sign-box">
+            <div class="sign-title">Seção de Emprego Operacional (SOF)</div>
+            <div class="sign-role">Conferência e Lançamento de Metas</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 350);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-5 sm:space-y-6 max-w-full overflow-x-hidden">
       
@@ -404,7 +770,7 @@ export default function DashboardOverviewPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Painel Geral de Operações e Metas
+              Painel de Operações e Metas
             </h1>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -412,7 +778,7 @@ export default function DashboardOverviewPage() {
           </p>
         </div>
 
-        {/* Seletor Dinâmico de Mês e Ano */}
+        {/* Seletor Dinâmico de Mês e Ano & Ações */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-white dark:bg-[#151A23] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#222938] shadow-xs text-xs font-bold">
             <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
@@ -441,6 +807,16 @@ export default function DashboardOverviewPage() {
             </select>
           </div>
 
+          <button
+            type="button"
+            onClick={handlePrintReport}
+            className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 shadow-xs font-semibold"
+            title="Imprimir relatório analítico em formato PDF"
+          >
+            <Printer className="w-3.5 h-3.5 text-gray-600 dark:text-gray-300" />
+            <span>Imprimir Relatório (PDF)</span>
+          </button>
+
           {(user?.role === 'ADMIN' || user?.role === 'SOF') && (
             <Link
               href="/dashboard/operacoes/lancamento"
@@ -454,14 +830,14 @@ export default function DashboardOverviewPage() {
       </div>
 
       {/* ========================================================= */}
-      {/* 2. VISÃO GERAL DA META GLOBAL DA FRAÇÃO (TODAS AS OPERAÇÕES) */}
+      {/* 2. VISÃO GERAL DA META TOTAL (TODAS AS OPERAÇÕES) */}
       {/* ========================================================= */}
       <div className="untitled-card p-4 sm:p-6 space-y-4 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-[10px] uppercase tracking-wider border border-emerald-200 dark:border-emerald-800">
-                Meta Global da Fração
+                Meta Total
               </span>
               <span className="text-xs text-gray-400 font-medium">
                 • {monthNames[mes - 1]} de {ano}
