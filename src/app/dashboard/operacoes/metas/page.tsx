@@ -1001,48 +1001,51 @@ export default function GestaoMetasPage() {
             </div>
           </div>
 
-          <div className="space-y-5 pt-1">
+          <div className="space-y-5 pt-2">
             {operationGroups
               .filter(grp => (availableOpsByGroup[grp.id] || []).length > 0)
-              .map((grp, idx) => {
+              .map((grp) => {
                 const opsInGroup = availableOpsByGroup[grp.id] || [];
                 const cfg = getGroupConfig(grp.id);
                 const Icon = cfg.icon;
 
                 return (
-                  <div 
-                    key={grp.id} 
-                    className={`space-y-2.5 ${idx > 0 ? 'pt-4 border-t border-gray-200 dark:border-[#222938]' : ''}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-lg ${cfg.badgeColor} flex items-center justify-center`}>
-                        <Icon className="w-3.5 h-3.5" />
+                  <div key={grp.id} className="space-y-3">
+                    
+                    {/* Barra Separadora / Cabeçalho do Grupo */}
+                    <div className={`p-2 px-3 rounded-xl border ${cfg.bgLight} ${cfg.borderColor} flex items-center justify-between gap-2 shadow-2xs`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-lg ${cfg.badgeColor} flex items-center justify-center`}>
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <h4 className="text-xs font-bold text-gray-900 dark:text-white">
+                          {cfg.label}
+                        </h4>
                       </div>
-                      <span className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
-                        {cfg.label}
-                      </span>
-                      <span className="text-[10px] font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
-                        {opsInGroup.length} disponíveis
+                      
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] text-gray-700 dark:text-gray-300">
+                        {opsInGroup.length} {opsInGroup.length === 1 ? 'disponível' : 'disponíveis'}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {/* Grade de Operações do Grupo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
                       {opsInGroup.map((op) => (
                         <button
                           key={op.id}
                           type="button"
                           onClick={() => handleAddTargetForOp(op.id)}
-                          className="p-2.5 rounded-xl border border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-emerald-500 dark:hover:border-emerald-500 text-left transition-all group flex flex-col justify-between"
+                          className="p-2.5 rounded-xl border border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-emerald-500 dark:hover:border-emerald-500 text-left transition-all group flex flex-col justify-between shadow-2xs"
                         >
                           <div>
                             <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-mono font-bold text-[10px] text-gray-700 dark:text-gray-300">
                               {op.codigo_natureza}
                             </span>
-                            <h4 className="font-bold text-xs text-gray-900 dark:text-white mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 line-clamp-2">
+                            <h5 className="font-bold text-xs text-gray-900 dark:text-white mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 line-clamp-2">
                               {op.titulo}
-                            </h4>
+                            </h5>
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pt-2 mt-2 border-t border-gray-50 dark:border-[#1E2636]">
+                          <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pt-2 mt-2 border-t border-gray-100 dark:border-[#1E2636]">
                             <span>+ Adicionar Meta</span>
                             <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                           </div>
