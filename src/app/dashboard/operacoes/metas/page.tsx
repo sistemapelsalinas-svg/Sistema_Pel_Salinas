@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { storage } from '@/lib/storage';
-import { MonthlyTarget, OperationType, OperationGroup, OperationGroupDef, TeamTargetAllocation, TargetScheduleRule } from '@/lib/types';
+import { MonthlyTarget, OperationType, OperationGroup, OperationGroupDef, TeamTargetAllocation, TargetScheduleRule, OperationExecutionLog } from '@/lib/types';
 import { distributeEqually, distributeByPercentages } from '@/lib/validation';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -36,7 +36,8 @@ import {
   Bookmark,
   Folder,
   Clock,
-  CalendarDays
+  CalendarDays,
+  TrendingUp
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -117,6 +118,7 @@ export default function GestaoMetasPage() {
   const [ano, setAno] = useState(currentYear);
   const [pendingYear, setPendingYear] = useState<number | null>(null);
   const [targets, setTargets] = useState<MonthlyTarget[]>([]);
+  const [logs, setLogs] = useState<OperationExecutionLog[]>([]);
   const [operations, setOperations] = useState<OperationType[]>([]);
   const [operationGroups, setOperationGroups] = useState<OperationGroupDef[]>([]);
   const [allTeams, setAllTeams] = useState<string[]>([]);
@@ -146,6 +148,7 @@ export default function GestaoMetasPage() {
     setOperations(storage.getOperations());
     setOperationGroups(storage.getOperationGroups());
     setAllTeams(storage.getTeams());
+    setLogs(storage.getLogs());
     loadTargets();
   }, [mes, ano]);
 
@@ -657,7 +660,7 @@ export default function GestaoMetasPage() {
   // Contagens para os cards e tabs
   const groupStats = useMemo(() => {
     const counts: Record<string, { count: number; totalOps: number }> = {
-      ALL: { count: targets.length, totalOps: targets.reduce((acc, t) => acc + t.meta_total, 0) }
+      ALL: { count: targets.length, totalOps: targets.reduce((acc, t) => acc + (t.meta_total || 0), 0) }
     };
     operationGroups.forEach(g => {
       counts[g.id] = { count: 0, totalOps: 0 };
@@ -669,12 +672,37 @@ export default function GestaoMetasPage() {
           counts[t.opDetails.grupo] = { count: 0, totalOps: 0 };
         }
         counts[t.opDetails.grupo].count++;
-        counts[t.opDetails.grupo].totalOps += t.meta_total;
+        counts[t.opDetails.grupo].totalOps += (t.meta_total || 0);
       }
     });
 
     return counts;
   }, [enrichedTargets, targets, operationGroups]);
+
+  // Logs filtrados pelo mês e ano selecionados
+  const monthLogs = useMemo(() => {
+    return logs.filter(l => {
+      if (!l.data_execucao) return false;
+      const [y, m] = l.data_execucao.split('-');
+      return parseInt(m, 10) === mes && parseInt(y, 10) === ano;
+    });
+  }, [logs, mes, ano]);
+
+  // Totais Gerais de Metas e Operações Lançadas
+  const totalMetasOps = useMemo(() => {
+    return targets.reduce((acc, t) => acc + (t.meta_total || 0), 0);
+  }, [targets]);
+
+  const totalExecutadasOps = useMemo(() => {
+    return monthLogs.length;
+  }, [monthLogs]);
+
+  const percentualExecutado = useMemo(() => {
+    if (totalMetasOps <= 0) return 0;
+    return Math.min(100, Math.round((totalExecutadasOps / totalMetasOps) * 100));
+  }, [totalMetasOps, totalExecutadasOps]);
+
+  const saldoOps = totalMetasOps - totalExecutadasOps;
 
   const monthNames = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -784,6 +812,119 @@ export default function GestaoMetasPage() {
       </div>
 
       {/* ========================================================= */}
+      {/* RESUMO GERAL: SOMA DAS METAS & TOTAL DE OPERAÇÕES LANÇADAS */}
+      {/* ========================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Soma de Todas as Metas */}
+        <div className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Soma de Todas as Metas
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                {totalMetasOps}
+              </span>
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                operações
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+              {targets.length} {targets.length === 1 ? 'meta configurada' : 'metas configuradas'} ({monthNames[mes - 1]}/{ano})
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/60 flex items-center justify-center flex-shrink-0">
+            <Target className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Card 2: Total de Operações Lançadas */}
+        <div className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Operações Lançadas
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                {totalExecutadasOps}
+              </span>
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                executadas
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+              Registros no mês de {monthNames[mes - 1]}
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 flex items-center justify-center flex-shrink-0">
+            <Activity className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Card 3: Progresso Global de Cumprimento */}
+        <div className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Cumprimento Global
+            </p>
+            <span className="text-xs font-black text-purple-600 dark:text-purple-400">
+              {percentualExecutado}%
+            </span>
+          </div>
+          <div className="mt-2 space-y-1.5">
+            <div className="w-full bg-gray-100 dark:bg-[#1F242F] h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-purple-600 dark:bg-purple-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, percentualExecutado)}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500">
+              <span>{totalExecutadasOps} de {totalMetasOps} ops</span>
+              <span>{Math.max(0, 100 - percentualExecutado)}% restante</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Saldo / Status Geral */}
+        <div className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Saldo da Meta
+            </p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              {saldoOps <= 0 ? (
+                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                  Meta Superada!
+                </span>
+              ) : (
+                <>
+                  <span className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                    {saldoOps}
+                  </span>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                    a executar
+                  </span>
+                </>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+              {saldoOps <= 0 
+                ? `+${Math.abs(saldoOps)} além do planejado` 
+                : `${totalExecutadasOps} finalizadas até o momento`
+              }
+            </p>
+          </div>
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 border ${
+            saldoOps <= 0 
+              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60' 
+              : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/60'
+          }`}>
+            {saldoOps <= 0 ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
       {/* 2. BARRA DE FILTROS POR GRUPO DE OPERAÇÕES & BUSCA */}
       {/* ========================================================= */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs">
@@ -801,10 +942,10 @@ export default function GestaoMetasPage() {
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Todas as Metas</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
               selectedTabGroup === 'ALL' ? 'bg-white/20 dark:bg-black/20 text-white dark:text-gray-900' : 'bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
             }`}>
-              {groupStats.ALL.count}
+              {groupStats.ALL.count} ({groupStats.ALL.totalOps})
             </span>
           </button>
 
