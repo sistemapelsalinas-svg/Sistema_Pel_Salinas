@@ -1001,48 +1001,57 @@ export default function GestaoMetasPage() {
             </div>
           </div>
 
-          <div className="space-y-4 pt-1">
-            {operationGroups.map((grp) => {
-              const opsInGroup = availableOpsByGroup[grp.id] || [];
-              if (opsInGroup.length === 0) return null;
+          <div className="space-y-5 pt-1">
+            {operationGroups
+              .filter(grp => (availableOpsByGroup[grp.id] || []).length > 0)
+              .map((grp, idx) => {
+                const opsInGroup = availableOpsByGroup[grp.id] || [];
+                const cfg = getGroupConfig(grp.id);
+                const Icon = cfg.icon;
 
-              const cfg = getGroupConfig(grp.id);
-              const Icon = cfg.icon;
+                return (
+                  <div 
+                    key={grp.id} 
+                    className={`space-y-2.5 ${idx > 0 ? 'pt-4 border-t border-gray-200 dark:border-[#222938]' : ''}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-lg ${cfg.badgeColor} flex items-center justify-center`}>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-extrabold text-gray-800 dark:text-gray-200">
+                        {cfg.label}
+                      </span>
+                      <span className="text-[10px] font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
+                        {opsInGroup.length} disponíveis
+                      </span>
+                    </div>
 
-              return (
-                <div key={grp.id} className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-gray-700 dark:text-gray-300">
-                    <Icon className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{cfg.label}</span>
-                    <span className="text-gray-400 font-normal">({opsInGroup.length} disponíveis)</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {opsInGroup.map((op) => (
+                        <button
+                          key={op.id}
+                          type="button"
+                          onClick={() => handleAddTargetForOp(op.id)}
+                          className="p-2.5 rounded-xl border border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-emerald-500 dark:hover:border-emerald-500 text-left transition-all group flex flex-col justify-between"
+                        >
+                          <div>
+                            <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-mono font-bold text-[10px] text-gray-700 dark:text-gray-300">
+                              {op.codigo_natureza}
+                            </span>
+                            <h4 className="font-bold text-xs text-gray-900 dark:text-white mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 line-clamp-2">
+                              {op.titulo}
+                            </h4>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pt-2 mt-2 border-t border-gray-50 dark:border-[#1E2636]">
+                            <span>+ Adicionar Meta</span>
+                            <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {opsInGroup.map((op) => (
-                      <button
-                        key={op.id}
-                        type="button"
-                        onClick={() => handleAddTargetForOp(op.id)}
-                        className="p-2.5 rounded-xl border border-gray-200 dark:border-[#222938] bg-white dark:bg-[#151A23] hover:border-emerald-500 dark:hover:border-emerald-500 text-left transition-all group flex flex-col justify-between"
-                      >
-                        <div>
-                          <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-mono font-bold text-[10px] text-gray-700 dark:text-gray-300">
-                            {op.codigo_natureza}
-                          </span>
-                          <h4 className="font-bold text-xs text-gray-900 dark:text-white mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 line-clamp-2">
-                            {op.titulo}
-                          </h4>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pt-2 mt-2 border-t border-gray-50 dark:border-[#1E2636]">
-                          <span>+ Adicionar Meta</span>
-                          <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       )}
