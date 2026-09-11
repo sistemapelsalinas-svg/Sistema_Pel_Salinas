@@ -1288,20 +1288,63 @@ export default function EscalaPage() {
           {/* MODO 2: VISÃO DIÁRIA & CONFERÊNCIA COM SISTEMA EXTERNO */}
           {/* ========================================================================= */}
           {activeViewMode === 'DIARIA' && dailyData && (
-            <div className="space-y-5 animate-in fade-in">
+            <div className="space-y-4 animate-in fade-in max-w-4xl mx-auto">
               
-              {/* 1. RÉGUA HORIZONTAL DE SELEÇÃO DE DIAS DO MÊS */}
-              <div className="bg-white dark:bg-[#151A23] p-3 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs space-y-2">
-                <div className="flex items-center justify-between gap-2 px-1">
-                  <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Selecione o Dia para Conferência ({monthNames[mes - 1]}/{ano}):
-                  </span>
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                    ✓ Ícone verde indica dia 100% conferido
-                  </span>
+              {/* 1. SELETOR E NAVEGAÇÃO DE DIAS */}
+              <div className="bg-white dark:bg-[#151A23] p-3.5 rounded-xl border border-gray-200 dark:border-[#222938] shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  {/* Título do Dia */}
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      disabled={dailyData.clampedDay <= 1}
+                      onClick={() => setSelectedDay(prev => Math.max(1, prev - 1))}
+                      className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
+                      title="Dia anterior"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    
+                    <div>
+                      <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <span>Dia {dailyData.clampedDay.toString().padStart(2, '0')} de {monthNames[mes - 1]} de {ano}</span>
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
+                          dailyData.dayInfo.isWeekend
+                            ? 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-200 dark:border-red-800'
+                            : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        }`}>
+                          {dailyData.dayInfo.name}
+                        </span>
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={dailyData.clampedDay >= daysInMonth}
+                      onClick={() => setSelectedDay(prev => Math.min(daysInMonth, prev + 1))}
+                      className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
+                      title="Próximo dia"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Status Rápido de Conferência */}
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                    <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">
+                      {dailyData.checkedService}/{dailyData.totalService} conferidos ({dailyData.pctChecked}%)
+                    </span>
+                    {dailyData.isFullyChecked && (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-bold">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Conferido
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+                {/* Régua de dias compacta */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 pt-1 scrollbar-thin">
                   {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                     const dayInfo = getDayOfWeekInfo(day);
                     const isSelected = day === dailyData.clampedDay;
@@ -1312,241 +1355,55 @@ export default function EscalaPage() {
                         key={day}
                         type="button"
                         onClick={() => setSelectedDay(day)}
-                        className={`flex flex-col items-center justify-center min-w-[52px] py-2 px-1.5 rounded-xl border transition-all text-xs flex-shrink-0 ${
+                        className={`flex flex-col items-center justify-center min-w-[40px] py-1 px-1 rounded-lg border text-xs transition-all flex-shrink-0 ${
                           isSelected
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm font-bold scale-[1.03]'
+                            ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
                             : summary.isAllChecked
-                            ? 'bg-emerald-50/80 hover:bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                            ? 'bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
                             : dayInfo.isWeekend
-                            ? 'bg-red-50/60 hover:bg-red-100 text-red-900 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/60'
-                            : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border-gray-200 dark:bg-[#0E121A] dark:text-gray-200 dark:border-[#283042]'
+                            ? 'bg-red-50/60 text-red-900 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/60'
+                            : 'bg-gray-50 text-gray-800 border-gray-200 dark:bg-[#0E121A] dark:text-gray-200 dark:border-[#283042] hover:bg-gray-100'
                         }`}
                       >
-                        <span className="font-extrabold text-sm leading-none font-mono">
+                        <span className="font-mono text-xs leading-none font-bold">
                           {day.toString().padStart(2, '0')}
                         </span>
-                        <span className={`text-[9px] uppercase font-bold mt-0.5 ${
-                          isSelected ? 'text-emerald-100' : dayInfo.isWeekend ? 'text-red-600 dark:text-red-400' : 'text-gray-400'
-                        }`}>
-                          {dayInfo.name}
+                        <span className="text-[9px] uppercase mt-0.5">
+                          {dayInfo.name.substring(0, 3)}
                         </span>
-                        
-                        <div className="flex items-center gap-0.5 mt-1">
-                          <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-extrabold ${
-                            isSelected 
-                              ? 'bg-emerald-700/80 text-white' 
-                              : 'bg-white/80 dark:bg-black/40 text-gray-600 dark:text-gray-300'
-                          }`}>
-                            {summary.serviceCount} sv
-                          </span>
-                          {summary.isAllChecked && (
-                            <CheckCircle2 className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} />
-                          )}
-                        </div>
+                        {summary.isAllChecked && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5"></span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
+
+                {/* Busca rápida */}
+                <div className="pt-1">
+                  <div className="relative w-full">
+                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Filtrar por nome, PM ou equipe..."
+                      value={dailySearchTerm}
+                      onChange={(e) => setDailySearchTerm(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-lg text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* 2. CABEÇALHO DO DIA SELECIONADO & PAINEL DE CONTROLE DE CONFERÊNCIA */}
-              <div className="bg-white dark:bg-[#151A23] p-5 rounded-2xl border border-gray-200 dark:border-[#222938] shadow-xs space-y-4">
-                
-                {/* Linha Superior: Navegação do Dia + Título */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-[#222938]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                      <CalendarDays className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white">
-                          Dia {dailyData.clampedDay.toString().padStart(2, '0')} de {monthNames[mes - 1]} de {ano}
-                        </h2>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          dailyData.dayInfo.isWeekend
-                            ? 'bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-300 border border-red-200 dark:border-red-800'
-                            : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                        }`}>
-                          {dailyData.dayInfo.name} {dailyData.dayInfo.isWeekend && '· Fim de Semana'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Conferência diária de militares escalados, equipes ativas e validação de plantão.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Botões de Navegação Anterior / Próximo */}
-                  <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                    <button
-                      type="button"
-                      disabled={dailyData.clampedDay <= 1}
-                      onClick={() => setSelectedDay(prev => Math.max(1, prev - 1))}
-                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 disabled:opacity-40"
-                      title="Dia anterior"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      <span>Anterior</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={dailyData.clampedDay >= daysInMonth}
-                      onClick={() => setSelectedDay(prev => Math.min(daysInMonth, prev + 1))}
-                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 disabled:opacity-40"
-                      title="Próximo dia"
-                    >
-                      <span>Próximo</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 4 Cards de Métricas & Status de Conferência do Dia */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  
-                  {/* Card 1: Militares de Serviço */}
-                  <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#283042] space-y-1">
-                    <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 text-xs font-semibold">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Efetivo de Serviço</span>
-                      </div>
-                      <span className="text-[11px] font-mono text-blue-600 dark:text-blue-400">
-                        {dailyData.teamCount} equipes
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                        {dailyData.totalService}
-                      </span>
-                      <span className="text-xs text-gray-400 font-medium">militares escalados</span>
-                    </div>
-                  </div>
-
-                  {/* Card 2: Folgas e Afastamentos */}
-                  <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#0E121A] border border-gray-200/90 dark:border-[#283042] space-y-1">
-                    <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 text-xs font-semibold">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Folgas / Afastamentos</span>
-                      </div>
-                      <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
-                        {dailyData.totalMilitares} total
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                        {dailyData.totalFolgas}
-                      </span>
-                      <span className="text-xs text-gray-400 font-medium">militares em folga (F)</span>
-                    </div>
-                  </div>
-
-                  {/* Card 3 & 4 (Span 2): Status de Conferência com Sistema Externo */}
-                  <div className={`p-3.5 rounded-xl border sm:col-span-2 space-y-2 ${
-                    dailyData.isFullyChecked
-                      ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800'
-                      : 'bg-amber-50/70 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800'
-                  }`}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                      <div className="flex items-center gap-2">
-                        {dailyData.isFullyChecked ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                        ) : (
-                          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                        )}
-                        <div>
-                          <span className="font-extrabold text-xs text-gray-900 dark:text-white block">
-                            Conferência com Sistema Externo ({dailyData.checkedService} de {dailyData.totalService} conferidos)
-                          </span>
-                          <span className={`text-[11px] font-semibold ${
-                            dailyData.isFullyChecked ? 'text-emerald-800 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'
-                          }`}>
-                            {dailyData.isFullyChecked 
-                              ? 'Escala do dia 100% conferida e validada!' 
-                              : `Restam ${dailyData.totalService - dailyData.checkedService} militares para conferir no dia.`}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Botões de Ação em Massa */}
-                      <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleAllDailyChecks(dailyData.clampedDay, true)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors"
-                        >
-                          Conferir Todos
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleAllDailyChecks(dailyData.clampedDay, false)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-gray-800 hover:bg-gray-100 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 transition-colors"
-                        >
-                          Desmarcar
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Barra de Progresso */}
-                    <div className="w-full bg-white/80 dark:bg-black/40 rounded-full h-2 overflow-hidden border border-gray-200/60 dark:border-gray-800">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          dailyData.isFullyChecked ? 'bg-emerald-600' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${dailyData.pctChecked}%` }}
-                      />
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Filtro Rápido dentro do Dia */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-gray-100 dark:border-[#222938]">
-                  <div className="flex items-center gap-2 flex-1 max-w-sm">
-                    <div className="relative w-full">
-                      <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        placeholder="Filtrar por nome, PM ou equipe neste dia..."
-                        value={dailySearchTerm}
-                        onChange={(e) => setDailySearchTerm(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1 bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase">Equipe:</span>
-                    <select
-                      value={dailyTeamFilter}
-                      onChange={(e) => setDailyTeamFilter(e.target.value)}
-                      className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2.5 py-1 text-xs font-semibold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
-                    >
-                      <option value="TODAS">Todas as Equipes do Dia</option>
-                      {Object.keys(dailyData.serviceByTeam).map((t) => (
-                        <option key={t} value={t}>{t} ({dailyData.serviceByTeam[t].length})</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* 3. CARDS DE EQUIPES ESCALADAS NO DIA (COM CHECKBOX DE CONFERÊNCIA) */}
+              {/* 2. LISTA AGRUPADA POR EQUIPE (NOME DA EQUIPE, NOME DO MILITAR, CHECKBOX À FRENTE) */}
               {Object.keys(dailyData.filteredServiceByTeam).length === 0 ? (
-                <div className="untitled-card p-8 text-center space-y-2">
-                  <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-                  <h4 className="font-bold text-sm text-gray-900 dark:text-white">
-                    Nenhum militar de serviço encontrado para os filtros selecionados no dia {dailyData.clampedDay}.
-                  </h4>
-                  <p className="text-xs text-gray-500">
-                    Verifique os filtros de pesquisa ou troque o dia na régua superior.
+                <div className="bg-white dark:bg-[#151A23] p-8 rounded-xl border border-gray-200 dark:border-[#222938] text-center space-y-2">
+                  <AlertCircle className="w-6 h-6 text-amber-500 mx-auto" />
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Nenhum militar de serviço encontrado para este dia.
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
                   {Object.entries(dailyData.filteredServiceByTeam).map(([teamName, members]) => {
                     const allTeamChecked = members.every(m => m.conferido);
                     const checkedCount = members.filter(m => m.conferido).length;
@@ -1554,109 +1411,74 @@ export default function EscalaPage() {
                     return (
                       <div
                         key={teamName}
-                        className={`untitled-card overflow-hidden border transition-all ${
-                          allTeamChecked 
-                            ? 'border-emerald-300 dark:border-emerald-800/80 shadow-xs' 
-                            : 'border-gray-200 dark:border-[#222938]'
-                        }`}
+                        className="bg-white dark:bg-[#151A23] rounded-xl border border-gray-200 dark:border-[#222938] overflow-hidden shadow-xs"
                       >
-                        {/* Header da Equipe */}
-                        <div className={`p-3.5 border-b flex items-center justify-between gap-2 ${
-                          allTeamChecked
-                            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60'
-                            : 'bg-gray-50/80 dark:bg-[#0E121A] border-gray-100 dark:border-[#222938]'
-                        }`}>
+                        {/* Cabeçalho da Equipe */}
+                        <div className="p-3 bg-gray-50 dark:bg-[#0E121A] border-b border-gray-200 dark:border-[#222938] flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
-                              <Shield className="w-3.5 h-3.5" />
-                            </div>
-                            <div>
-                              <h3 className="font-extrabold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
-                                <span>{teamName}</span>
-                                {allTeamChecked && (
-                                  <span className="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-extrabold border border-emerald-300 dark:border-emerald-800">
-                                    Conferida
-                                  </span>
-                                )}
-                              </h3>
-                              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
-                                {members.length} militar(es) escalados · {checkedCount}/{members.length} conferidos
-                              </span>
-                            </div>
+                            <Shield className="w-4 h-4 text-emerald-600" />
+                            <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                              {teamName}
+                            </h3>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                              ({checkedCount}/{members.length} conferidos)
+                            </span>
                           </div>
 
-                          {/* Botão de Conferir Toda a Equipe */}
                           <button
                             type="button"
                             onClick={() => handleToggleTeamDailyChecks(dailyData.clampedDay, teamName, !allTeamChecked)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1 ${
-                              allTeamChecked
-                                ? 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
-                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-2xs'
-                            }`}
+                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                           >
-                            <CheckSquare className="w-3.5 h-3.5" />
-                            <span>{allTeamChecked ? 'Desmarcar Equipe' : 'Conferir Equipe'}</span>
+                            {allTeamChecked ? 'Desmarcar Equipe' : 'Marcar Equipe'}
                           </button>
                         </div>
 
-                        {/* Lista de Militares na Equipe */}
-                        <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                        {/* Linhas da Lista de Militares */}
+                        <div className="divide-y divide-gray-100 dark:divide-gray-800">
                           {members.map((m) => (
                             <div
                               key={m.id}
-                              className={`p-3 flex items-center justify-between gap-3 transition-colors ${
+                              onClick={() => handleToggleCheckMilitar(m.militar_id, dailyData.clampedDay)}
+                              className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                                 m.conferido
-                                  ? 'bg-emerald-50/30 dark:bg-emerald-950/10'
-                                  : 'hover:bg-gray-50/60 dark:hover:bg-[#151A23]/50'
+                                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20'
+                                  : 'hover:bg-gray-50 dark:hover:bg-[#1A202C]'
                               }`}
                             >
-                              {/* Checkbox de Conferência */}
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={m.conferido}
-                                    onChange={() => handleToggleCheckMilitar(m.militar_id, dailyData.clampedDay)}
-                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700 cursor-pointer"
-                                  />
-                                  <span className={`text-[11px] font-bold ${
-                                    m.conferido ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-400'
-                                  }`}>
-                                    {m.conferido ? 'Conferido ✓' : 'Conferir'}
-                                  </span>
-                                </label>
-
-                                <div className="border-l border-gray-200 dark:border-gray-800 pl-2.5 min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-gray-400 font-mono text-[10px]">#{m.ordem}</span>
-                                    <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
+                              {/* Checkbox na frente + Nome do Militar */}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={m.conferido}
+                                  onChange={() => {}} // tratado no onClick do container
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700 cursor-pointer flex-shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-sm font-bold truncate ${
+                                      m.conferido ? 'text-emerald-950 dark:text-emerald-200' : 'text-gray-900 dark:text-white'
+                                    }`}>
                                       {m.nomeCompleto}
                                     </span>
+                                    <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
+                                      (PM {m.numero_pm})
+                                    </span>
                                   </div>
-                                  <span className="text-[10px] font-mono text-gray-400 block">
-                                    PM {m.numero_pm}
-                                  </span>
                                 </div>
                               </div>
 
-                              {/* Legenda & Ações Rápidas */}
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <div className="text-right">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold inline-block ${m.legenda_cor}`}>
-                                    {m.legenda_codigo}
-                                  </span>
-                                  <span className="text-[9px] text-gray-400 block truncate max-w-[120px]">
-                                    {m.legenda_descricao}
-                                  </span>
-                                </div>
-
+                              {/* Badge de serviço + Edição rápida */}
+                              <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${m.legenda_cor}`}>
+                                  {m.legenda_codigo}
+                                </span>
                                 {isAdmin && (
                                   <button
                                     type="button"
                                     onClick={() => handleOpenShiftEditor(m.militar_id, m.nome_guerra, m.numero_pm, m.equipe_padrao, dailyData.clampedDay)}
-                                    className="p-1 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                    title="Editar plantão deste militar neste dia"
+                                    className="p-1 rounded text-gray-400 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    title="Editar plantão"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
                                   </button>
@@ -1671,75 +1493,62 @@ export default function EscalaPage() {
                 </div>
               )}
 
-              {/* 4. SEÇÃO EXPANSÍVEL DE FOLGAS, FÉRIAS E AFASTAMENTOS */}
-              <div className="untitled-card overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setIsFolgasExpandedInDaily(prev => !prev)}
-                  className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-gray-50/60 dark:hover:bg-[#151A23]/60 transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center font-bold text-xs">
-                      <Clock className="w-4 h-4" />
+              {/* 3. FOLGAS E AFASTAMENTOS (COLAPSÁVEL SIMPLES) */}
+              {dailyData.filteredNonServiceItems.length > 0 && (
+                <div className="bg-white dark:bg-[#151A23] rounded-xl border border-gray-200 dark:border-[#222938] overflow-hidden shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setIsFolgasExpandedInDaily(prev => !prev)}
+                    className="w-full p-3 bg-gray-50 dark:bg-[#0E121A] flex items-center justify-between text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-500" />
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                        Folgas e Afastamentos ({dailyData.filteredNonServiceItems.length} militares)
+                      </span>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-gray-900 dark:text-white uppercase tracking-wider">
-                        Folgas, Férias e Afastamentos ({dailyData.totalFolgas} militares)
-                      </h4>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                        Militares que não estão escalados em serviço operacional no dia {dailyData.clampedDay}.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 font-semibold">
-                      {isFolgasExpandedInDaily ? 'Ocultar' : 'Visualizar'}
-                    </span>
                     {isFolgasExpandedInDaily ? (
                       <ChevronUp className="w-4 h-4 text-gray-400" />
                     ) : (
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                     )}
-                  </div>
-                </button>
+                  </button>
 
-                {isFolgasExpandedInDaily && (
-                  <div className="p-4 border-t border-gray-100 dark:border-[#222938] bg-gray-50/40 dark:bg-[#0E121A]/40 space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {isFolgasExpandedInDaily && (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
                       {dailyData.filteredNonServiceItems.map((m) => (
                         <div
                           key={m.id}
-                          className="p-2.5 rounded-xl bg-white dark:bg-[#151A23] border border-gray-200/90 dark:border-[#283042] flex items-center justify-between gap-2 shadow-2xs"
+                          onClick={() => handleToggleCheckMilitar(m.militar_id, dailyData.clampedDay)}
+                          className="p-2.5 px-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1A202C] transition-colors"
                         >
-                          <div className="min-w-0 flex items-center gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
                             <input
                               type="checkbox"
                               checked={m.conferido}
-                              onChange={() => handleToggleCheckMilitar(m.militar_id, dailyData.clampedDay)}
-                              className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700 cursor-pointer"
-                              title="Marcar conferência"
+                              onChange={() => {}}
+                              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700 cursor-pointer flex-shrink-0"
                             />
-                            <div className="min-w-0">
-                              <span className="font-bold text-xs text-gray-900 dark:text-white block truncate">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
                                 {m.nomeCompleto}
                               </span>
-                              <span className="text-[10px] text-gray-400 font-mono block">
-                                PM {m.numero_pm}
+                              <span className="text-[11px] font-mono text-gray-400">
+                                (PM {m.numero_pm})
                               </span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${m.legenda_cor}`}>
+                          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${m.legenda_cor}`}>
                               {m.legenda_codigo}
                             </span>
                             {isAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenShiftEditor(m.militar_id, m.nome_guerra, m.numero_pm, m.equipe_padrao, dailyData.clampedDay)}
-                                className="p-1 text-gray-400 hover:text-emerald-600 rounded"
-                                title="Editar plantão"
+                                className="p-1 rounded text-gray-400 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                title="Editar"
                               >
                                 <Pencil className="w-3 h-3" />
                               </button>
@@ -1748,8 +1557,49 @@ export default function EscalaPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+              )}
+
+              {/* 4. AO FINAL: CHECKBOX PARA MARCAR O DIA COMO CONFERIDO */}
+              <div className={`p-4 rounded-xl border transition-all ${
+                dailyData.isFullyChecked
+                  ? 'bg-emerald-50/80 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800'
+                  : 'bg-white dark:bg-[#151A23] border-gray-200 dark:border-[#222938]'
+              } shadow-xs`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={dailyData.isFullyChecked}
+                      onChange={(e) => handleToggleAllDailyChecks(dailyData.clampedDay, e.target.checked)}
+                      className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 border-gray-300 dark:border-gray-700 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white block">
+                        Marcar dia {dailyData.clampedDay.toString().padStart(2, '0')} como conferido
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {dailyData.checkedService} de {dailyData.totalService} militares escalados conferidos com o sistema externo
+                      </span>
+                    </div>
+                  </label>
+
+                  {dailyData.isFullyChecked ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white self-start sm:self-auto shadow-2xs">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Dia 100% Conferido
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAllDailyChecks(dailyData.clampedDay, true)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white self-start sm:self-auto transition-colors"
+                    >
+                      Conferir Todos do Dia
+                    </button>
+                  )}
+                </div>
               </div>
 
             </div>
