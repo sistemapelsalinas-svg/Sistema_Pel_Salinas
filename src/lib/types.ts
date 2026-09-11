@@ -30,6 +30,12 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface OperationNaturezaItem {
+  id: string;
+  codigo: string;
+  titulo: string;
+}
+
 export interface OperationType {
   id: string;
   grupo: OperationGroup;
@@ -40,6 +46,7 @@ export interface OperationType {
   requer_reds_origem?: boolean;
   min_envolvidos?: number;
   area_rural_obrigatoria?: boolean;
+  naturezas_vinculadas?: OperationNaturezaItem[];
   ativo: boolean;
 }
 
@@ -53,6 +60,7 @@ export interface MonthlyTarget {
   meta_total: number;
   regra_agendamento?: TargetScheduleRule;
   dias_especificos?: number[];
+  naturezas_selecionadas?: string[];
   tipo_operacao?: OperationType;
   distribuicoes?: TeamTargetAllocation[];
 }
@@ -69,6 +77,7 @@ export interface OperationExecutionLog {
   id: string;
   tipo_operacao_id: string;
   tipo_operacao?: OperationType;
+  natureza_executada?: string;
   data_execucao: string;
   equipe: string;
   militar_responsavel_id?: string;

@@ -290,6 +290,10 @@ export const INITIAL_OPERATIONS: OperationType[] = [
     descricao: 'Presença ostensiva em pontos estratégicos de Salinas (Praça Cel Ramos, Av. Antônio Carlos, Trevo).',
     link_google_drive: 'https://drive.google.com',
     requer_reds_origem: false,
+    naturezas_vinculadas: [
+      { id: 'nat-os1-1', codigo: 'Y07002', titulo: 'Operação Presença' },
+      { id: 'nat-os1-2', codigo: 'Y04009', titulo: 'Trânsito Seguro' }
+    ],
     ativo: true
   },
   {
@@ -300,6 +304,11 @@ export const INITIAL_OPERATIONS: OperationType[] = [
     descricao: 'Ordem de Serviço nº 3.038/2026-2ª Cia PM IND — Fiscalização qualificada em estabelecimentos com histórico de violência.',
     link_google_drive: 'https://drive.google.com',
     requer_reds_origem: false,
+    naturezas_vinculadas: [
+      { id: 'nat-os2-1', codigo: 'Y07001', titulo: 'Batida Policial' },
+      { id: 'nat-os2-2', codigo: 'Y07003', titulo: 'Incursão em ZQC' },
+      { id: 'nat-os2-3', codigo: 'Y07002', titulo: 'Operação Presença' }
+    ],
     ativo: true
   },
   {
@@ -311,6 +320,10 @@ export const INITIAL_OPERATIONS: OperationType[] = [
     link_google_drive: 'https://drive.google.com',
     requer_reds_origem: false,
     area_rural_obrigatoria: true,
+    naturezas_vinculadas: [
+      { id: 'nat-os3-1', codigo: 'Y15010', titulo: 'Patrulha Rural' },
+      { id: 'nat-os3-2', codigo: 'Y07001', titulo: 'Batida Policial' }
+    ],
     ativo: true
   }
 ];

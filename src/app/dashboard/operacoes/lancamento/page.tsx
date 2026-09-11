@@ -134,6 +134,7 @@ export default function OperacoesExecutadasPage() {
   const [confirmMrppEnvolvidos, setConfirmMrppEnvolvidos] = useState<boolean>(false);
   const [confirmVtVitima, setConfirmVtVitima] = useState<boolean>(false);
   const [confirmVtRedsOrigem, setConfirmVtRedsOrigem] = useState<boolean>(false);
+  const [naturezaExecutada, setNaturezaExecutada] = useState<string>('');
 
   const [successMsg, setSuccessMsg] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -223,7 +224,16 @@ export default function OperacoesExecutadasPage() {
     return groups.find(g => g.id === selectedGroup);
   }, [groups, selectedGroup]);
 
-  // Atualizar flags automáticas quando a operação selecionada muda
+  // Meta do mês atual para a operação selecionada
+  const currentTarget = useMemo(() => {
+    if (!selectedOpId || !dataExecucao) return null;
+    const [anoStr, mesStr] = dataExecucao.split('-');
+    const mes = parseInt(mesStr, 10);
+    const ano = parseInt(anoStr, 10);
+    return allTargets.find(t => t.tipo_operacao_id === selectedOpId && t.mes === mes && t.ano === ano) || null;
+  }, [selectedOpId, dataExecucao, allTargets]);
+
+  // Atualizar flags automáticas e pré-selecionar natureza vinculada quando a operação selecionada muda
   useEffect(() => {
     if (selectedOp) {
       if (selectedOp.area_rural_obrigatoria || selectedOp.codigo_natureza === 'A19.001') {
@@ -233,8 +243,21 @@ export default function OperacoesExecutadasPage() {
       if (selectedOp.min_envolvidos) {
         setQuantidadeEnvolvidos(prev => Math.max(prev, selectedOp.min_envolvidos ?? 0));
       }
+      if (selectedOp.naturezas_vinculadas && selectedOp.naturezas_vinculadas.length > 0) {
+        // Se a operação tem naturezas vinculadas, pré-seleciona a primeira prevista ou a primeira da lista
+        const plannedCodes = currentTarget?.naturezas_selecionadas || [];
+        const firstPlanned = selectedOp.naturezas_vinculadas.find(n => plannedCodes.includes(n.codigo) || plannedCodes.includes(`${n.codigo} - ${n.titulo}`));
+        if (firstPlanned) {
+          setNaturezaExecutada(`${firstPlanned.codigo} - ${firstPlanned.titulo}`);
+        } else if (selectedOp.naturezas_vinculadas[0]) {
+          const first = selectedOp.naturezas_vinculadas[0];
+          setNaturezaExecutada(`${first.codigo} - ${first.titulo}`);
+        }
+      } else {
+        setNaturezaExecutada('');
+      }
     }
-  }, [selectedOp]);
+  }, [selectedOp, currentTarget]);
 
   // Verificar se a equipe selecionada possui meta para a operação no mês/ano da data de execução
   const teamGoalInfo = useMemo(() => {
@@ -322,6 +345,15 @@ export default function OperacoesExecutadasPage() {
       }
     }
 
+    // 3.5. Validação de Natureza Executada (para operações com naturezas vinculadas)
+    if (selectedOp.naturezas_vinculadas && selectedOp.naturezas_vinculadas.length > 0) {
+      if (!naturezaExecutada) {
+        setValidationErrors(['Selecione a natureza específica que foi executada nesta Operação / Ordem de Serviço.']);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+
     // 4. Validação dos Checkboxes Obrigatórios de Confirmação no REDS
     const errors: string[] = [];
 
@@ -381,6 +413,7 @@ export default function OperacoesExecutadasPage() {
     // Registrar o log salvando o militar responsável pela execução e o usuário logado para auditoria
     storage.addLog({
       tipo_operacao_id: selectedOp.id,
+      natureza_executada: (selectedOp.naturezas_vinculadas && selectedOp.naturezas_vinculadas.length > 0) ? naturezaExecutada : undefined,
       data_execucao: dataExecucao,
       equipe,
       militar_responsavel_id: militarId || user?.id,
@@ -406,6 +439,7 @@ export default function OperacoesExecutadasPage() {
     setTimeout(() => setSuccessMsg(''), 5000);
 
     // Resetar campos e voltar para a Etapa 1
+    setNaturezaExecutada('');
     setRedsNumero('');
     setRedsOrigem('');
     setObservacoes('');
@@ -777,6 +811,66 @@ export default function OperacoesExecutadasPage() {
                 )}
               </div>
 
+              {/* Seleção da Natureza Específica para Operações com Naturezas Vinculadas (ex: Ordens de Serviço) */}
+              {selectedOp.naturezas_vinculadas && selectedOp.naturezas_vinculadas.length > 0 && (
+                <div className="p-3.5 sm:p-4 bg-blue-50/70 dark:bg-blue-950/20 rounded-2xl border border-blue-200 dark:border-blue-800/80 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <h4 className="font-bold text-xs text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <span>Natureza Executada na Ordem de Serviço / Operação *</span>
+                      </h4>
+                      <p className="text-[11px] text-blue-700/80 dark:text-blue-300/80 mt-0.5">
+                        Selecione qual das naturezas vinculadas foi executada nesta missão:
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    {selectedOp.naturezas_vinculadas.map((nat) => {
+                      const fullLabel = `${nat.codigo} - ${nat.titulo}`;
+                      const isSelected = (naturezaExecutada === fullLabel || naturezaExecutada === nat.codigo || naturezaExecutada.startsWith(`${nat.codigo} -`));
+                      const isPlannedInTarget = currentTarget?.naturezas_selecionadas?.includes(nat.codigo) || currentTarget?.naturezas_selecionadas?.includes(fullLabel);
+
+                      return (
+                        <div
+                          key={nat.id}
+                          onClick={() => setNaturezaExecutada(fullLabel)}
+                          className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 ${
+                            isSelected
+                              ? 'border-blue-500 bg-white dark:bg-[#151A23] ring-2 ring-blue-500/80 shadow-xs'
+                              : 'border-blue-200/70 dark:border-blue-900/50 bg-white/70 dark:bg-[#151A23]/60 hover:bg-white dark:hover:bg-[#151A23] hover:border-blue-300'
+                          }`}
+                        >
+                          <div className="pt-0.5">
+                            {isSelected ? (
+                              <CheckCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600 flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono font-bold text-[11px] text-blue-700 dark:text-blue-300">
+                                {nat.codigo}
+                              </span>
+                              {isPlannedInTarget && (
+                                <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[9px] font-bold">
+                                  Prevista no Mês
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-semibold text-xs text-gray-900 dark:text-white leading-snug mt-0.5">
+                              {nat.titulo}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Linha 1: Data, Equipe Executora e Militar Responsável */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -1122,6 +1216,14 @@ export default function OperacoesExecutadasPage() {
                         {log.equipe}
                       </span>
                     </div>
+
+                    {log.natureza_executada && (
+                      <div className="flex items-center gap-1">
+                        <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-mono text-[10px] font-semibold border border-blue-200 dark:border-blue-800 truncate" title={log.natureza_executada}>
+                          ⚡ {log.natureza_executada}
+                        </span>
+                      </div>
+                    )}
 
                     <p className="text-gray-500 truncate">
                       📍 {log.bairro || 'Salinas'} {log.local_fato ? `— ${log.local_fato}` : ''}

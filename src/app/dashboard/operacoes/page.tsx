@@ -105,6 +105,9 @@ export default function OperacoesCatalogoPage() {
   };
 
   const [formData, setFormData] = useState(initialForm);
+  const [naturezasVinculadas, setNaturezasVinculadas] = useState<{ id: string; codigo: string; titulo: string }[]>([]);
+  const [newNatCode, setNewNatCode] = useState('');
+  const [newNatTitle, setNewNatTitle] = useState('');
 
   const isAdmin = user?.role === 'ADMIN';
 
@@ -139,6 +142,9 @@ export default function OperacoesCatalogoPage() {
       ...initialForm,
       grupo: activeGroup
     });
+    setNaturezasVinculadas([]);
+    setNewNatCode('');
+    setNewNatTitle('');
     setIsQuickGroupOpen(false);
     setIsModalOpen(true);
   };
@@ -155,6 +161,9 @@ export default function OperacoesCatalogoPage() {
       min_envolvidos: op.min_envolvidos || 0,
       area_rural_obrigatoria: !!op.area_rural_obrigatoria
     });
+    setNaturezasVinculadas(op.naturezas_vinculadas || []);
+    setNewNatCode('');
+    setNewNatTitle('');
     setIsQuickGroupOpen(false);
     setIsModalOpen(true);
   };
@@ -171,8 +180,37 @@ export default function OperacoesCatalogoPage() {
       min_envolvidos: op.min_envolvidos || 0,
       area_rural_obrigatoria: !!op.area_rural_obrigatoria
     });
+    setNaturezasVinculadas(op.naturezas_vinculadas ? [...op.naturezas_vinculadas] : []);
+    setNewNatCode('');
+    setNewNatTitle('');
     setIsQuickGroupOpen(false);
     setIsModalOpen(true);
+  };
+
+  const handleAddNatureza = () => {
+    if (!newNatCode.trim() || !newNatTitle.trim()) return;
+    const newItem = {
+      id: `nat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      codigo: newNatCode.trim().toUpperCase(),
+      titulo: newNatTitle.trim()
+    };
+    setNaturezasVinculadas(prev => [...prev, newItem]);
+    setNewNatCode('');
+    setNewNatTitle('');
+  };
+
+  const handleRemoveNatureza = (id: string) => {
+    setNaturezasVinculadas(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleQuickAddNatureza = (op: OperationType) => {
+    if (naturezasVinculadas.some(n => n.codigo === op.codigo_natureza)) return;
+    const newItem = {
+      id: `nat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      codigo: op.codigo_natureza,
+      titulo: op.titulo
+    };
+    setNaturezasVinculadas(prev => [...prev, newItem]);
   };
 
   const handleDelete = (op: OperationType) => {
@@ -189,13 +227,15 @@ export default function OperacoesCatalogoPage() {
       storage.updateOperation(editingOpId, {
         ...formData,
         codigo_natureza: formData.codigo_natureza.trim(),
-        titulo: formData.titulo.trim()
+        titulo: formData.titulo.trim(),
+        naturezas_vinculadas: naturezasVinculadas
       });
     } else {
       storage.addOperation({
         ...formData,
         codigo_natureza: formData.codigo_natureza.trim(),
         titulo: formData.titulo.trim(),
+        naturezas_vinculadas: naturezasVinculadas,
         ativo: true
       });
     }
@@ -204,6 +244,7 @@ export default function OperacoesCatalogoPage() {
     setIsModalOpen(false);
     setEditingOpId(null);
     setFormData(initialForm);
+    setNaturezasVinculadas([]);
   };
 
   // --- Ações de CRUD dos Grupos de Operações ---
@@ -460,6 +501,29 @@ export default function OperacoesCatalogoPage() {
                 <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                   {op.descricao}
                 </p>
+
+                {/* Naturezas Vinculadas (Ordens de Serviço) */}
+                {op.naturezas_vinculadas && op.naturezas_vinculadas.length > 0 && (
+                  <div className="p-2.5 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/60 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-900 dark:text-amber-200 text-[11px] flex items-center gap-1">
+                        <Layers className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Naturezas da O.S. ({op.naturezas_vinculadas.length}):</span>
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {op.naturezas_vinculadas.map(nat => (
+                        <span
+                          key={nat.id || nat.codigo}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-[#151A23] border border-amber-300 dark:border-amber-800 text-[10px] text-amber-950 dark:text-amber-200 shadow-2xs"
+                        >
+                          <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{nat.codigo}</span>
+                          <span className="font-medium">{nat.titulo}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Requisitos Obrigatórios */}
                 {((op.min_envolvidos ?? 0) > 0 || op.requer_reds_origem) && (
@@ -726,6 +790,109 @@ export default function OperacoesCatalogoPage() {
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     className="untitled-input"
                   />
+                </div>
+
+                {/* Seção de Naturezas Vinculadas (Múltiplas Naturezas da O.S.) */}
+                <div className="p-3 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-900/60 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <span className="font-bold text-gray-900 dark:text-white text-xs">
+                        Naturezas da Operação / O.S. ({naturezasVinculadas.length})
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold">
+                      Permite escolher na meta
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    Cadastre mais de uma natureza para esta Ordem de Serviço (ex: Batida Policial, Fiscalização, etc.). Ao definir a meta no planejamento mensal, você poderá escolher quais naturezas serão executadas.
+                  </p>
+
+                  {/* Input para Adicionar Nova Natureza */}
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Código (ex: Y07001)"
+                      value={newNatCode}
+                      onChange={(e) => setNewNatCode(e.target.value)}
+                      className="w-28 untitled-input text-xs py-1.5 font-mono font-bold"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Título da Natureza (ex: Batida Policial)"
+                      value={newNatTitle}
+                      onChange={(e) => setNewNatTitle(e.target.value)}
+                      className="flex-1 untitled-input text-xs py-1.5"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNatureza}
+                      disabled={!newNatCode.trim() || !newNatTitle.trim()}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs transition-colors flex-shrink-0"
+                    >
+                      + Adicionar
+                    </button>
+                  </div>
+
+                  {/* Sugestões Rápidas de Operações Existentes */}
+                  {operations.filter(o => o.grupo !== 'ORDENS_SERVICO').length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      <span className="text-[10px] font-semibold text-gray-400 block">
+                        Ou selecione rapidamente do catálogo:
+                      </span>
+                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                        {operations.filter(o => o.grupo !== 'ORDENS_SERVICO').slice(0, 10).map(cOp => {
+                          const isAlreadyAdded = naturezasVinculadas.some(n => n.codigo === cOp.codigo_natureza);
+                          return (
+                            <button
+                              key={cOp.id}
+                              type="button"
+                              disabled={isAlreadyAdded}
+                              onClick={() => handleQuickAddNatureza(cOp)}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors flex items-center gap-1 ${
+                                isAlreadyAdded
+                                  ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed'
+                                  : 'bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#283042] text-gray-700 dark:text-gray-300 hover:border-amber-500 hover:text-amber-600'
+                              }`}
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                              <span className="font-mono font-bold">{cOp.codigo_natureza}</span>
+                              <span className="truncate max-w-[120px]">{cOp.titulo}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lista de Naturezas Adicionadas */}
+                  {naturezasVinculadas.length > 0 && (
+                    <div className="space-y-1 pt-2 border-t border-amber-200/60 dark:border-amber-900/40">
+                      <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 block">
+                        Naturezas vinculadas a esta O.S.:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {naturezasVinculadas.map((nat) => (
+                          <span
+                            key={nat.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-[#151A23] border border-amber-300 dark:border-amber-800 text-xs text-amber-950 dark:text-amber-200 shadow-2xs"
+                          >
+                            <span className="font-mono font-bold text-[10px] text-amber-700 dark:text-amber-400">{nat.codigo}</span>
+                            <span className="font-medium text-[11px]">{nat.titulo}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNatureza(nat.id)}
+                              className="text-gray-400 hover:text-rose-600 ml-0.5"
+                              title="Remover natureza"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
