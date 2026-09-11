@@ -454,7 +454,90 @@ export default function DashboardOverviewPage() {
       </div>
 
       {/* ========================================================= */}
-      {/* 2. CARDS SUPERIORES: METAS POR GRUPO DE OPERAÇÕES */}
+      {/* 2. VISÃO GERAL DA META GLOBAL DA FRAÇÃO (TODAS AS OPERAÇÕES) */}
+      {/* ========================================================= */}
+      <div className="untitled-card p-4 sm:p-6 space-y-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-[10px] uppercase tracking-wider border border-emerald-200 dark:border-emerald-800">
+                Meta Global da Fração
+              </span>
+              <span className="text-xs text-gray-400 font-medium">
+                • {monthNames[mes - 1]} de {ano}
+              </span>
+            </div>
+            
+            <div className="flex items-baseline gap-2 pt-0.5 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight font-mono">
+                {totalExecutadas}
+              </span>
+              <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                operações executadas de <strong className="text-gray-900 dark:text-white font-mono">{totalMetas}</strong> planejadas
+              </span>
+            </div>
+          </div>
+
+          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 bg-gray-50 dark:bg-[#0E121A] sm:bg-transparent sm:dark:bg-transparent p-2.5 sm:p-0 rounded-xl border border-gray-200/80 dark:border-[#283042] sm:border-0">
+            <div className="flex items-baseline gap-1.5">
+              <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                percentualGeral >= 100 
+                  ? 'text-emerald-600 dark:text-emerald-400' 
+                  : percentualGeral >= 50
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-amber-600 dark:text-amber-400'
+              }`}>
+                {percentualGeral}%
+              </span>
+            </div>
+            <span className="text-[11px] font-semibold text-gray-400">
+              {totalMetas === 0 ? 'Sem metas no mês' : percentualGeral >= 100 ? '✓ Meta global superada!' : 'Atingimento da Meta'}
+            </span>
+          </div>
+        </div>
+
+        {/* Barra de Progresso Global */}
+        <div className="space-y-1.5">
+          <div className="w-full bg-gray-100 dark:bg-[#1E2636] rounded-full h-3 sm:h-3.5 overflow-hidden p-0.5 border border-gray-200/60 dark:border-gray-800">
+            <div 
+              className={`h-full rounded-full transition-all duration-700 ${
+                percentualGeral >= 100 
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-400' 
+                  : percentualGeral >= 50
+                  ? 'bg-gradient-to-r from-blue-500 to-emerald-400'
+                  : 'bg-gradient-to-r from-amber-500 to-amber-400'
+              }`}
+              style={{ width: `${Math.min(100, percentualGeral)}%` }}
+            />
+          </div>
+
+          {/* Sub-indicadores da Fração */}
+          <div className="flex flex-wrap items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 gap-2 pt-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-1 font-medium">
+                <Target className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>{targets.length} {targets.length === 1 ? 'meta configurada' : 'metas configuradas'}</span>
+              </span>
+              <span className="text-gray-300 dark:text-gray-700">•</span>
+              <span className="flex items-center gap-1 font-medium">
+                <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>{groups.length} grupos operacionais</span>
+              </span>
+            </div>
+
+            <span className="font-semibold text-gray-700 dark:text-gray-300">
+              {totalMetas === 0
+                ? 'Nenhuma meta registrada'
+                : totalExecutadas >= totalMetas
+                ? `✓ Meta superada em +${totalExecutadas - totalMetas} operações`
+                : `Faltam ${totalMetas - totalExecutadas} operações para a meta total`}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 3. CARDS SUPERIORES: METAS POR GRUPO DE OPERAÇÕES */}
       {/* ========================================================= */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
