@@ -332,6 +332,14 @@ class StorageService {
     return newLog;
   }
 
+  deleteLog(id: string): boolean {
+    const logs = this.getLogs();
+    const filtered = logs.filter(l => l.id !== id);
+    if (filtered.length === logs.length) return false;
+    this.saveLogs(filtered);
+    return true;
+  }
+
   // --- ALERTAS DE HOMICÍDIO ---
   getAlerts(): HomicideAlert[] {
     if (!this.isBrowser()) return INITIAL_ALERTS;

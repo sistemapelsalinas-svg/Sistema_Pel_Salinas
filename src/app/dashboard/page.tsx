@@ -38,7 +38,9 @@ import {
   Briefcase,
   Zap,
   Folder,
-  ArrowUpRight
+  ArrowUpRight,
+  Trash2,
+  X
 } from 'lucide-react';
 import { RiskBadge } from '@/components/risk-badge';
 
@@ -170,6 +172,28 @@ export default function DashboardOverviewPage() {
   // Filtros da tabela detalhada por natureza
   const [selectedNatureGroupTab, setSelectedNatureGroupTab] = useState<string>('ALL');
   const [natureSearchTerm, setNatureSearchTerm] = useState<string>('');
+  
+  // Exclusão de logs
+  const [logToDelete, setLogToDelete] = useState<OperationExecutionLog | null>(null);
+  const [toastMsg, setToastMsg] = useState<string>('');
+
+  const canUserDeleteLog = (log: OperationExecutionLog) => {
+    if (!user) return false;
+    if (user.role === 'ADMIN' || user.role === 'SOF') return true;
+    if (log.created_by && log.created_by === user.id) return true;
+    if (log.created_by_pm && user.numero_pm && log.created_by_pm.replace(/\D/g, '') === user.numero_pm.replace(/\D/g, '')) return true;
+    if (log.militar_responsavel_id && log.militar_responsavel_id === user.id) return true;
+    return false;
+  };
+
+  const handleConfirmDeleteLog = () => {
+    if (!logToDelete) return;
+    storage.deleteLog(logToDelete.id);
+    setLogs(storage.getLogs());
+    setToastMsg('Lançamento excluído com sucesso.');
+    setTimeout(() => setToastMsg(''), 4000);
+    setLogToDelete(null);
+  };
 
   useEffect(() => {
     setGroups(storage.getOperationGroups());
@@ -860,10 +884,24 @@ export default function DashboardOverviewPage() {
                       )}
 
                       <div className="flex items-center justify-between text-[10px] text-gray-400 pt-0.5">
-                        <span>📅 {log.data_execucao}</span>
-                        <span className="truncate max-w-[130px] font-medium text-gray-500 dark:text-gray-400" title={log.militar_responsavel_nome}>
-                          👮 {log.militar_responsavel_nome || 'Militar'}
-                        </span>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span>📅 {log.data_execucao}</span>
+                          <span>•</span>
+                          <span className="truncate max-w-[120px] font-medium text-gray-500 dark:text-gray-400" title={log.militar_responsavel_nome}>
+                            👮 {log.militar_responsavel_nome || 'Militar'}
+                          </span>
+                        </div>
+
+                        {canUserDeleteLog(log) && (
+                          <button
+                            type="button"
+                            onClick={() => setLogToDelete(log)}
+                            className="p-1 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            title="Excluir lançamento"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -885,6 +923,89 @@ export default function DashboardOverviewPage() {
         </div>
 
       </div>
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE LANÇAMENTO */}
+      {logToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#151A23] border border-gray-200 dark:border-[#222938] rounded-2xl shadow-2xl p-5 space-y-4 text-xs animate-in zoom-in-95">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white">
+                Excluir Lançamento de Operação?
+              </h3>
+              <p className="text-gray-500">
+                Esta ação cancelará o registro desta operação executada e recalculará as metas e indicadores imediatamente.
+              </p>
+            </div>
+
+            {/* Dados do Log a ser Excluído */}
+            <div className="p-3 bg-gray-50 dark:bg-[#0E121A] rounded-xl border border-gray-200 dark:border-[#222938] space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Operação:</span>
+                <span className="font-bold text-gray-900 dark:text-white truncate max-w-[200px]">
+                  {operations.find(o => o.id === logToDelete.tipo_operacao_id)?.titulo || 'Operação'}
+                </span>
+              </div>
+              {logToDelete.natureza_executada && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Natureza:</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400 truncate max-w-[200px]">
+                    {logToDelete.natureza_executada}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Equipe / Data:</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
+                  {logToDelete.equipe} • {logToDelete.data_execucao}
+                </span>
+              </div>
+              {logToDelete.reds_numero && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">REDS:</span>
+                  <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">
+                    {logToDelete.reds_numero}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Militar Responsável:</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200 truncate max-w-[200px]">
+                  {logToDelete.militar_responsavel_nome}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2 border-t border-gray-100 dark:border-[#222938]">
+              <button
+                type="button"
+                onClick={() => setLogToDelete(null)}
+                className="btn-secondary py-2 px-4 flex-1 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteLog}
+                className="py-2 px-4 flex-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                Sim, Excluir Lançamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-5 right-5 z-50 p-3.5 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl shadow-lg flex items-center gap-2 text-xs font-semibold animate-in slide-in-from-bottom-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+          <span>{toastMsg}</span>
+        </div>
+      )}
 
     </div>
   );
