@@ -224,14 +224,32 @@ export default function OperacoesExecutadasPage() {
     return groups.find(g => g.id === selectedGroup);
   }, [groups, selectedGroup]);
 
-  // Meta do mês atual para a operação selecionada
-  const currentTarget = useMemo(() => {
-    if (!selectedOpId || !dataExecucao) return null;
+  // Metas do mês atual cadastradas para a operação selecionada (pode haver mais de 1 para OSs com naturezas distintas)
+  const monthTargetsForOp = useMemo(() => {
+    if (!selectedOpId || !dataExecucao) return [];
     const [anoStr, mesStr] = dataExecucao.split('-');
     const mes = parseInt(mesStr, 10);
     const ano = parseInt(anoStr, 10);
-    return allTargets.find(t => t.tipo_operacao_id === selectedOpId && t.mes === mes && t.ano === ano) || null;
+    return allTargets.filter(t => t.tipo_operacao_id === selectedOpId && t.mes === mes && t.ano === ano);
   }, [selectedOpId, dataExecucao, allTargets]);
+
+  // Meta do mês correspondente à natureza específica executada
+  const currentTarget = useMemo(() => {
+    if (monthTargetsForOp.length === 0) return null;
+
+    if (selectedOp?.naturezas_vinculadas && selectedOp.naturezas_vinculadas.length > 0 && naturezaExecutada) {
+      const found = monthTargetsForOp.find(t => 
+        t.naturezas_selecionadas?.some(code => 
+          naturezaExecutada === code || 
+          naturezaExecutada.startsWith(`${code} -`) || 
+          code.startsWith(naturezaExecutada)
+        )
+      );
+      if (found) return found;
+    }
+
+    return monthTargetsForOp[0] || null;
+  }, [monthTargetsForOp, selectedOp, naturezaExecutada]);
 
   // Atualizar flags automáticas e pré-selecionar natureza vinculada quando a operação selecionada muda
   useEffect(() => {
@@ -244,32 +262,30 @@ export default function OperacoesExecutadasPage() {
         setQuantidadeEnvolvidos(prev => Math.max(prev, selectedOp.min_envolvidos ?? 0));
       }
       if (selectedOp.naturezas_vinculadas && selectedOp.naturezas_vinculadas.length > 0) {
-        // Se a operação tem naturezas vinculadas, pré-seleciona a primeira prevista ou a primeira da lista
-        const plannedCodes = currentTarget?.naturezas_selecionadas || [];
-        const firstPlanned = selectedOp.naturezas_vinculadas.find(n => plannedCodes.includes(n.codigo) || plannedCodes.includes(`${n.codigo} - ${n.titulo}`));
-        if (firstPlanned) {
-          setNaturezaExecutada(`${firstPlanned.codigo} - ${firstPlanned.titulo}`);
-        } else if (selectedOp.naturezas_vinculadas[0]) {
-          const first = selectedOp.naturezas_vinculadas[0];
-          setNaturezaExecutada(`${first.codigo} - ${first.titulo}`);
+        // Encontrar a primeira natureza que possui meta para a equipe ou primeira da lista
+        const plannedForTeam = monthTargetsForOp.find(t => 
+          t.distribuicoes?.some(d => d.equipe === equipe && d.meta_quantitativa > 0)
+        );
+        const plannedCode = plannedForTeam?.naturezas_selecionadas?.[0] || monthTargetsForOp[0]?.naturezas_selecionadas?.[0];
+        
+        const matchedNat = selectedOp.naturezas_vinculadas.find(
+          n => plannedCode && (n.codigo === plannedCode || plannedCode.startsWith(n.codigo))
+        ) || selectedOp.naturezas_vinculadas[0];
+
+        if (matchedNat) {
+          setNaturezaExecutada(`${matchedNat.codigo} - ${matchedNat.titulo}`);
         }
       } else {
         setNaturezaExecutada('');
       }
     }
-  }, [selectedOp, currentTarget]);
+  }, [selectedOp, monthTargetsForOp, equipe]);
 
-  // Verificar se a equipe selecionada possui meta para a operação no mês/ano da data de execução
+  // Verificar se a equipe selecionada possui meta para a operação e natureza no mês/ano da data de execução
   const teamGoalInfo = useMemo(() => {
-    if (!selectedOpId || !dataExecucao || !equipe) return { hasGoal: false, count: 0, percent: 0 };
-    const [anoStr, mesStr] = dataExecucao.split('-');
-    const mes = parseInt(mesStr, 10);
-    const ano = parseInt(anoStr, 10);
+    if (!currentTarget || !equipe || !currentTarget.distribuicoes) return { hasGoal: false, count: 0, percent: 0 };
 
-    const target = allTargets.find(t => t.tipo_operacao_id === selectedOpId && t.mes === mes && t.ano === ano);
-    if (!target || !target.distribuicoes) return { hasGoal: false, count: 0, percent: 0 };
-
-    const teamAlloc = target.distribuicoes.find(d => d.equipe === equipe);
+    const teamAlloc = currentTarget.distribuicoes.find(d => d.equipe === equipe);
     if (!teamAlloc || (teamAlloc.meta_quantitativa <= 0 && teamAlloc.percentual_alocado <= 0)) {
       return { hasGoal: false, count: 0, percent: 0 };
     }
@@ -279,7 +295,7 @@ export default function OperacoesExecutadasPage() {
       count: teamAlloc.meta_quantitativa,
       percent: teamAlloc.percentual_alocado
     };
-  }, [selectedOpId, dataExecucao, equipe, allTargets]);
+  }, [currentTarget, equipe]);
 
   const handleDateChange = (val: string) => {
     if (val > todayStr) {
@@ -830,7 +846,12 @@ export default function OperacoesExecutadasPage() {
                     {selectedOp.naturezas_vinculadas.map((nat) => {
                       const fullLabel = `${nat.codigo} - ${nat.titulo}`;
                       const isSelected = (naturezaExecutada === fullLabel || naturezaExecutada === nat.codigo || naturezaExecutada.startsWith(`${nat.codigo} -`));
-                      const isPlannedInTarget = currentTarget?.naturezas_selecionadas?.includes(nat.codigo) || currentTarget?.naturezas_selecionadas?.includes(fullLabel);
+                      
+                      const targetForNat = monthTargetsForOp.find(t => 
+                        t.naturezas_selecionadas?.some(code => code === nat.codigo || fullLabel.includes(code))
+                      );
+                      const teamAllocForNat = targetForNat?.distribuicoes?.find(d => d.equipe === equipe);
+                      const hasTeamGoalForNat = !!teamAllocForNat && teamAllocForNat.meta_quantitativa > 0;
 
                       return (
                         <div
@@ -854,9 +875,17 @@ export default function OperacoesExecutadasPage() {
                               <span className="font-mono font-bold text-[11px] text-blue-700 dark:text-blue-300">
                                 {nat.codigo}
                               </span>
-                              {isPlannedInTarget && (
+                              {hasTeamGoalForNat ? (
                                 <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[9px] font-bold">
-                                  Prevista no Mês
+                                  Meta {equipe}: {teamAllocForNat?.meta_quantitativa} ops
+                                </span>
+                              ) : targetForNat ? (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[9px] font-bold">
+                                  Meta Pelotão: {targetForNat.meta_total} ops
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 text-[9px] font-medium">
+                                  Sem meta no mês
                                 </span>
                               )}
                             </div>

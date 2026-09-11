@@ -248,7 +248,18 @@ export default function GestaoMetasPage() {
 
     const defaultTotal = 15;
     const isOS = op.grupo === 'ORDENS_SERVICO' || op.grupo.toLowerCase().includes('ordem');
-    const defaultNat = (op.naturezas_vinculadas && op.naturezas_vinculadas.length > 0) ? [op.naturezas_vinculadas[0].codigo] : [];
+    
+    let defaultNat: string[] = [];
+    if (op.naturezas_vinculadas && op.naturezas_vinculadas.length > 0) {
+      const assignedNats = targets
+        .filter(t => t.tipo_operacao_id === op.id)
+        .flatMap(t => t.naturezas_selecionadas || []);
+      
+      const nextAvailable = op.naturezas_vinculadas.find(
+        n => !assignedNats.includes(n.codigo) && !assignedNats.includes(`${n.codigo} - ${n.titulo}`)
+      );
+      defaultNat = nextAvailable ? [nextAvailable.codigo] : [op.naturezas_vinculadas[0].codigo];
+    }
 
     const newTarget: MonthlyTarget = {
       id: `tgt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -269,7 +280,7 @@ export default function GestaoMetasPage() {
     
     // Abre o modal diretamente para configurar
     handleOpenDistributionModal(newTarget);
-    showToast('success', `Operação "${op.titulo}" incluída na grade. Configure a meta total, periodicidade e equipes.`);
+    showToast('success', `Meta para "${op.titulo}" incluída na grade. Configure a quantidade, periodicidade e equipes.`);
   };
 
   // Ao abrir o modal de distribuição:
@@ -501,9 +512,24 @@ export default function GestaoMetasPage() {
     }
 
     const targetOp = operations.find(o => o.id === selectedTarget.tipo_operacao_id);
-    if (targetOp?.naturezas_vinculadas && targetOp.naturezas_vinculadas.length > 0 && modalSelectedNaturezas.length === 0) {
-      showToast('error', 'Selecione a natureza da operação para esta meta.');
-      return;
+    if (targetOp?.naturezas_vinculadas && targetOp.naturezas_vinculadas.length > 0) {
+      if (modalSelectedNaturezas.length === 0) {
+        showToast('error', 'Selecione a natureza da operação para esta meta.');
+        return;
+      }
+
+      // Validação de duplicidade: não permitir duas metas com a mesma natureza para a mesma operação no mesmo mês
+      const selectedNatCode = modalSelectedNaturezas[0];
+      const duplicateTarget = targets.find(t => 
+        t.id !== selectedTarget.id &&
+        t.tipo_operacao_id === selectedTarget.tipo_operacao_id &&
+        (t.naturezas_selecionadas?.includes(selectedNatCode) || t.naturezas_selecionadas?.some(c => c.startsWith(selectedNatCode)))
+      );
+
+      if (duplicateTarget) {
+        showToast('error', `A natureza "${selectedNatCode}" já possui uma meta cadastrada nesta mesma Ordem de Serviço para este mês. Selecione outra natureza.`);
+        return;
+      }
     }
 
     if (isPercentageExceeded) {
@@ -590,10 +616,27 @@ export default function GestaoMetasPage() {
     });
   }, [enrichedTargets, selectedTabGroup, searchTerm]);
 
-  // Operações ainda não adicionadas para este mês
+  // Operações disponíveis para adicionar novas metas neste mês
   const availableOps = useMemo(() => {
-    const usedOpIds = new Set(targets.map(t => t.tipo_operacao_id));
-    return operations.filter(op => op.ativo && !usedOpIds.has(op.id));
+    return operations.filter(op => {
+      if (!op.ativo) return false;
+      
+      // Se possui naturezas vinculadas (ex: Ordens de Serviço), checa se ainda existem naturezas sem meta cadastrada
+      if (op.naturezas_vinculadas && op.naturezas_vinculadas.length > 0) {
+        const assignedNats = targets
+          .filter(t => t.tipo_operacao_id === op.id)
+          .flatMap(t => t.naturezas_selecionadas || []);
+        
+        const hasUnassigned = op.naturezas_vinculadas.some(
+          n => !assignedNats.includes(n.codigo) && !assignedNats.includes(`${n.codigo} - ${n.titulo}`)
+        );
+        return hasUnassigned;
+      }
+
+      // Para operações normais (natureza única), só pode haver 1 meta por mês
+      const isAlreadyAdded = targets.some(t => t.tipo_operacao_id === op.id);
+      return !isAlreadyAdded;
+    });
   }, [operations, targets]);
 
   // Agrupamento das operações disponíveis para adicionar
@@ -1350,14 +1393,30 @@ export default function GestaoMetasPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {selectedTargetOp.naturezas_vinculadas.map((nat) => {
                         const isSelected = currentSelectedCode === nat.codigo || currentSelectedCode === `${nat.codigo} - ${nat.titulo}`;
+                        
+                        // Checar se outra meta desta mesma OS já possui esta natureza cadastrada
+                        const otherTarget = targets.find(t => 
+                          t.id !== selectedTarget.id &&
+                          t.tipo_operacao_id === selectedTargetOp.id &&
+                          (t.naturezas_selecionadas?.includes(nat.codigo) || t.naturezas_selecionadas?.some(c => c.startsWith(nat.codigo)))
+                        );
+
                         return (
                           <div
                             key={nat.id || nat.codigo}
-                            onClick={() => setModalSelectedNaturezas([nat.codigo])}
+                            onClick={() => {
+                              if (otherTarget) {
+                                showToast('error', `A natureza ${nat.codigo} já possui uma meta cadastrada (${otherTarget.meta_total} ops) para esta O.S.`);
+                                return;
+                              }
+                              setModalSelectedNaturezas([nat.codigo]);
+                            }}
                             className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
                               isSelected
                                 ? 'bg-white dark:bg-[#151A23] border-amber-500 ring-2 ring-amber-500/80 shadow-xs'
-                                : 'bg-white/60 dark:bg-[#0E121A]/60 border-gray-200 dark:border-[#283042] opacity-75 hover:opacity-100 hover:border-amber-300'
+                                : otherTarget
+                                ? 'bg-gray-100/70 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed'
+                                : 'bg-white/60 dark:bg-[#0E121A]/60 border-gray-200 dark:border-[#283042] opacity-80 hover:opacity-100 hover:border-amber-300'
                             }`}
                           >
                             <div className="pt-0.5">
@@ -1368,9 +1427,16 @@ export default function GestaoMetasPage() {
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <span className="font-mono font-bold text-xs text-amber-800 dark:text-amber-300 block">
-                                {nat.codigo}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-bold text-xs text-amber-800 dark:text-amber-300">
+                                  {nat.codigo}
+                                </span>
+                                {otherTarget && (
+                                  <span className="px-1.5 py-0.2 rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[9px] font-bold">
+                                    Já cadastrada ({otherTarget.meta_total} ops)
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-xs font-semibold text-gray-900 dark:text-white leading-snug block mt-0.5">
                                 {nat.titulo}
                               </span>
