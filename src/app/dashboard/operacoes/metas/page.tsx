@@ -248,7 +248,7 @@ export default function GestaoMetasPage() {
 
     const defaultTotal = 15;
     const isOS = op.grupo === 'ORDENS_SERVICO' || op.grupo.toLowerCase().includes('ordem');
-    const defaultNats = op.naturezas_vinculadas?.map(n => n.codigo) || [];
+    const defaultNat = (op.naturezas_vinculadas && op.naturezas_vinculadas.length > 0) ? [op.naturezas_vinculadas[0].codigo] : [];
 
     const newTarget: MonthlyTarget = {
       id: `tgt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -258,7 +258,7 @@ export default function GestaoMetasPage() {
       meta_total: defaultTotal,
       regra_agendamento: isOS ? 'dias_especificos' : 'qualquer_dia',
       dias_especificos: [],
-      naturezas_selecionadas: defaultNats,
+      naturezas_selecionadas: defaultNat,
       distribuicoes: []
     };
 
@@ -283,11 +283,13 @@ export default function GestaoMetasPage() {
     setModalMetaTotal(target.meta_total || 15);
     setModalScheduleRule(target.regra_agendamento || 'qualquer_dia');
     setModalSpecificDays(target.dias_especificos || []);
-    setModalSelectedNaturezas(
-      target.naturezas_selecionadas && target.naturezas_selecionadas.length > 0
-        ? target.naturezas_selecionadas
-        : allNatCodes
-    );
+    
+    // Seleção única: se já tiver salva, pega a primeira; senão, primeira vinculada da operação
+    const existingNat = target.naturezas_selecionadas && target.naturezas_selecionadas.length > 0
+      ? [target.naturezas_selecionadas[0]]
+      : (allNatCodes.length > 0 ? [allNatCodes[0]] : []);
+
+    setModalSelectedNaturezas(existingNat);
 
     const existingTeams = target.distribuicoes && target.distribuicoes.length > 0
       ? target.distribuicoes.map(d => d.equipe).filter(eq => currentTeams.includes(eq))
@@ -495,6 +497,12 @@ export default function GestaoMetasPage() {
 
     if (modalMetaTotal <= 0) {
       showToast('error', 'A meta total deve ser de no mínimo 1 operação.');
+      return;
+    }
+
+    const targetOp = operations.find(o => o.id === selectedTarget.tipo_operacao_id);
+    if (targetOp?.naturezas_vinculadas && targetOp.naturezas_vinculadas.length > 0 && modalSelectedNaturezas.length === 0) {
+      showToast('error', 'Selecione a natureza da operação para esta meta.');
       return;
     }
 
@@ -939,16 +947,29 @@ export default function GestaoMetasPage() {
                                   </span>
                                 )}
 
-                                {/* Badge de Naturezas Selecionadas na OS */}
-                                {tgt.naturezas_selecionadas && tgt.naturezas_selecionadas.length > 0 && (
-                                  <span 
-                                    className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1"
-                                    title={`Naturezas: ${tgt.naturezas_selecionadas.join(', ')}`}
-                                  >
-                                    <Layers className="w-3 h-3" />
-                                    <span>{tgt.naturezas_selecionadas.length} {tgt.naturezas_selecionadas.length === 1 ? 'natureza' : 'naturezas'}</span>
-                                  </span>
-                                )}
+                                {/* Badge da Natureza Selecionada na OS */}
+                                {tgt.naturezas_selecionadas && tgt.naturezas_selecionadas.length > 0 && (() => {
+                                  const selectedCode = tgt.naturezas_selecionadas[0];
+                                  const matchedNat = op.naturezas_vinculadas?.find(n => n.codigo === selectedCode || `${n.codigo} - ${n.titulo}` === selectedCode);
+                                  const displayFull = matchedNat ? `${matchedNat.codigo} - ${matchedNat.titulo}` : selectedCode;
+
+                                  return (
+                                    <span 
+                                      className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1 max-w-[180px] sm:max-w-[210px]"
+                                      title={`Natureza Vinculada: ${displayFull}`}
+                                    >
+                                      <Layers className="w-3 h-3 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                                      <span className="font-mono text-[9.5px] font-extrabold flex-shrink-0">
+                                        {matchedNat ? matchedNat.codigo : selectedCode}
+                                      </span>
+                                      {matchedNat && (
+                                        <span className="truncate font-semibold text-gray-700 dark:text-gray-300">
+                                          {matchedNat.titulo}
+                                        </span>
+                                      )}
+                                    </span>
+                                  );
+                                })()}
                               </div>
 
                               <button
@@ -1300,85 +1321,79 @@ export default function GestaoMetasPage() {
 
               </div>
 
-              {/* SEÇÃO 1.1: SELEÇÃO DE NATUREZAS VINCULADAS DA ORDEM DE SERVIÇO */}
+              {/* SEÇÃO 1.1: SELEÇÃO DA NATUREZA VINCULADA DA ORDEM DE SERVIÇO */}
               {(() => {
                 const selectedTargetOp = selectedTarget ? operations.find(o => o.id === selectedTarget.tipo_operacao_id) : null;
                 if (!selectedTargetOp?.naturezas_vinculadas || selectedTargetOp.naturezas_vinculadas.length === 0) return null;
 
+                const currentSelectedCode = modalSelectedNaturezas[0] || '';
+
                 return (
-                  <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-3 animate-in fade-in">
+                  <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-3 animate-in fade-in">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                       <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                         <h4 className="font-bold text-xs uppercase tracking-wider text-gray-900 dark:text-white">
-                          Naturezas Previstas nesta Ordem de Serviço
+                          Natureza da Ordem de Serviço *
                         </h4>
                       </div>
 
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => setModalSelectedNaturezas(selectedTargetOp.naturezas_vinculadas?.map(n => n.codigo) || [])}
-                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white dark:bg-gray-800 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 hover:bg-amber-50"
-                        >
-                          Marcar Todas ({selectedTargetOp.naturezas_vinculadas.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setModalSelectedNaturezas([])}
-                          className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
-                        >
-                          Desmarcar
-                        </button>
-                      </div>
+                      <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full bg-white dark:bg-[#151A23] border border-amber-200 dark:border-amber-800/80">
+                        1 Natureza por Meta
+                      </span>
                     </div>
 
                     <p className="text-[11px] text-gray-600 dark:text-gray-400">
-                      Selecione quais das naturezas vinculadas a esta O.S. serão executadas pelas equipes na meta de {monthNames[mes - 1]}/{ano}:
+                      Selecione a natureza específica que será executada pelas equipes nesta meta de {monthNames[mes - 1]}/{ano}:
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {selectedTargetOp.naturezas_vinculadas.map((nat) => {
-                        const isSelected = modalSelectedNaturezas.includes(nat.codigo);
+                        const isSelected = currentSelectedCode === nat.codigo || currentSelectedCode === `${nat.codigo} - ${nat.titulo}`;
                         return (
-                          <label
+                          <div
                             key={nat.id || nat.codigo}
-                            className={`p-2.5 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
+                            onClick={() => setModalSelectedNaturezas([nat.codigo])}
+                            className={`p-2.5 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
                               isSelected
-                                ? 'bg-white dark:bg-[#151A23] border-amber-400 dark:border-amber-600 shadow-2xs'
-                                : 'bg-white/60 dark:bg-[#0E121A]/60 border-gray-200 dark:border-[#283042] opacity-70 hover:opacity-100'
+                                ? 'bg-white dark:bg-[#151A23] border-amber-500 ring-2 ring-amber-500/80 shadow-xs'
+                                : 'bg-white/60 dark:bg-[#0E121A]/60 border-gray-200 dark:border-[#283042] opacity-75 hover:opacity-100 hover:border-amber-300'
                             }`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                if (isSelected) {
-                                  setModalSelectedNaturezas(prev => prev.filter(c => c !== nat.codigo));
-                                } else {
-                                  setModalSelectedNaturezas(prev => [...prev, nat.codigo]);
-                                }
-                              }}
-                              className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-gray-300 dark:border-gray-700 cursor-pointer"
-                            />
-                            <div className="min-w-0">
+                            <div className="pt-0.5">
+                              {isSelected ? (
+                                <CheckCircle2 className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                              ) : (
+                                <div className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600 flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
                               <span className="font-mono font-bold text-xs text-amber-800 dark:text-amber-300 block">
                                 {nat.codigo}
                               </span>
-                              <span className="text-xs font-semibold text-gray-900 dark:text-white truncate block">
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white leading-snug block mt-0.5">
                                 {nat.titulo}
                               </span>
                             </div>
-                          </label>
+                          </div>
                         );
                       })}
                     </div>
 
-                    <p className="text-[10px] text-amber-900 dark:text-amber-200 font-semibold pt-0.5">
-                      {modalSelectedNaturezas.length === 0
-                        ? '⚠️ Nenhuma natureza selecionada. Marque ao menos uma natureza para execução da O.S.'
-                        : `✓ ${modalSelectedNaturezas.length} de ${selectedTargetOp.naturezas_vinculadas.length} naturezas selecionadas para esta meta.`}
-                    </p>
+                    {modalSelectedNaturezas.length > 0 ? (() => {
+                      const found = selectedTargetOp.naturezas_vinculadas.find(n => n.codigo === modalSelectedNaturezas[0]);
+                      return (
+                        <p className="text-[10px] text-amber-900 dark:text-amber-200 font-semibold pt-0.5 flex items-center gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                          <span>Natureza definida:</span>
+                          <strong className="underline">{found ? `${found.codigo} - ${found.titulo}` : modalSelectedNaturezas[0]}</strong>
+                        </p>
+                      );
+                    })() : (
+                      <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold pt-0.5">
+                        ⚠️ Nenhuma natureza selecionada. Clique em uma das opções acima para definir a natureza desta meta.
+                      </p>
+                    )}
                   </div>
                 );
               })()}
