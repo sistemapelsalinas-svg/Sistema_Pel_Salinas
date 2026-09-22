@@ -54,14 +54,14 @@ export default function MissaoDoDiaPage() {
   // 3 Grupos de Missão: 'OPERACOES' | 'ALERTAS_HOMICIDIO' | 'EGRESSOS'
   const [activeTab, setActiveTab] = useState<'OPERACOES' | 'ALERTAS_HOMICIDIO' | 'EGRESSOS'>('OPERACOES');
 
-  // Filtro interno para Operações (Todos os grupos ou grupo específico)
+  // Filtro interno para Operações
   const [selectedOpGroup, setSelectedOpGroup] = useState<string>('TODAS');
 
   // Modais
   const [selectedEgresso, setSelectedEgresso] = useState<EgressoFiscalizacao | null>(null);
   const [selectedNoticeToRead, setSelectedNoticeToRead] = useState<ShiftNotice | null>(null);
   const [fiscalizacaoRelato, setFiscalizacaoRelato] = useState<string>('');
-  const [fiscalizacaoResultado, setFiscalizacaoResultado] = useState<'CONFORME' | 'DESCUMPRIMENTO'>('CONFORME');
+  const [fiscalizacaoResultado, setFiscalizacaoResultado] = useState<'SEM_DESCUMPRIMENTO' | 'COM_DESCUMPRIMENTO'>('SEM_DESCUMPRIMENTO');
 
   // Toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -137,7 +137,7 @@ export default function MissaoDoDiaPage() {
     loadMissionData(targetUser, selectedTeam);
     setSelectedEgresso(null);
     setFiscalizacaoRelato('');
-    showToast(`Fiscalização de ${selectedEgresso.nome_completo} registrada com sucesso.`);
+    showToast(`Fiscalização de ${selectedEgresso.nome_completo} registrada (${fiscalizacaoResultado === 'SEM_DESCUMPRIMENTO' ? 'Sem Descumprimento' : 'Com Descumprimento'}).`);
   };
 
   if (!mission || !user) return null;
@@ -152,11 +152,6 @@ export default function MissaoDoDiaPage() {
     return `${grad || ''} ${g}`.trim();
   };
 
-  const monthNames = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-  ];
-
   // Egressos
   const egressos = mission.egressosSetor || [];
   const totalEgressos = egressos.length;
@@ -166,7 +161,7 @@ export default function MissaoDoDiaPage() {
   // Alertas
   const alertas = mission.alertasSetor || [];
 
-  // Metas filtradas por subgrupo (caso usuário filtre)
+  // Metas filtradas por subgrupo
   const filteredMetas = selectedOpGroup === 'TODAS'
     ? mission.metasEquipe
     : mission.metasEquipe.filter(m => m.operacao.grupo === selectedOpGroup);
@@ -178,9 +173,17 @@ export default function MissaoDoDiaPage() {
   // Recados do turno
   const recados = mission.recadosAtivos || [];
   const userPmClean = (user.numero_pm || '').replace(/\D/g, '');
+  const hasUnreadRecado = recados.some(
+    r => !r.leituras_confirmadas?.some(
+      l => l.usuario_id === user.id || (userPmClean && (l.numero_pm || '').replace(/\D/g, '') === userPmClean)
+    )
+  );
+
+  const servicosTrabalhados = mission.plantaoAtualIndex > 0 ? mission.plantaoAtualIndex : 0;
+  const servicosATrabalhar = mission.servicosRestantesMes;
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto print:p-0 print:m-0 print:max-w-none">
+    <div className="space-y-4 max-w-6xl mx-auto print:p-0 print:m-0 print:max-w-none">
       
       {/* Toast Notification */}
       {toastMsg && (
@@ -191,217 +194,118 @@ export default function MissaoDoDiaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* 1. SEÇÃO DE RECADOS / ORIENTAÇÕES DO TURNO (DESTAQUE LIMPO) */}
+      {/* 1. CARD ULTRA LIMPO: EQUIPE, SERVIÇOS E GUARNIÇÃO */}
       {/* ========================================================= */}
-      {recados.length > 0 && (
-        <div className="space-y-2.5 print:hidden">
-          {recados.map((recado) => {
-            const hasRead = recado.leituras_confirmadas?.some(
-              l => l.usuario_id === user.id || (userPmClean && (l.numero_pm || '').replace(/\D/g, '') === userPmClean)
-            );
+      <div className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+        
+        {/* Informações Principais: Equipe, Serviços e Guarnição */}
+        <div className="flex items-center gap-3 flex-wrap">
+          
+          {/* Nome da Equipe */}
+          <div className="flex items-center gap-1.5 font-black text-sm text-gray-900 dark:text-white">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>{mission.equipeHoje ? `Equipe ${mission.equipeHoje}` : 'Geral da Fração'}</span>
+          </div>
 
-            return (
-              <div 
-                key={recado.id}
-                className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs transition-all ${
-                  hasRead
-                    ? 'bg-gray-50/80 dark:bg-[#151A23] border-gray-200 dark:border-[#222938]'
-                    : recado.prioridade === 'URGENTE'
-                    ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 animate-in fade-in'
-                    : recado.prioridade === 'IMPORTANTE'
-                    ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 animate-in fade-in'
-                    : 'bg-purple-50/70 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800 animate-in fade-in'
-                }`}
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                    hasRead
-                      ? 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-                      : recado.prioridade === 'URGENTE'
-                      ? 'bg-rose-500 text-white animate-pulse'
-                      : recado.prioridade === 'IMPORTANTE'
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-purple-600 text-white'
-                  }`}>
-                    <Bell className="w-4 h-4" />
-                  </div>
+          <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">•</span>
 
-                  <div className="space-y-0.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.2 rounded-md bg-white/80 dark:bg-black/30 border border-current">
-                        {recado.prioridade}
-                      </span>
-                      <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
-                        {recado.titulo}
-                      </span>
-                      {hasRead ? (
-                        <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.2 rounded-full border border-emerald-300">
-                          ✓ Ciência Confirmada
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/60 px-2 py-0.2 rounded-full border border-rose-300">
-                          Pendente de Leitura
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
-                      {recado.mensagem}
-                    </p>
-                  </div>
-                </div>
+          {/* Quantidade de Serviços Trabalhados e A Trabalhar */}
+          <div className="text-gray-600 dark:text-gray-400 font-medium">
+            <span className="text-gray-400">Serviços: </span>
+            <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{servicosTrabalhados} trabalhados</strong>
+            <span className="text-gray-400"> · </span>
+            <strong className="text-blue-600 dark:text-blue-400 font-bold">{servicosATrabalhar} a trabalhar</strong>
+            <span className="text-gray-400 font-normal"> (total {mission.totalPlantaoMes})</span>
+          </div>
 
-                <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedNoticeToRead(recado)}
-                    className={`py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      hasRead
-                        ? 'bg-white dark:bg-[#1F242F] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-100'
-                        : 'bg-purple-600 text-white hover:bg-purple-700 shadow-xs'
+          <span className="text-gray-300 dark:text-gray-700 hidden sm:inline">•</span>
+
+          {/* Guarnição */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-gray-400 font-medium">Guarnição:</span>
+            {mission.guarnicaoHoje.length === 0 ? (
+              <span className="text-gray-400 italic">Sem outros policiais</span>
+            ) : (
+              <div className="flex items-center gap-1 flex-wrap">
+                {mission.guarnicaoHoje.map((m) => (
+                  <span
+                    key={m.id}
+                    className={`px-2 py-0.5 rounded-md font-bold text-[11px] border ${
+                      m.isCurrentUser
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : 'bg-gray-50 text-gray-800 border-gray-200 dark:bg-[#0E121A] dark:text-gray-300 dark:border-[#283042]'
                     }`}
                   >
-                    {hasRead ? <Eye className="w-3.5 h-3.5" /> : <CheckCheck className="w-3.5 h-3.5" />}
-                    <span>{hasRead ? 'Visualizar Recado' : 'Ler e Confirmar Ciência'}</span>
-                  </button>
-                </div>
+                    {m.militar_nome}
+                  </span>
+                ))}
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* 2. CABEÇALHO LIMPO: STATUS DO POLICIAL & GUARNIÇÃO */}
-      {/* ========================================================= */}
-      <div className="bg-white dark:bg-[#151A23] p-4 rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs space-y-3">
-        
-        {/* Linha Superior: Data, Status e Controles Admin */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100 dark:border-[#222938]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
-              <Radio className="w-4 h-4 animate-pulse" />
-            </div>
-            <div>
-              <span className="font-extrabold text-xs text-gray-900 dark:text-white uppercase tracking-wider block">
-                Minha Missão do Turno
-              </span>
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                {mission.diaSemana}, {mission.dia} de {monthNames[mission.mes - 1]} de {mission.ano}
-              </span>
-            </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap print:hidden">
-            {isAdminOrSof && (
-              <>
-                {/* Seletor de Equipe */}
-                <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] text-xs">
-                  <span className="text-gray-400 font-medium">Equipe:</span>
-                  <select
-                    value={selectedTeam}
-                    onChange={(e) => handleTeamChange(e.target.value)}
-                    className="bg-transparent font-bold text-gray-900 dark:text-white focus:outline-none cursor-pointer"
-                  >
-                    <option value="" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
-                      Geral da Fração
-                    </option>
-                    {allTeams.map((t) => (
-                      <option key={t} value={t} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
-                        Equipe {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+        </div>
 
-                {/* Seletor de Militar */}
-                <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-[#0E121A] px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-[#283042] text-xs">
-                  <Users className="w-3.5 h-3.5 text-gray-400" />
-                  <select
-                    value={selectedUserId}
-                    onChange={(e) => handleUserChange(e.target.value)}
-                    className="bg-transparent font-bold text-gray-900 dark:text-white focus:outline-none cursor-pointer"
-                  >
-                    {allUsers.map((u) => (
-                      <option key={u.id} value={u.id} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
-                        {cleanMilitarName(u.graduacao, u.nome_guerra)} ({u.numero_pm})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            )}
-
+        {/* Botão de Alerta de Recados & Controles rápidos */}
+        <div className="flex items-center gap-2 flex-wrap self-end lg:self-auto print:hidden">
+          
+          {/* Botão de Alerta de Recado */}
+          {recados.length > 0 && (
             <button
               type="button"
-              onClick={handlePrint}
-              className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
-              title="Imprimir Briefing"
+              onClick={() => setSelectedNoticeToRead(recados[0])}
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                hasUnreadRecado
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700 animate-pulse'
+                  : 'bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-200'
+              }`}
+              title="Clique para ver a diretriz/orientação do turno"
             >
-              <Printer className="w-3.5 h-3.5 text-gray-500" />
-              <span>Imprimir</span>
+              <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>{hasUnreadRecado ? 'Recado do Turno (Pendente)' : 'Recado do Turno (Ciente)'}</span>
             </button>
-          </div>
-        </div>
+          )}
 
-        {/* Linha Inferior: Militar, Status de Escala e Guarnição */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold text-xs ${
-              mission.deServicoHoje
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${mission.deServicoHoje ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-              {mission.deServicoHoje ? `DE SERVIÇO (${mission.legendaHoje} · ${mission.legendaDescricao})` : `FOLGA (${mission.legendaHoje})`}
-            </span>
+          {/* Seletores Admin / SOF */}
+          {isAdminOrSof && (
+            <div className="flex items-center gap-1">
+              <select
+                value={selectedTeam}
+                onChange={(e) => handleTeamChange(e.target.value)}
+                className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2 py-1 text-[11px] font-bold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer"
+              >
+                <option value="">Geral</option>
+                {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
 
-            <span className="font-bold text-gray-900 dark:text-white">
-              {cleanMilitarName(mission.militar.graduacao, mission.militar.nome_guerra)}
-            </span>
-            <span className="font-mono text-gray-400">({mission.militar.numero_pm})</span>
+              <select
+                value={selectedUserId}
+                onChange={(e) => handleUserChange(e.target.value)}
+                className="bg-gray-50 dark:bg-[#0E121A] border border-gray-200 dark:border-[#283042] rounded-xl px-2 py-1 text-[11px] font-bold text-gray-800 dark:text-gray-200 focus:outline-none cursor-pointer max-w-[130px] truncate"
+              >
+                {allUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {cleanMilitarName(u.graduacao, u.nome_guerra)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-            <span className="px-2 py-0.2 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 font-bold border border-blue-200">
-              {mission.equipeHoje ? `Equipe ${mission.equipeHoje}` : 'Geral da Fração'}
-            </span>
-
-            {mission.plantaoAtualIndex > 0 && (
-              <span className="text-[11px] text-gray-400">
-                • {mission.plantaoAtualIndex}º de {mission.totalPlantaoMes} plantões no mês
-              </span>
-            )}
-          </div>
-
-          {/* Guarnição de Serviço */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-gray-400 font-semibold flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Guarnição:
-            </span>
-            {mission.guarnicaoHoje.length === 0 ? (
-              <span className="text-gray-400 italic">Sem outros policiais escalados</span>
-            ) : (
-              mission.guarnicaoHoje.map((m) => (
-                <span
-                  key={m.id}
-                  className={`px-2 py-0.5 rounded-md font-semibold text-[11px] border ${
-                    m.isCurrentUser
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
-                      : 'bg-gray-50 text-gray-800 border-gray-200 dark:bg-[#0E121A] dark:text-gray-300 dark:border-[#283042]'
-                  }`}
-                >
-                  {m.militar_nome}
-                </span>
-              ))
-            )}
-          </div>
-
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="btn-secondary py-1 px-2.5 text-xs flex items-center gap-1"
+            title="Imprimir Briefing"
+          >
+            <Printer className="w-3.5 h-3.5 text-gray-500" />
+            <span className="hidden sm:inline">Imprimir</span>
+          </button>
         </div>
 
       </div>
 
       {/* ========================================================= */}
-      {/* 3. SELETOR VISUAL DOS 3 GRUPOS PRINCIPAIS (LIMPO & COESO) */}
+      {/* 2. SELETOR VISUAL DOS 3 GRUPOS PRINCIPAIS */}
       {/* ========================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 print:hidden">
         
@@ -485,7 +389,7 @@ export default function MissaoDoDiaPage() {
 
           <div className="pt-1 flex items-center justify-between text-[11px]">
             <span className="text-gray-500">
-              {alertas.length === 0 ? 'Sem ocorrências críticas ativas' : `${alertas.filter(a => a.grau_risco === 'CRITICO').length} risco crítico`}
+              {alertas.length === 0 ? 'Sem ocorrências críticas' : `${alertas.filter(a => a.grau_risco === 'CRITICO').length} risco crítico`}
             </span>
             <span className="font-bold text-rose-600 flex items-center gap-0.5">
               <span>Ver detalhes</span>
@@ -528,7 +432,7 @@ export default function MissaoDoDiaPage() {
 
           <div className="pt-1 flex items-center justify-between text-[11px]">
             <span className="text-gray-500">
-              {totalVisitasRealizadas} de {totalVisitasPrevistas} visitas no mês
+              {totalVisitasRealizadas} de {totalVisitasPrevistas} visitas concluídas
             </span>
             <span className="font-bold text-purple-600 flex items-center gap-0.5">
               <span>Ver lista</span>
@@ -540,12 +444,10 @@ export default function MissaoDoDiaPage() {
       </div>
 
       {/* ========================================================= */}
-      {/* 4. CONTEÚDO DETALHADO DO GRUPO SELECIONADO (LISTA/TABELA) */}
+      {/* 3. CONTEÚDO DO GRUPO SELECIONADO (TABELA / LISTA DIRETA) */}
       {/* ========================================================= */}
 
-      {/* --------------------------------------------------------- */}
-      {/* TAB 1: OPERAÇÕES & METAS (TABELA / LISTA LIMPA) */}
-      {/* --------------------------------------------------------- */}
+      {/* TAB 1: OPERAÇÕES & METAS */}
       {activeTab === 'OPERACOES' && (
         <div className="bg-white dark:bg-[#151A23] rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs overflow-hidden space-y-3 p-4 sm:p-5">
           
@@ -555,9 +457,6 @@ export default function MissaoDoDiaPage() {
                 <Target className="w-4 h-4 text-blue-600" />
                 <span>Metas e Operações do Turno ({mission.equipeHoje || 'Geral'})</span>
               </h3>
-              <p className="text-xs text-gray-500">
-                Lista de operações previstas para a equipe, cotas sugeridas para hoje e atalho de lançamento.
-              </p>
             </div>
 
             {/* Filtro rápido de Grupos de Operação */}
@@ -621,12 +520,10 @@ export default function MissaoDoDiaPage() {
                     return (
                       <tr key={idx} className="hover:bg-gray-50/80 dark:hover:bg-[#1D2432]/50 transition-colors">
                         
-                        {/* Código */}
                         <td className="py-3 px-3 font-mono font-bold text-gray-900 dark:text-white whitespace-nowrap">
                           {op.codigo_natureza}
                         </td>
 
-                        {/* Operação */}
                         <td className="py-3 px-3">
                           <div className="font-bold text-gray-900 dark:text-white">
                             {op.titulo}
@@ -650,27 +547,22 @@ export default function MissaoDoDiaPage() {
                           </div>
                         </td>
 
-                        {/* Meta Mês */}
                         <td className="py-3 px-3 text-center font-bold text-gray-700 dark:text-gray-300">
                           {item.metaMensal}
                         </td>
 
-                        {/* Realizado */}
                         <td className="py-3 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400">
                           {item.executadas}
                         </td>
 
-                        {/* Saldo */}
                         <td className="py-3 px-3 text-center font-bold text-gray-500">
                           {item.restantes}
                         </td>
 
-                        {/* Sugerido Hoje */}
                         <td className="py-3 px-3 text-center font-black text-sm text-blue-600 dark:text-blue-400 bg-blue-50/40 dark:bg-blue-950/10">
                           {item.sugestaoHoje}
                         </td>
 
-                        {/* Status */}
                         <td className="py-3 px-3 text-center">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap ${
                             item.statusMeta === 'ATINGIDA'
@@ -685,7 +577,6 @@ export default function MissaoDoDiaPage() {
                           </span>
                         </td>
 
-                        {/* Ação */}
                         <td className="py-3 px-3 text-right whitespace-nowrap">
                           <Link
                             href={`/dashboard/operacoes/lancamento?opId=${op.id}&equipe=${encodeURIComponent(mission.equipeHoje)}`}
@@ -707,22 +598,15 @@ export default function MissaoDoDiaPage() {
         </div>
       )}
 
-      {/* --------------------------------------------------------- */}
-      {/* TAB 2: ALERTAS DE HOMICÍDIOS (LISTA LIMPA) */}
-      {/* --------------------------------------------------------- */}
+      {/* TAB 2: ALERTAS DE HOMICÍDIOS */}
       {activeTab === 'ALERTAS_HOMICIDIO' && (
         <div className="bg-white dark:bg-[#151A23] rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs space-y-3 p-4 sm:p-5">
           
           <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#222938]">
-            <div>
-              <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white flex items-center gap-2">
-                <Flame className="w-4 h-4 text-rose-600" />
-                <span>Pontos de Atenção & Alertas de Homicídio no Setor</span>
-              </h3>
-              <p className="text-xs text-gray-500">
-                Ocorrências de alta gravidade com potencial de evolução para policiamento qualificado no turno.
-              </p>
-            </div>
+            <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white flex items-center gap-2">
+              <Flame className="w-4 h-4 text-rose-600" />
+              <span>Pontos de Atenção & Alertas de Homicídio no Setor</span>
+            </h3>
 
             <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 text-xs font-bold">
               {alertas.length} ativos
@@ -734,9 +618,6 @@ export default function MissaoDoDiaPage() {
               <Check className="w-6 h-6 text-emerald-500 mx-auto" />
               <p className="font-bold text-xs text-gray-800 dark:text-gray-200">
                 Nenhum alerta crítico ativo no setor no momento.
-              </p>
-              <p className="text-[11px] text-gray-400">
-                Manter o patrulhamento preventivo e visibilidade nas zonas de calor habituais.
               </p>
             </div>
           ) : (
@@ -762,19 +643,16 @@ export default function MissaoDoDiaPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs bg-gray-50/70 dark:bg-[#0E121A]/60 p-3 rounded-xl border border-gray-200/60 dark:border-[#283042]">
                     <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold text-gray-500 uppercase">Cenário / Envolvidos:</span>
-                      <p className="text-gray-800 dark:text-gray-200 leading-relaxed text-[11px]">
-                        {alerta.avaliacao_cenario || 'Conflito interpessoal com risco de retaliação armada.'}
+                      <span className="text-[10px] font-bold text-gray-500 uppercase">Cenário:</span>
+                      <p className="text-gray-800 dark:text-gray-200 text-[11px] leading-relaxed">
+                        {alerta.avaliacao_cenario || 'Conflito com risco de evolução violenta.'}
                       </p>
-                      <div className="text-[10px] text-gray-400 pt-0.5">
-                        <span>Autores: <strong>{alerta.autores || 'A apurar'}</strong></span> • <span>Vítimas: <strong>{alerta.vitimas || 'A apurar'}</strong></span>
-                      </div>
                     </div>
 
                     <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Ação Preventiva Recomendada:</span>
-                      <p className="text-emerald-900 dark:text-emerald-200 leading-relaxed text-[11px] font-medium">
-                        {alerta.acoes_preventivas_adotadas || 'Patrulhamento qualificado com abordagens sistemáticas e parada base no local.'}
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Ação Preventiva:</span>
+                      <p className="text-emerald-900 dark:text-emerald-200 text-[11px] font-medium leading-relaxed">
+                        {alerta.acoes_preventivas_adotadas || 'Patrulhamento qualificado e abordagens sistemáticas.'}
                       </p>
                     </div>
                   </div>
@@ -786,9 +664,7 @@ export default function MissaoDoDiaPage() {
         </div>
       )}
 
-      {/* --------------------------------------------------------- */}
-      {/* TAB 3: VISITAS A EGRESSOS (LISTA LIMPA & MODAL) */}
-      {/* --------------------------------------------------------- */}
+      {/* TAB 3: VISITAS A EGRESSOS */}
       {activeTab === 'EGRESSOS' && (
         <div className="bg-white dark:bg-[#151A23] rounded-2xl border border-gray-200/90 dark:border-[#222938] shadow-xs space-y-3 p-4 sm:p-5">
           
@@ -796,11 +672,8 @@ export default function MissaoDoDiaPage() {
             <div>
               <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-white flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-purple-600" />
-                <span>Fiscalização e Visitas a Egressos do Sistema Prisional</span>
+                <span>Fiscalização de Egressos do Sistema Prisional</span>
               </h3>
-              <p className="text-xs text-gray-500">
-                Apenados sob cautelares no setor. Clique no nome para abrir a ficha completa e registrar a fiscalização.
-              </p>
             </div>
 
             <span className="px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 text-xs font-bold">
@@ -835,11 +708,15 @@ export default function MissaoDoDiaPage() {
                             ("{egresso.alcunha}")
                           </span>
                         )}
-                        <span className="px-2 py-0.2 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[10px] font-bold">
-                          {egresso.beneficio === 'PRISAO_DOMICILIAR' ? 'Prisão Domiciliar' :
-                           egresso.beneficio === 'LIVRAMENTO_CONDICIONAL' ? 'Livramento Condicional' :
-                           egresso.beneficio === 'MONITORAMENTO_ELETRONICO' ? 'Tornozeleira' : 'Medida Cautelar'}
-                        </span>
+                        {egresso.status_turno && egresso.status_turno !== 'PENDENTE' && (
+                          <span className={`px-2 py-0.2 rounded-md text-[10px] font-bold border ${
+                            egresso.status_turno === 'SEM_DESCUMPRIMENTO'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300'
+                          }`}>
+                            {egresso.status_turno === 'SEM_DESCUMPRIMENTO' ? '✓ Sem Descumprimento' : '⚠️ Com Descumprimento'}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[11px] text-gray-400 block truncate">
                         {egresso.bairro} • Recolhimento: {egresso.horario_recolhimento || '20h às 06h'}
@@ -960,26 +837,26 @@ export default function MissaoDoDiaPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setFiscalizacaoResultado('CONFORME')}
-                    className={`py-1.5 px-3 rounded-xl font-bold text-xs border transition-all ${
-                      fiscalizacaoResultado === 'CONFORME'
+                    onClick={() => setFiscalizacaoResultado('SEM_DESCUMPRIMENTO')}
+                    className={`py-1.5 px-3 rounded-xl font-bold text-xs border transition-all cursor-pointer ${
+                      fiscalizacaoResultado === 'SEM_DESCUMPRIMENTO'
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                         : 'bg-gray-50 dark:bg-[#0E121A] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-[#283042]'
                     }`}
                   >
-                    ✓ Em Conformidade
+                    ✓ Sem Descumprimento
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setFiscalizacaoResultado('DESCUMPRIMENTO')}
-                    className={`py-1.5 px-3 rounded-xl font-bold text-xs border transition-all ${
-                      fiscalizacaoResultado === 'DESCUMPRIMENTO'
+                    onClick={() => setFiscalizacaoResultado('COM_DESCUMPRIMENTO')}
+                    className={`py-1.5 px-3 rounded-xl font-bold text-xs border transition-all cursor-pointer ${
+                      fiscalizacaoResultado === 'COM_DESCUMPRIMENTO'
                         ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
                         : 'bg-gray-50 dark:bg-[#0E121A] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-[#283042]'
                     }`}
                   >
-                    ⚠️ Descumprimento
+                    ⚠️ Com Descumprimento
                   </button>
                 </div>
 
@@ -1016,7 +893,7 @@ export default function MissaoDoDiaPage() {
       )}
 
       {/* ========================================================= */}
-      {/* MODAL: LEITURA COMPLETA DO RECADO DO TURNO */}
+      {/* MODAL: LEITURA DO RECADO DO TURNO */}
       {/* ========================================================= */}
       {selectedNoticeToRead && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1024,9 +901,9 @@ export default function MissaoDoDiaPage() {
             
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#222938]">
               <div className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-purple-600" />
+                <Bell className="w-5 h-5 text-amber-600" />
                 <h3 className="font-bold text-base text-gray-900 dark:text-white">
-                  Comunicado / Orientação do Turno
+                  Diretriz / Recado do Turno
                 </h3>
               </div>
               <button
@@ -1040,7 +917,7 @@ export default function MissaoDoDiaPage() {
 
             <div className="space-y-3 text-xs">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-300">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300">
                   {selectedNoticeToRead.prioridade}
                 </span>
                 <span className="text-gray-400">
@@ -1057,7 +934,7 @@ export default function MissaoDoDiaPage() {
               </div>
 
               <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200">
-                Ao clicar no botão abaixo, sua ciência e leitura serão registradas no sistema para controle e conferência dos Oficiais e da Seção de Emprego Operacional (SOF).
+                Ao clicar no botão abaixo, sua confirmação de ciência será gravada para controle dos Oficiais e da SOF.
               </div>
             </div>
 
@@ -1072,7 +949,7 @@ export default function MissaoDoDiaPage() {
               <button
                 type="button"
                 onClick={() => handleConfirmNoticeRead(selectedNoticeToRead.id)}
-                className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700"
+                className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
               >
                 <CheckCheck className="w-4 h-4" />
                 <span>Confirmar Leitura / Estou Ciente</span>

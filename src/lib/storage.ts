@@ -1223,7 +1223,7 @@ class StorageService {
 
   registerEgressoFiscalizacao(
     egressoId: string, 
-    resultado: 'CONFORME' | 'DESCUMPRIMENTO', 
+    resultado: 'SEM_DESCUMPRIMENTO' | 'COM_DESCUMPRIMENTO', 
     detalhes: string, 
     user: UserProfile, 
     equipe: string
@@ -1238,12 +1238,12 @@ class StorageService {
     const dataHoraStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
     egresso.visitas_realizadas_mes = (egresso.visitas_realizadas_mes || 0) + 1;
-    egresso.status_turno = resultado === 'CONFORME' ? 'FISCALIZADO_CONFORME' : 'DESCUMPRIMENTO';
+    egresso.status_turno = resultado === 'SEM_DESCUMPRIMENTO' ? 'SEM_DESCUMPRIMENTO' : 'COM_DESCUMPRIMENTO';
     egresso.ultima_fiscalizacao = {
       data_hora: dataHoraStr,
       militar_nome: militarNome,
       equipe: equipe || 'Geral',
-      resultado: resultado === 'CONFORME' ? `Conforme - ${detalhes || 'Sem irregularidades'}` : `Descumprimento - ${detalhes || 'Não encontrado no horário'}`
+      resultado: resultado === 'SEM_DESCUMPRIMENTO' ? `Sem Descumprimento - ${detalhes || 'Em conformidade com as regras judiciais'}` : `Com Descumprimento - ${detalhes || 'Descumprimento das regras judiciais constatado'}`
     };
 
     this.saveEgressos(list);

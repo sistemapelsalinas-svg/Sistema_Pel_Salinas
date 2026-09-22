@@ -224,7 +224,7 @@ export interface EgressoFiscalizacao {
   horario_recolhimento?: string;
   visitas_meta_mes: number;
   visitas_realizadas_mes: number;
-  status_turno: 'PENDENTE' | 'FISCALIZADO_CONFORME' | 'DESCUMPRIMENTO';
+  status_turno: 'PENDENTE' | 'SEM_DESCUMPRIMENTO' | 'COM_DESCUMPRIMENTO';
   regras_condicoes: string[];
   ultima_fiscalizacao?: {
     data_hora: string;
