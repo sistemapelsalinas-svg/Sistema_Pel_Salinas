@@ -187,6 +187,54 @@ export interface TeamOperationMissionTarget {
   statusMeta: 'ATINGIDA' | 'NO_RITMO' | 'ATENCAO' | 'CRITICA';
 }
 
+export interface ShiftNoticeReadConfirmation {
+  usuario_id: string;
+  usuario_nome: string;
+  numero_pm: string;
+  equipe?: string;
+  data_hora: string;
+}
+
+export interface ShiftNotice {
+  id: string;
+  titulo: string;
+  mensagem: string;
+  destinatario_tipo: 'TODAS' | 'EQUIPES_ESPECIFICAS';
+  equipes_destinatarias: string[];
+  prazo_exibicao: string; // ISO date / YYYY-MM-DDTHH:mm
+  prioridade: 'NORMAL' | 'IMPORTANTE' | 'URGENTE';
+  ativo: boolean;
+  created_by?: string;
+  created_by_nome?: string;
+  created_at: string;
+  leituras_confirmadas: ShiftNoticeReadConfirmation[];
+}
+
+export interface EgressoFiscalizacao {
+  id: string;
+  nome_completo: string;
+  alcunha?: string;
+  foto_url?: string;
+  data_nascimento?: string;
+  numero_processo?: string;
+  beneficio: 'PRISAO_DOMICILIAR' | 'LIVRAMENTO_CONDICIONAL' | 'MONITORAMENTO_ELETRONICO' | 'MEDIDA_CAUTELAR';
+  artigo_crime?: string;
+  bairro: string;
+  endereco_completo: string;
+  horario_recolhimento?: string;
+  visitas_meta_mes: number;
+  visitas_realizadas_mes: number;
+  status_turno: 'PENDENTE' | 'FISCALIZADO_CONFORME' | 'DESCUMPRIMENTO';
+  regras_condicoes: string[];
+  ultima_fiscalizacao?: {
+    data_hora: string;
+    militar_nome: string;
+    equipe: string;
+    resultado: string;
+  };
+  observacoes?: string;
+}
+
 export interface DailyMissionData {
   militar: UserProfile;
   equipeHoje: string;
@@ -208,4 +256,7 @@ export interface DailyMissionData {
   metasEquipe: TeamOperationMissionTarget[];
   pendenciasUltimoServico: string[];
   alertasSetor: HomicideAlert[];
+  egressosSetor?: EgressoFiscalizacao[];
+  recadosAtivos?: ShiftNotice[];
 }
+

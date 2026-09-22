@@ -11,7 +11,10 @@ import {
   EscalaMilitar,
   ScheduleItem,
   GuarnicaoMilitar,
-  TeamOperationMissionTarget
+  TeamOperationMissionTarget,
+  ShiftNotice,
+  ShiftNoticeReadConfirmation,
+  EgressoFiscalizacao
 } from './types';
 import { 
   INITIAL_USERS, 
@@ -23,7 +26,9 @@ import {
   DEFAULT_LEGENDS, 
   DEFAULT_TEAMS,
   INITIAL_ESCALA_MILITARES,
-  generateSampleSchedule 
+  generateSampleSchedule,
+  INITIAL_SHIFT_NOTICES,
+  INITIAL_EGRESSOS
 } from './mock-data';
 
 const STORAGE_KEYS = {
@@ -37,7 +42,9 @@ const STORAGE_KEYS = {
   SCHEDULE: 'sgp_salinas_schedule_v1',
   ESCALA_MILITARES: 'sgp_salinas_escala_militares_v1',
   TEAMS: 'sgp_salinas_teams_v1',
-  CURRENT_USER: 'sgp_salinas_current_user_v1'
+  CURRENT_USER: 'sgp_salinas_current_user_v1',
+  SHIFT_NOTICES: 'sgp_salinas_shift_notices_v1',
+  EGRESSOS: 'sgp_salinas_egressos_v1'
 };
 
 class StorageService {
@@ -1039,6 +1046,27 @@ class StorageService {
     // 7. Alertas Ativos de Risco Alto ou Crítico
     const alertasSetor = alerts.filter(a => a.status === 'ATIVO' && (a.grau_risco === 'CRITICO' || a.grau_risco === 'ALTO'));
 
+    // 8. Egressos do Setor
+    const egressosSetor = this.getEgressos();
+
+    // 9. Recados Ativos direcionados para o usuário/equipe
+    const nowIso = new Date().toISOString();
+    const allNotices = this.getShiftNotices();
+    const recadosAtivos = allNotices.filter(n => {
+      if (!n.ativo) return false;
+      if (n.prazo_exibicao) {
+        const prazoDate = new Date(n.prazo_exibicao);
+        if (prazoDate.getTime() < new Date().getTime()) {
+          return false;
+        }
+      }
+      if (n.destinatario_tipo === 'TODAS') return true;
+      if (equipeHoje && n.equipes_destinatarias.some(eq => eq.toUpperCase() === equipeHoje.toUpperCase() || equipeHoje.toUpperCase().includes(eq.toUpperCase()))) {
+        return true;
+      }
+      return false;
+    });
+
     return {
       militar: user,
       equipeHoje,
@@ -1059,8 +1087,167 @@ class StorageService {
       percentualGeralEquipe,
       metasEquipe,
       pendenciasUltimoServico,
-      alertasSetor
+      alertasSetor,
+      egressosSetor,
+      recadosAtivos
     };
+  }
+
+  // --- RECADOS DO TURNO (SHIFT NOTICES) ---
+  getShiftNotices(): ShiftNotice[] {
+    if (!this.isBrowser()) return INITIAL_SHIFT_NOTICES;
+    const data = localStorage.getItem(STORAGE_KEYS.SHIFT_NOTICES);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.SHIFT_NOTICES, JSON.stringify(INITIAL_SHIFT_NOTICES));
+      return INITIAL_SHIFT_NOTICES;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_SHIFT_NOTICES;
+    }
+  }
+
+  saveShiftNotices(notices: ShiftNotice[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.SHIFT_NOTICES, JSON.stringify(notices));
+  }
+
+  addShiftNotice(notice: Omit<ShiftNotice, 'id' | 'created_at' | 'leituras_confirmadas'>): ShiftNotice {
+    const list = this.getShiftNotices();
+    const newNotice: ShiftNotice = {
+      ...notice,
+      id: `not-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      leituras_confirmadas: []
+    };
+    list.unshift(newNotice);
+    this.saveShiftNotices(list);
+    return newNotice;
+  }
+
+  updateShiftNotice(id: string, updates: Partial<ShiftNotice>): ShiftNotice | null {
+    const list = this.getShiftNotices();
+    const idx = list.findIndex(n => n.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveShiftNotices(list);
+    return list[idx];
+  }
+
+  deleteShiftNotice(id: string): boolean {
+    const list = this.getShiftNotices();
+    const filtered = list.filter(n => n.id !== id);
+    if (filtered.length !== list.length) {
+      this.saveShiftNotices(filtered);
+      return true;
+    }
+    return false;
+  }
+
+  confirmShiftNoticeRead(noticeId: string, user: UserProfile, equipe?: string): boolean {
+    const list = this.getShiftNotices();
+    const idx = list.findIndex(n => n.id === noticeId);
+    if (idx === -1) return false;
+
+    const notice = list[idx];
+    const userPmClean = (user.numero_pm || '').replace(/\D/g, '');
+    const alreadyRead = notice.leituras_confirmadas?.some(
+      l => l.usuario_id === user.id || (userPmClean && (l.numero_pm || '').replace(/\D/g, '') === userPmClean)
+    );
+
+    if (!alreadyRead) {
+      const confirmation: ShiftNoticeReadConfirmation = {
+        usuario_id: user.id,
+        usuario_nome: `${user.graduacao || ''} ${user.nome_guerra || user.nome_completo}`.trim(),
+        numero_pm: user.numero_pm,
+        equipe: equipe || user.equipe_padrao || 'Geral',
+        data_hora: new Date().toISOString()
+      };
+      notice.leituras_confirmadas = [...(notice.leituras_confirmadas || []), confirmation];
+      this.saveShiftNotices(list);
+      return true;
+    }
+    return false;
+  }
+
+  // --- FISCALIZAÇÃO DE EGRESSOS ---
+  getEgressos(): EgressoFiscalizacao[] {
+    if (!this.isBrowser()) return INITIAL_EGRESSOS;
+    const data = localStorage.getItem(STORAGE_KEYS.EGRESSOS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.EGRESSOS, JSON.stringify(INITIAL_EGRESSOS));
+      return INITIAL_EGRESSOS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_EGRESSOS;
+    }
+  }
+
+  saveEgressos(egressos: EgressoFiscalizacao[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.EGRESSOS, JSON.stringify(egressos));
+  }
+
+  addEgresso(egresso: Omit<EgressoFiscalizacao, 'id'>): EgressoFiscalizacao {
+    const list = this.getEgressos();
+    const newEgresso: EgressoFiscalizacao = {
+      ...egresso,
+      id: `egr-${Date.now()}`
+    };
+    list.unshift(newEgresso);
+    this.saveEgressos(list);
+    return newEgresso;
+  }
+
+  updateEgresso(id: string, updates: Partial<EgressoFiscalizacao>): EgressoFiscalizacao | null {
+    const list = this.getEgressos();
+    const idx = list.findIndex(e => e.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveEgressos(list);
+    return list[idx];
+  }
+
+  deleteEgresso(id: string): boolean {
+    const list = this.getEgressos();
+    const filtered = list.filter(e => e.id !== id);
+    if (filtered.length !== list.length) {
+      this.saveEgressos(filtered);
+      return true;
+    }
+    return false;
+  }
+
+  registerEgressoFiscalizacao(
+    egressoId: string, 
+    resultado: 'CONFORME' | 'DESCUMPRIMENTO', 
+    detalhes: string, 
+    user: UserProfile, 
+    equipe: string
+  ): boolean {
+    const list = this.getEgressos();
+    const idx = list.findIndex(e => e.id === egressoId);
+    if (idx === -1) return false;
+
+    const egresso = list[idx];
+    const militarNome = `${user.graduacao || ''} ${user.nome_guerra || user.nome_completo}`.trim();
+    const now = new Date();
+    const dataHoraStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    egresso.visitas_realizadas_mes = (egresso.visitas_realizadas_mes || 0) + 1;
+    egresso.status_turno = resultado === 'CONFORME' ? 'FISCALIZADO_CONFORME' : 'DESCUMPRIMENTO';
+    egresso.ultima_fiscalizacao = {
+      data_hora: dataHoraStr,
+      militar_nome: militarNome,
+      equipe: equipe || 'Geral',
+      resultado: resultado === 'CONFORME' ? `Conforme - ${detalhes || 'Sem irregularidades'}` : `Descumprimento - ${detalhes || 'Não encontrado no horário'}`
+    };
+
+    this.saveEgressos(list);
+    return true;
   }
 }
 

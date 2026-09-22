@@ -21,7 +21,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Bell
 } from 'lucide-react';
 import { EgressosModal } from './egressos-modal';
 
@@ -65,6 +66,7 @@ export function Sidebar() {
     {
       category: 'GESTÃO & RELATÓRIOS',
       items: [
+        ...(isSofOrAdmin ? [{ title: 'Recados do Turno', href: '/dashboard/recados', icon: Bell, badge: 'Avisos' }] : []),
         { title: 'Militares & Acessos', href: '/dashboard/usuarios', icon: Users },
         { title: 'Relatórios & Produtividade', href: '/dashboard/relatorios', icon: BarChart2 },
       ]

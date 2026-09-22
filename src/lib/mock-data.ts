@@ -6,7 +6,9 @@ import {
   MonthlySchedule, 
   MonthlyTarget,
   OperationExecutionLog,
-  EscalaMilitar
+  EscalaMilitar,
+  ShiftNotice,
+  EgressoFiscalizacao
 } from './types';
 
 export const DEFAULT_TEAMS = [
@@ -398,6 +400,153 @@ export const INITIAL_MONTHLY_TARGETS: MonthlyTarget[] = [];
 export const INITIAL_LOGS: OperationExecutionLog[] = [];
 export const INITIAL_ALERTS: HomicideAlert[] = [];
 
+export const INITIAL_SHIFT_NOTICES: ShiftNotice[] = [
+  {
+    id: 'not-001',
+    titulo: 'Prioridade Operacional: Corredor Comercial e Bancário',
+    mensagem: 'Todas as guarnições devem intensificar o policiamento ostensivo e abordagens a indivíduos em atitude suspeita nas proximidades das agências bancárias e corredores comerciais durante o horário comercial.',
+    destinatario_tipo: 'TODAS',
+    equipes_destinatarias: [],
+    prazo_exibicao: '2026-10-15T23:59',
+    prioridade: 'IMPORTANTE',
+    ativo: true,
+    created_by: 'usr-admin-1',
+    created_by_nome: '2º Ten Comandante',
+    created_at: '2026-09-01T08:00:00.000Z',
+    leituras_confirmadas: []
+  },
+  {
+    id: 'not-002',
+    titulo: 'Atenção aos Horários de Entrada e Saída Escolar',
+    mensagem: 'Guarnições de serviço devem realizar passagens estratégicas e pontos base nas imediações das Escolas Estaduais Coronel Idalino e Emílio de Vasconcelos nos horários de entrada (06h50 e 12h50) e saída (11h40 e 17h40).',
+    destinatario_tipo: 'EQUIPES_ESPECIFICAS',
+    equipes_destinatarias: ['ALFA 1', 'ALFA 2', 'BRAVO 1', 'BRAVO 2', 'PATRULHA ESCOLAR'],
+    prazo_exibicao: '2026-10-31T23:59',
+    prioridade: 'NORMAL',
+    ativo: true,
+    created_by: 'usr-sof-1',
+    created_by_nome: 'Sgt SOF',
+    created_at: '2026-09-05T09:30:00.000Z',
+    leituras_confirmadas: []
+  }
+];
+
+export const INITIAL_EGRESSOS: EgressoFiscalizacao[] = [
+  {
+    id: 'egr-001',
+    nome_completo: 'Carlos Eduardo Rodrigues Santos',
+    alcunha: 'Dudu da Santa Mônica',
+    numero_processo: '0014523-88.2023.8.13.0570',
+    beneficio: 'PRISAO_DOMICILIAR',
+    artigo_crime: 'Art. 33 (Tráfico de Drogas)',
+    bairro: 'Santa Mônica',
+    endereco_completo: 'Rua das Flores, 142 — Santa Mônica, Salinas/MG',
+    horario_recolhimento: '20:00 às 06:00',
+    visitas_meta_mes: 4,
+    visitas_realizadas_mes: 2,
+    status_turno: 'PENDENTE',
+    regras_condicoes: [
+      'Recolhimento domiciliar obrigatório das 20h às 06h',
+      'Proibido frequentar bares, prostíbulos e locais de jogos',
+      'Não se ausentar da Comarca de Salinas sem autorização judicial'
+    ],
+    ultima_fiscalizacao: {
+      data_hora: '10/09/2026 21:45',
+      militar_nome: 'Cb Silva',
+      equipe: 'ALFA 1',
+      resultado: 'Conforme - Encontrado no domicílio'
+    },
+    observacoes: 'Indivíduo monitorado pelo setor de inteligência.'
+  },
+  {
+    id: 'egr-002',
+    nome_completo: 'Marcos Vinícius Pereira de Almeida',
+    alcunha: 'Marquinhos',
+    numero_processo: '0032910-12.2024.8.13.0570',
+    beneficio: 'LIVRAMENTO_CONDICIONAL',
+    artigo_crime: 'Art. 157 §2º (Roubo Majorado)',
+    bairro: 'Nova Esperança',
+    endereco_completo: 'Av. Brasil, 850 — Nova Esperança, Salinas/MG',
+    horario_recolhimento: '22:00 às 05:00',
+    visitas_meta_mes: 3,
+    visitas_realizadas_mes: 1,
+    status_turno: 'PENDENTE',
+    regras_condicoes: [
+      'Recolhimento obrigatório após as 22h',
+      'Comprovar ocupação lícita bimestralmente',
+      'Não portar armas ou substâncias entorpecentes'
+    ],
+    ultima_fiscalizacao: {
+      data_hora: '05/09/2026 22:30',
+      militar_nome: 'Sgt Souza',
+      equipe: 'BRAVO 1',
+      resultado: 'Conforme - Em repouso no quarto'
+    }
+  },
+  {
+    id: 'egr-003',
+    nome_completo: 'Wesley Silva dos Santos',
+    alcunha: 'Gordinho',
+    numero_processo: '0041289-55.2023.8.13.0570',
+    beneficio: 'MONITORAMENTO_ELETRONICO',
+    artigo_crime: 'Art. 155 (Furto Qualificado)',
+    bairro: 'Centro',
+    endereco_completo: 'Rua Coronel Gonzaga, 310 — Centro, Salinas/MG',
+    horario_recolhimento: '19:00 às 06:00',
+    visitas_meta_mes: 4,
+    visitas_realizadas_mes: 3,
+    status_turno: 'PENDENTE',
+    regras_condicoes: [
+      'Tornozeleira eletrônica ativa e com carga constante',
+      'Permanência no raio domiciliar das 19h às 06h',
+      'Proibido contato com outros apenados'
+    ],
+    ultima_fiscalizacao: {
+      data_hora: '14/09/2026 20:10',
+      militar_nome: 'Cb Santos',
+      equipe: 'ALFA 2',
+      resultado: 'Conforme - Tornozeleira operacional'
+    }
+  },
+  {
+    id: 'egr-004',
+    nome_completo: 'Gabriel Henrique Alves Moreira',
+    alcunha: 'Biel',
+    numero_processo: '0018902-77.2024.8.13.0570',
+    beneficio: 'MEDIDA_CAUTELAR',
+    artigo_crime: 'Art. 129 (Lesão Corporal / Lei Maria da Penha)',
+    bairro: 'São Geraldo',
+    endereco_completo: 'Rua São Paulo, 95 — São Geraldo, Salinas/MG',
+    horario_recolhimento: '21:00 às 06:00',
+    visitas_meta_mes: 2,
+    visitas_realizadas_mes: 0,
+    status_turno: 'PENDENTE',
+    regras_condicoes: [
+      'Proibição de aproximação da vítima a menos de 300 metros',
+      'Recolhimento domiciliar noturno a partir das 21h',
+      'Comparecimento mensal em juízo'
+    ]
+  },
+  {
+    id: 'egr-005',
+    nome_completo: 'Renato Ferreira de Lima',
+    alcunha: 'Renatinho',
+    numero_processo: '0027811-30.2023.8.13.0570',
+    beneficio: 'PRISAO_DOMICILIAR',
+    artigo_crime: 'Art. 14 (Porte Ilegal de Arma de Fogo)',
+    bairro: 'Cruzeiro',
+    endereco_completo: 'Rua Minas Gerais, 412 — Cruzeiro, Salinas/MG',
+    horario_recolhimento: '20:00 às 06:00',
+    visitas_meta_mes: 3,
+    visitas_realizadas_mes: 1,
+    status_turno: 'PENDENTE',
+    regras_condicoes: [
+      'Recolhimento domiciliar obrigatório das 20h às 06h',
+      'Proibido ausentar-se do endereço sem comunicação prévia'
+    ]
+  }
+];
+
 export function generateSampleSchedule(mes: number = 8, ano: number = 2026): MonthlySchedule {
   const daysInMonth = new Date(ano, mes, 0).getDate();
   const militares = INITIAL_ESCALA_MILITARES;
@@ -428,3 +577,4 @@ export function generateSampleSchedule(mes: number = 8, ano: number = 2026): Mon
     created_at: new Date().toISOString()
   };
 }
+
