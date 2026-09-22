@@ -9,7 +9,7 @@ interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   login: (numero_pm: string, password?: string) => Promise<{ success: boolean; message?: string }>;
-  register: (userData: Omit<UserProfile, 'id' | 'created_at'>) => Promise<{ success: boolean; message?: string }>;
+  register: (userData: Omit<UserProfile, 'id' | 'created_at'>, inviteTokenStr?: string) => Promise<{ success: boolean; message?: string; pendingApproval?: boolean }>;
   logout: () => void;
   updatePassword: (newPassword: string) => Promise<{ success: boolean }>;
   switchUserRole: (role: UserRole) => void;
@@ -62,6 +62,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: 'Número de PM não encontrado. Verifique o número ou faça o cadastro.' };
     }
 
+    if (found.status_aprovacao === 'PENDENTE') {
+      return { 
+        success: false, 
+        message: 'Seu cadastro está aguardando autorização de um Administrador. Por favor, aguarde a liberação do acesso.' 
+      };
+    }
+
+    if (found.status_aprovacao === 'REJEITADO') {
+      return { 
+        success: false, 
+        message: 'Sua solicitação de cadastro não foi autorizada pela administração. Contate a SOF/Administrador.' 
+      };
+    }
+
     if (!found.ativo) {
       return { success: false, message: 'Este usuário está inativo no sistema. Contate o Administrador.' };
     }
@@ -85,7 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: true };
   };
 
-  const register = async (userData: Omit<UserProfile, 'id' | 'created_at'>): Promise<{ success: boolean; message?: string }> => {
+  const register = async (
+    userData: Omit<UserProfile, 'id' | 'created_at'>, 
+    inviteTokenStr?: string
+  ): Promise<{ success: boolean; message?: string; pendingApproval?: boolean }> => {
     const cleanNum = userData.numero_pm.trim();
     const allUsers = storage.getUsers();
 
@@ -98,16 +115,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: 'Este Número de PM já está cadastrado no sistema.' };
     }
 
-    const newUser = storage.addUser({
-      ...userData,
-      primeiro_acesso: false,
-      ativo: true
-    });
+    // Se possui token de convite válido gerado por admin
+    let roleToAssign: UserRole = userData.role || 'EQUIPE';
+    let isApproved = false;
+    let equipePadrao = userData.equipe_padrao || '';
 
-    setUser(newUser);
-    localStorage.setItem('sgp_salinas_current_user_v1', JSON.stringify(newUser));
-    router.push('/dashboard');
-    return { success: true };
+    if (inviteTokenStr) {
+      const validToken = storage.getInviteToken(inviteTokenStr);
+      if (validToken && !validToken.usado) {
+        roleToAssign = validToken.role;
+        if (validToken.equipe_padrao) equipePadrao = validToken.equipe_padrao;
+        isApproved = true;
+      }
+    }
+
+    if (isApproved) {
+      // Usuário com convite oficial: Acesso aprovado imediatamente
+      const newUser = storage.addUser({
+        ...userData,
+        role: roleToAssign,
+        equipe_padrao: equipePadrao,
+        primeiro_acesso: false,
+        ativo: true,
+        status_aprovacao: 'APROVADO'
+      });
+
+      if (inviteTokenStr) {
+        storage.consumeInviteToken(inviteTokenStr, newUser.id);
+      }
+
+      setUser(newUser);
+      localStorage.setItem('sgp_salinas_current_user_v1', JSON.stringify(newUser));
+      router.push('/dashboard');
+      return { success: true };
+    } else {
+      // Cadastro livre pela tela de login: Perfil EQUIPE, Pendente de Aprovação
+      storage.addUser({
+        ...userData,
+        role: 'EQUIPE',
+        equipe_padrao: '',
+        primeiro_acesso: false,
+        ativo: false,
+        status_aprovacao: 'PENDENTE'
+      });
+
+      return { 
+        success: true, 
+        pendingApproval: true,
+        message: 'Cadastro realizado com sucesso! Sua solicitação foi enviada para autorização de um Administrador. Assim que for aprovada, você poderá acessar o sistema com sua senha.' 
+      };
+    }
   };
 
   const logout = () => {

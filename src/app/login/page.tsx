@@ -1,14 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { Shield, ArrowRight, AlertCircle, UserPlus } from 'lucide-react';
+import { storage } from '@/lib/storage';
+import { Shield, ArrowRight, AlertCircle, UserPlus, CheckCircle2, Link2, Sparkles } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { UserRole } from '@/lib/types';
+import { UserRole, RegistrationInviteToken } from '@/lib/types';
+import { useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginFormContent() {
   const { login, register } = useAuth();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'LOGIN' | 'CADASTRO'>('LOGIN');
+
+  // Convite via Link
+  const [inviteToken, setInviteToken] = useState<RegistrationInviteToken | null>(null);
+  const [inviteTokenStr, setInviteTokenStr] = useState<string>('');
 
   // Login Form (100% limpo, sem pré-preenchimento)
   const [numeroPm, setNumeroPm] = useState('');
@@ -16,13 +23,32 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Cadastro Form (Sem especificação de equipe)
+  // Mensagem de sucesso para cadastro pendente
+  const [pendingSuccessMsg, setPendingSuccessMsg] = useState<string | null>(null);
+
+  // Cadastro Form
   const [cadGraduacao, setCadGraduacao] = useState('Sd');
   const [cadNomeGuerra, setCadNomeGuerra] = useState('');
   const [cadNomeCompleto, setCadNomeCompleto] = useState('');
   const [cadNumeroPm, setCadNumeroPm] = useState('');
   const [cadWhatsapp, setCadWhatsapp] = useState('');
   const [cadPassword, setCadPassword] = useState('');
+
+  useEffect(() => {
+    const tokenParam = searchParams.get('token') || searchParams.get('convite');
+    if (tokenParam) {
+      const cleanToken = tokenParam.trim();
+      setInviteTokenStr(cleanToken);
+      const foundToken = storage.getInviteToken(cleanToken);
+      if (foundToken && !foundToken.usado) {
+        setInviteToken(foundToken);
+        setActiveTab('CADASTRO');
+        if (foundToken.graduacao_sugerida) setCadGraduacao(foundToken.graduacao_sugerida);
+        if (foundToken.nome_sugerido) setCadNomeGuerra(foundToken.nome_sugerido);
+        if (foundToken.numero_pm_sugerido) setCadNumeroPm(foundToken.numero_pm_sugerido);
+      }
+    }
+  }, [searchParams]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,22 +76,33 @@ export default function LoginPage() {
 
     setLoading(true);
     setError('');
+    setPendingSuccessMsg(null);
 
-    const res = await register({
-      numero_pm: cadNumeroPm.trim(),
-      nome_guerra: `${cadGraduacao} ${cadNomeGuerra.trim()}`,
-      nome_completo: cadNomeCompleto.trim() || `${cadGraduacao} ${cadNomeGuerra.trim()}`,
-      graduacao: cadGraduacao,
-      whatsapp: cadWhatsapp.trim() || '38999990000',
-      password_hash: cadPassword.trim(),
-      role: 'EQUIPE' as UserRole,
-      primeiro_acesso: false,
-      ativo: true
-    });
+    const res = await register(
+      {
+        numero_pm: cadNumeroPm.trim(),
+        nome_guerra: `${cadGraduacao} ${cadNomeGuerra.trim()}`,
+        nome_completo: cadNomeCompleto.trim() || `${cadGraduacao} ${cadNomeGuerra.trim()}`,
+        graduacao: cadGraduacao,
+        whatsapp: cadWhatsapp.trim() || '38999990000',
+        password_hash: cadPassword.trim(),
+        role: inviteToken ? inviteToken.role : ('EQUIPE' as UserRole),
+        equipe_padrao: inviteToken?.equipe_padrao || '',
+        primeiro_acesso: false,
+        ativo: inviteToken ? true : false
+      },
+      inviteTokenStr || undefined
+    );
+
+    setLoading(false);
 
     if (!res.success) {
       setError(res.message || 'Erro ao realizar cadastro.');
-      setLoading(false);
+    } else if (res.pendingApproval) {
+      setPendingSuccessMsg(res.message || 'Cadastro realizado com sucesso! Aguarde a liberação de um Administrador.');
+      setActiveTab('LOGIN');
+      setNumeroPm(cadNumeroPm.trim());
+      setPassword('');
     }
   };
 
@@ -120,6 +157,35 @@ export default function LoginPage() {
               Cadastrar-se
             </button>
           </div>
+
+          {/* Success / Pending Alert */}
+          {pendingSuccessMsg && (
+            <div className="mb-5 p-3.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-300 space-y-1 animate-in fade-in">
+              <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
+                <CheckCircle2 className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span>Cadastro Enviado com Sucesso!</span>
+              </div>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 pl-6 leading-relaxed">
+                Sua solicitação está aguardando autorização de um Administrador. Assim que for aprovada, você poderá acessar o sistema usando seu Nº PM e senha cadastrada.
+              </p>
+            </div>
+          )}
+
+          {/* Banner de Link de Convite Autorizado */}
+          {inviteToken && activeTab === 'CADASTRO' && (
+            <div className="mb-5 p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800 dark:text-emerald-300 animate-in fade-in">
+              <Sparkles className="w-4 h-4 flex-shrink-0 text-emerald-600 mt-0.5" />
+              <div>
+                <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+                  Link de Convite Autorizado
+                </p>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  Função pré-definida: <strong className="font-semibold uppercase">{inviteToken.role}</strong>
+                  {inviteToken.equipe_padrao ? ` · Equipe: ${inviteToken.equipe_padrao}` : ''}. Seu acesso será liberado imediatamente ao concluir o cadastro.
+                </p>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mb-5 p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in">
@@ -277,5 +343,17 @@ export default function LoginPage() {
       </div>
 
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F4F5F7] dark:bg-[#0B0E14] flex items-center justify-center p-4">
+        <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginFormContent />
+    </Suspense>
   );
 }

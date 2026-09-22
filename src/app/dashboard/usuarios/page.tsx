@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { storage } from '@/lib/storage';
-import { UserProfile, UserRole } from '@/lib/types';
+import { UserProfile, UserRole, RegistrationInviteToken } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { RoleBadge } from '@/components/role-badge';
 import { WhatsAppInviteModal } from '@/components/whatsapp-invite-modal';
+import { generateWhatsAppDirectInviteLink } from '@/lib/validation';
 import { 
   Users, 
   UserPlus, 
@@ -14,7 +15,15 @@ import {
   CheckCircle, 
   Search, 
   X,
-  Sparkles
+  Sparkles,
+  UserCheck,
+  UserX,
+  Link2,
+  Copy,
+  Check,
+  Clock,
+  ShieldCheck,
+  AlertCircle
 } from 'lucide-react';
 
 export default function GestaoUsuariosPage() {
@@ -22,9 +31,33 @@ export default function GestaoUsuariosPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Abas de visualização: Ativos x Pendentes de Autorização
+  const [activeTab, setActiveTab] = useState<'ATIVOS' | 'PENDENTES'>('ATIVOS');
+
+  // Modal de Cadastro Manual com Senha Provisória
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   const [selectedUserForInvite, setSelectedUserForInvite] = useState<UserProfile | null>(null);
   const [tempPasswordGenerated, setTempPasswordGenerated] = useState('');
+
+  // Modal de Gerar Link Direto de Cadastro
+  const [isInviteLinkModalOpen, setIsInviteLinkModalOpen] = useState(false);
+  const [inviteLinkData, setInviteLinkData] = useState({
+    role: 'EQUIPE' as UserRole,
+    equipe_padrao: 'ALFA 1',
+    graduacao_sugerida: 'Sd',
+    nome_sugerido: '',
+    numero_pm_sugerido: '',
+    whatsapp: ''
+  });
+  const [generatedInviteUrl, setGeneratedInviteUrl] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Modal/Ação de Aprovação de Usuário Pendente
+  const [approvingUser, setApprovingUser] = useState<UserProfile | null>(null);
+  const [approveRole, setApproveRole] = useState<UserRole>('EQUIPE');
+  const [approveEquipe, setApproveEquipe] = useState<string>('ALFA 1');
+
   const [notification, setNotification] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -37,13 +70,19 @@ export default function GestaoUsuariosPage() {
     equipe_padrao: 'ALFA 1'
   });
 
-  useEffect(() => {
+  const loadData = () => {
     setUsers(storage.getUsers());
     const loadedTeams = storage.getTeams();
     setTeams(loadedTeams);
     if (loadedTeams.length > 0) {
       setFormData(prev => ({ ...prev, equipe_padrao: loadedTeams[0] }));
+      setInviteLinkData(prev => ({ ...prev, equipe_padrao: loadedTeams[0] }));
+      setApproveEquipe(loadedTeams[0]);
     }
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const showToast = (msg: string) => {
@@ -61,7 +100,8 @@ export default function GestaoUsuariosPage() {
       ...formData,
       password_hash: randomTempPassword,
       primeiro_acesso: true,
-      ativo: true
+      ativo: true,
+      status_aprovacao: 'APROVADO'
     });
 
     setUsers(storage.getUsers());
@@ -78,8 +118,46 @@ export default function GestaoUsuariosPage() {
       graduacao: 'Sd',
       whatsapp: '38999991234',
       role: 'EQUIPE',
-      equipe_padrao: 'ALFA 1'
+      equipe_padrao: teams[0] || 'ALFA 1'
     });
+  };
+
+  // Gerar Link de Convite
+  const handleGenerateInviteLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loggedUser) return;
+
+    const createdToken = storage.createInviteToken({
+      role: inviteLinkData.role,
+      equipe_padrao: inviteLinkData.equipe_padrao,
+      graduacao_sugerida: inviteLinkData.graduacao_sugerida,
+      nome_sugerido: inviteLinkData.nome_sugerido.trim() || undefined,
+      numero_pm_sugerido: inviteLinkData.numero_pm_sugerido.trim() || undefined,
+      criado_por: loggedUser.nome_guerra,
+      dias_validade: 7
+    });
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://sgp-salinas.vercel.app';
+    const fullUrl = `${origin}/login?convite=${createdToken.token}`;
+    setGeneratedInviteUrl(fullUrl);
+  };
+
+  // Aprovar usuário pendente
+  const handleConfirmApproval = () => {
+    if (!approvingUser || !loggedUser) return;
+    storage.approveUser(approvingUser.id, loggedUser, approveRole, approveEquipe);
+    loadData();
+    setApprovingUser(null);
+    showToast(`Cadastro de ${approvingUser.nome_guerra} autorizado com sucesso como ${approveRole}.`);
+  };
+
+  // Recusar/Rejeitar usuário pendente
+  const handleRejectPendingUser = (userId: string, nome: string) => {
+    if (confirm(`Deseja realmente recusar e remover o pedido de cadastro de ${nome}?`)) {
+      storage.rejectUser(userId);
+      loadData();
+      showToast(`Pedido de cadastro de ${nome} recusado.`);
+    }
   };
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
@@ -106,11 +184,20 @@ export default function GestaoUsuariosPage() {
     setSelectedUserForInvite(u);
   };
 
-  const filteredUsers = users.filter(u => 
+  const approvedUsers = users.filter(u => u.status_aprovacao !== 'PENDENTE');
+  const pendingUsers = users.filter(u => u.status_aprovacao === 'PENDENTE');
+
+  const filteredApprovedUsers = approvedUsers.filter(u => 
     u.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.nome_guerra.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.numero_pm.includes(searchTerm) ||
     (u.equipe_padrao || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredPendingUsers = pendingUsers.filter(u => 
+    u.nome_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.nome_guerra.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.numero_pm.includes(searchTerm)
   );
 
   return (
@@ -131,143 +218,300 @@ export default function GestaoUsuariosPage() {
             Militares & Gestão de Acesso
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Cadastro de efetivo policial, permissões por função e disparo de convites WhatsApp.
+            Cadastro de efetivo policial, autorização de novos cadastros e links de convite.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsNewUserModalOpen(true)}
-          className="btn-primary"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Cadastrar Novo Militar</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => {
+              setGeneratedInviteUrl(null);
+              setIsInviteLinkModalOpen(true);
+            }}
+            className="btn-secondary"
+          >
+            <Link2 className="w-4 h-4 text-brand-600" />
+            <span>Gerar Link de Cadastro</span>
+          </button>
+
+          <button
+            onClick={() => setIsNewUserModalOpen(true)}
+            className="btn-primary"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Cadastrar Novo Militar</span>
+          </button>
+        </div>
       </div>
 
-      {/* Tabela de Usuários (Untitled UI Table) */}
-      <div className="untitled-card overflow-hidden">
-        
-        {/* Toolbar */}
-        <div className="p-4 border-b border-gray-200 dark:border-[#1F242F] flex items-center justify-between gap-4">
-          <div className="relative max-w-sm w-full">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Buscar por nome, Nº PM ou equipe..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="untitled-input pl-9 text-xs"
-            />
+      {/* Segmented View Switcher: Ativos x Pendentes */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="inline-flex p-1 bg-gray-100 dark:bg-[#1E2636] rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ATIVOS')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'ATIVOS'
+                ? 'bg-white dark:bg-[#151A23] text-gray-900 dark:text-white shadow-xs'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Efetivo Ativo ({approvedUsers.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('PENDENTES')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'PENDENTES'
+                ? 'bg-white dark:bg-[#151A23] text-gray-900 dark:text-white shadow-xs'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <span>Aguardando Autorização</span>
+            {pendingUsers.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
+                {pendingUsers.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <span className="text-xs text-gray-500 font-medium">
+          {activeTab === 'ATIVOS' ? `${approvedUsers.length} militares ativos` : `${pendingUsers.length} cadastros pendentes`}
+        </span>
+      </div>
+
+      {activeTab === 'PENDENTES' ? (
+        /* TABELA DE USUÁRIOS PENDENTES DE AUTORIZAÇÃO */
+        <div className="untitled-card overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-[#1F242F] flex items-center justify-between gap-4">
+            <div className="relative max-w-sm w-full">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar solicitação pendente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="untitled-input pl-9 text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 font-medium">
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+              <span>Cadastros realizados na tela de login aguardando aprovação</span>
+            </div>
           </div>
-          <span className="text-xs text-gray-500 font-medium">
-            Total: {users.length} Militares
-          </span>
+
+          {filteredPendingUsers.length === 0 ? (
+            <div className="p-12 text-center text-gray-400 dark:text-gray-500 space-y-2">
+              <ShieldCheck className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600" />
+              <p className="font-semibold text-sm text-gray-600 dark:text-gray-300">Nenhum cadastro pendente de autorização</p>
+              <p className="text-xs">Todos os pedidos de novos militares foram devidamente autorizados.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-[#0C111D] text-gray-500 font-semibold text-[11px] uppercase tracking-wider border-b border-gray-200 dark:border-[#1F242F]">
+                    <th className="p-3.5">Militar / Graduação</th>
+                    <th className="p-3.5">Nº de PM (Login)</th>
+                    <th className="p-3.5">WhatsApp</th>
+                    <th className="p-3.5">Perfil Solicitado</th>
+                    <th className="p-3.5">Data Solicitação</th>
+                    <th className="p-3.5 text-center">Ações de Autorização</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {filteredPendingUsers.map((u) => (
+                    <tr key={u.id} className="hover:bg-amber-50/30 dark:hover:bg-amber-950/10 transition-colors">
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center justify-center font-bold text-xs">
+                            {u.graduacao}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-gray-900 dark:text-white block">{u.nome_guerra}</span>
+                            <span className="text-[11px] text-gray-500 truncate block max-w-xs">{u.nome_completo}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-3.5 font-mono font-medium text-brand-600 dark:text-brand-400">
+                        {u.numero_pm}
+                      </td>
+
+                      <td className="p-3.5 text-gray-600 dark:text-gray-300 font-mono">
+                        {u.whatsapp}
+                      </td>
+
+                      <td className="p-3.5">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                          Básico ({u.role || 'EQUIPE'})
+                        </span>
+                      </td>
+
+                      <td className="p-3.5 text-gray-500">
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : 'Recente'}
+                      </td>
+
+                      <td className="p-3.5 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => {
+                              setApprovingUser(u);
+                              setApproveRole('EQUIPE');
+                              setApproveEquipe(teams[0] || 'ALFA 1');
+                            }}
+                            className="btn-primary py-1 px-3 text-xs bg-emerald-600 hover:bg-emerald-700"
+                            title="Autorizar e definir perfil"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>Autorizar</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectPendingUser(u.id, u.nome_guerra)}
+                            className="btn-secondary py-1 px-2.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            title="Recusar cadastro"
+                          >
+                            <UserX className="w-3.5 h-3.5" />
+                            <span>Recusar</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+      ) : (
+        /* TABELA DE USUÁRIOS ATIVOS */
+        <div className="untitled-card overflow-hidden">
+          
+          {/* Toolbar */}
+          <div className="p-4 border-b border-gray-200 dark:border-[#1F242F] flex items-center justify-between gap-4">
+            <div className="relative max-w-sm w-full">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por nome, Nº PM ou equipe..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="untitled-input pl-9 text-xs"
+              />
+            </div>
+            <span className="text-xs text-gray-500 font-medium">
+              Total: {filteredApprovedUsers.length} Militares
+            </span>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-[#0C111D] text-gray-500 font-semibold text-[11px] uppercase tracking-wider border-b border-gray-200 dark:border-[#1F242F]">
-                <th className="p-3.5">Militar / Graduação</th>
-                <th className="p-3.5">Nº de PM (Login)</th>
-                <th className="p-3.5">WhatsApp</th>
-                <th className="p-3.5">Equipe Padrão</th>
-                <th className="p-3.5">Perfil de Acesso</th>
-                <th className="p-3.5 text-center">Status 1º Acesso</th>
-                <th className="p-3.5 text-center">Convite</th>
-                <th className="p-3.5 text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/40 transition-colors">
-                  
-                  {/* Nome e Avatar */}
-                  <td className="p-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950/80 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center justify-center font-bold text-xs">
-                        {u.graduacao}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-gray-900 dark:text-white block">{u.nome_guerra}</span>
-                        <span className="text-[11px] text-gray-500 truncate block max-w-xs">{u.nome_completo}</span>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Número de PM */}
-                  <td className="p-3.5 font-mono font-medium text-brand-600 dark:text-brand-400">
-                    {u.numero_pm}
-                  </td>
-
-                  {/* WhatsApp */}
-                  <td className="p-3.5 text-gray-600 dark:text-gray-300 font-mono">
-                    {u.whatsapp}
-                  </td>
-
-                  {/* Equipe Padrão */}
-                  <td className="p-3.5">
-                    <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 font-medium text-[11px] text-gray-700 dark:text-gray-300">
-                      {u.equipe_padrao || '-'}
-                    </span>
-                  </td>
-
-                  {/* Perfil Dropdown */}
-                  <td className="p-3.5">
-                    <select
-                      value={u.role}
-                      onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
-                      className="p-1.5 bg-white dark:bg-[#0C111D] border border-gray-300 dark:border-gray-700 rounded-lg text-xs font-semibold focus:outline-none"
-                    >
-                      <option value="ADMIN">ADMINISTRADOR</option>
-                      <option value="SOF">SOF CENTRAL</option>
-                      <option value="ALERTA_HOMICIDIO">ALERTA HOMICÍDIO</option>
-                      <option value="EQUIPE">EQUIPE RUA</option>
-                    </select>
-                  </td>
-
-                  {/* 1º Acesso */}
-                  <td className="p-3.5 text-center">
-                    {u.primeiro_acesso ? (
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-warning-50 text-warning-700 dark:bg-warning-950/60 dark:text-warning-300 border border-warning-200 dark:border-warning-800">
-                        Senha Provisória
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
-                        Ativo
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Enviar Convite */}
-                  <td className="p-3.5 text-center">
-                    <button
-                      onClick={() => handleOpenInvite(u)}
-                      className="btn-secondary py-1 px-2.5 text-xs"
-                      title="Enviar convite de acesso via WhatsApp"
-                    >
-                      <Send className="w-3.5 h-3.5 text-brand-600" />
-                      <span>WhatsApp</span>
-                    </button>
-                  </td>
-
-                  {/* Ação */}
-                  <td className="p-3.5 text-center">
-                    <button
-                      onClick={() => handleDeleteUser(u.id)}
-                      className="p-1.5 text-gray-400 hover:text-error-600 rounded-lg hover:bg-error-50 dark:hover:bg-error-950/40 transition-colors"
-                      title="Excluir militar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-[#0C111D] text-gray-500 font-semibold text-[11px] uppercase tracking-wider border-b border-gray-200 dark:border-[#1F242F]">
+                  <th className="p-3.5">Militar / Graduação</th>
+                  <th className="p-3.5">Nº de PM (Login)</th>
+                  <th className="p-3.5">WhatsApp</th>
+                  <th className="p-3.5">Equipe Padrão</th>
+                  <th className="p-3.5">Perfil de Acesso</th>
+                  <th className="p-3.5 text-center">Status Acesso</th>
+                  <th className="p-3.5 text-center">Convite</th>
+                  <th className="p-3.5 text-center">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {filteredApprovedUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/40 transition-colors">
+                    
+                    {/* Nome e Avatar */}
+                    <td className="p-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950/80 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center justify-center font-bold text-xs">
+                          {u.graduacao}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-900 dark:text-white block">{u.nome_guerra}</span>
+                          <span className="text-[11px] text-gray-500 truncate block max-w-xs">{u.nome_completo}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Número de PM */}
+                    <td className="p-3.5 font-mono font-medium text-brand-600 dark:text-brand-400">
+                      {u.numero_pm}
+                    </td>
+
+                    {/* WhatsApp */}
+                    <td className="p-3.5 text-gray-600 dark:text-gray-300 font-mono">
+                      {u.whatsapp}
+                    </td>
+
+                    {/* Equipe Padrão */}
+                    <td className="p-3.5">
+                      <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 font-medium text-[11px] text-gray-700 dark:text-gray-300">
+                        {u.equipe_padrao || '-'}
+                      </span>
+                    </td>
+
+                    {/* Perfil Dropdown */}
+                    <td className="p-3.5">
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
+                        className="p-1.5 bg-white dark:bg-[#0C111D] border border-gray-300 dark:border-gray-700 rounded-lg text-xs font-semibold focus:outline-none"
+                      >
+                        <option value="ADMIN">ADMINISTRADOR</option>
+                        <option value="SOF">SOF CENTRAL</option>
+                        <option value="ALERTA_HOMICIDIO">ALERTA HOMICÍDIO</option>
+                        <option value="EQUIPE">EQUIPE RUA</option>
+                      </select>
+                    </td>
+
+                    {/* 1º Acesso */}
+                    <td className="p-3.5 text-center">
+                      {u.primeiro_acesso ? (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-warning-50 text-warning-700 dark:bg-warning-950/60 dark:text-warning-300 border border-warning-200 dark:border-warning-800">
+                          Senha Provisória
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                          Ativo
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Enviar Convite */}
+                    <td className="p-3.5 text-center">
+                      <button
+                        onClick={() => handleOpenInvite(u)}
+                        className="btn-secondary py-1 px-2.5 text-xs"
+                        title="Enviar convite de acesso via WhatsApp"
+                      >
+                        <Send className="w-3.5 h-3.5 text-brand-600" />
+                        <span>WhatsApp</span>
+                      </button>
+                    </td>
+
+                    {/* Ação */}
+                    <td className="p-3.5 text-center">
+                      <button
+                        onClick={() => handleDeleteUser(u.id)}
+                        className="p-1.5 text-gray-400 hover:text-error-600 rounded-lg hover:bg-error-50 dark:hover:bg-error-950/40 transition-colors"
+                        title="Excluir militar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modal de Cadastro */}
       {isNewUserModalOpen && (
@@ -429,7 +673,7 @@ export default function GestaoUsuariosPage() {
         </div>
       )}
 
-      {/* Modal WhatsApp Invite Link */}
+      {/* Modal WhatsApp Invite Link (Senha Provisória) */}
       {selectedUserForInvite && (
         <WhatsAppInviteModal
           user={selectedUserForInvite}
@@ -437,6 +681,318 @@ export default function GestaoUsuariosPage() {
           isOpen={!!selectedUserForInvite}
           onClose={() => setSelectedUserForInvite(null)}
         />
+      )}
+
+      {/* Modal: Gerar Link de Cadastro Direto Autorizado */}
+      {isInviteLinkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161B26] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center justify-center">
+                  <Link2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-white">Gerar Link de Cadastro Oficial</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">O policial criará sua conta e definirá sua senha diretamente</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsInviteLinkModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!generatedInviteUrl ? (
+              <form onSubmit={handleGenerateInviteLink} className="p-6 space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Perfil Pré-Autorizado *
+                    </label>
+                    <select
+                      value={inviteLinkData.role}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, role: e.target.value as UserRole })}
+                      className="untitled-input font-medium"
+                    >
+                      <option value="EQUIPE">EQUIPE RUA</option>
+                      <option value="SOF">SOF CENTRAL</option>
+                      <option value="ALERTA_HOMICIDIO">ALERTA HOMICÍDIO</option>
+                      <option value="ADMIN">ADMINISTRADOR</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Equipe Padrão
+                    </label>
+                    <select
+                      value={inviteLinkData.equipe_padrao}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, equipe_padrao: e.target.value })}
+                      className="untitled-input"
+                    >
+                      {teams.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Graduação (Opcional)
+                    </label>
+                    <select
+                      value={inviteLinkData.graduacao_sugerida}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, graduacao_sugerida: e.target.value })}
+                      className="untitled-input font-medium"
+                    >
+                      <option value="Sd">Sd</option>
+                      <option value="Cb">Cb</option>
+                      <option value="3º Sgt">3º Sgt</option>
+                      <option value="2º Sgt">2º Sgt</option>
+                      <option value="1º Sgt">1º Sgt</option>
+                      <option value="Sub Ten">Sub Ten</option>
+                      <option value="Ten">Ten</option>
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Nome de Guerra (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Moreira, Silva"
+                      value={inviteLinkData.nome_sugerido}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, nome_sugerido: e.target.value })}
+                      className="untitled-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Nº PM (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 175.432-1"
+                      value={inviteLinkData.numero_pm_sugerido}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, numero_pm_sugerido: e.target.value })}
+                      className="untitled-input font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      WhatsApp para Envio Direto
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="38999991234"
+                      value={inviteLinkData.whatsapp}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, whatsapp: e.target.value })}
+                      className="untitled-input font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 bg-brand-50/50 dark:bg-brand-950/30 rounded-xl border border-brand-200 dark:border-brand-800 flex items-center gap-2 text-brand-800 dark:text-brand-300 text-[11px]">
+                  <Sparkles className="w-4 h-4 text-brand-600 flex-shrink-0" />
+                  <span>O link terá validade de 7 dias e autorizará automaticamente o usuário com a função escolhida.</span>
+                </div>
+
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteLinkModalOpen(false)}
+                    className="btn-secondary"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                  >
+                    <Link2 className="w-4 h-4" />
+                    <span>Gerar Link de Cadastro</span>
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="p-6 space-y-4 text-xs">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold text-sm">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    <span>Link Criado com Sucesso!</span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300 text-[11px]">
+                    Perfil pré-autorizado: <strong className="font-semibold text-gray-900 dark:text-white uppercase">{inviteLinkData.role}</strong>
+                    {inviteLinkData.equipe_padrao ? ` · Equipe: ${inviteLinkData.equipe_padrao}` : ''}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Link de Acesso Autorizado:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedInviteUrl}
+                      className="untitled-input font-mono text-[11px] bg-gray-50 dark:bg-gray-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (generatedInviteUrl) {
+                          navigator.clipboard.writeText(generatedInviteUrl);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2500);
+                        }
+                      }}
+                      className="btn-secondary py-2 px-3 flex-shrink-0"
+                    >
+                      {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      <span>{copiedLink ? 'Copiado' : 'Copiar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGeneratedInviteUrl(null);
+                      setIsInviteLinkModalOpen(false);
+                    }}
+                    className="btn-secondary"
+                  >
+                    Concluir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!generatedInviteUrl) return;
+                      const waUrl = generateWhatsAppDirectInviteLink(
+                        inviteLinkData.whatsapp,
+                        generatedInviteUrl,
+                        inviteLinkData.role,
+                        inviteLinkData.equipe_padrao,
+                        inviteLinkData.nome_sugerido
+                      );
+                      window.open(waUrl, '_blank');
+                    }}
+                    className="btn-primary"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Enviar no WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Autorização de Usuário Pendente */}
+      {approvingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#161B26] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-white">Autorizar Cadastro de Militar</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Defina a função de acesso e equipe padrão</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setApprovingUser(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-3.5 bg-gray-50 dark:bg-[#0C111D] rounded-xl border border-gray-200 dark:border-gray-800 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Militar:</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{approvingUser.nome_guerra}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Nome Completo:</span>
+                  <span className="text-gray-700 dark:text-gray-300">{approvingUser.nome_completo}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Nº de PM:</span>
+                  <span className="font-mono font-medium text-brand-600 dark:text-brand-400">{approvingUser.numero_pm}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">WhatsApp:</span>
+                  <span className="font-mono text-gray-700 dark:text-gray-300">{approvingUser.whatsapp}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Função / Perfil de Acesso a Conceder *
+                </label>
+                <select
+                  value={approveRole}
+                  onChange={(e) => setApproveRole(e.target.value as UserRole)}
+                  className="untitled-input font-medium"
+                >
+                  <option value="EQUIPE">EQUIPE RUA (Padrão Operacional)</option>
+                  <option value="SOF">SOF CENTRAL (Lançamento e Turno)</option>
+                  <option value="ALERTA_HOMICIDIO">ALERTA HOMICÍDIO (Triagem e Risco)</option>
+                  <option value="ADMIN">ADMINISTRADOR (Gestão Total)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Equipe Padrão
+                </label>
+                <select
+                  value={approveEquipe}
+                  onChange={(e) => setApproveEquipe(e.target.value)}
+                  className="untitled-input"
+                >
+                  {teams.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setApprovingUser(null)}
+                  className="btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmApproval}
+                  className="btn-primary bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Confirmar e Liberar Acesso</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

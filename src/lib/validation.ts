@@ -38,7 +38,7 @@ export function generateWhatsAppInviteUrl(
   }
 
   const message = `*SGP SALINAS — 2º PELOTÃO*
-_2ª Cia PM Ind / 11ª RPM_*
+_2ª Cia PM Ind / 11ª RPM_
 *Sistema de Gestão e Planejamento Operacional (SGP-Salinas)*
 
 Olá, *${nomeGuerra}*!
@@ -58,6 +58,57 @@ ${roleExplanation}
 _2º Pelotão de Polícia Militar - Salinas/MG_`;
 
   return `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`;
+}
+
+// Gerador de mensagem personalizada para envio de link de auto-cadastro direto via WhatsApp
+export function generateWhatsAppDirectInviteLink(
+  whatsapp: string,
+  inviteLink: string,
+  role: UserRole,
+  equipePadrao?: string,
+  nomeSugerido?: string
+): string {
+  const cleanPhone = (whatsapp || '').replace(/\D/g, '');
+  const phoneWithCountry = cleanPhone ? (cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`) : '';
+
+  let roleExplanation = '';
+  switch (role) {
+    case 'ADMIN':
+      roleExplanation = 'Perfil atribuído: *ADMINISTRADOR* (Gestão total do sistema)';
+      break;
+    case 'SOF':
+      roleExplanation = 'Perfil atribuído: *SOF CENTRAL* (Lançamento e controle de turno)';
+      break;
+    case 'ALERTA_HOMICIDIO':
+      roleExplanation = 'Perfil atribuído: *ALERTA HOMICÍDIO* (Triagem e prevenção)';
+      break;
+    case 'EQUIPE':
+      roleExplanation = 'Perfil atribuído: *EQUIPE OPERACIONAL* (Missão do Dia e Escala)';
+      break;
+  }
+
+  const message = `*SGP SALINAS — 2º PELOTÃO*
+_2ª Cia PM Ind / 11ª RPM_
+*Convite Oficial de Acesso ao Sistema*
+
+Olá${nomeSugerido ? `, *${nomeSugerido}*` : ''}! Você foi convidado para criar sua conta no Sistema de Gestão e Planejamento Operacional (SGP-Salinas).
+
+🔗 *Link de Cadastro Autorizado:*
+${inviteLink}
+
+📌 *Função Pré-Autorizada:* ${roleExplanation}${equipePadrao ? `\n🛡️ *Equipe:* ${equipePadrao}` : ''}
+
+⚠️ *Instruções:*
+1. Clique no link acima para abrir a tela de cadastro.
+2. Complete seus dados (Graduação, Nome de Guerra, Nº PM) e defina sua senha pessoal.
+3. Seu acesso será liberado imediatamente com as permissões da sua função.
+
+_2º Pelotão de Polícia Militar - Salinas/MG_`;
+
+  if (phoneWithCountry) {
+    return `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`;
+  }
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
 // Validador de regras de negócio para Lançamento de Operações

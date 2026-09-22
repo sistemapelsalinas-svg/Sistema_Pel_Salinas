@@ -27,7 +27,25 @@ export interface UserProfile {
   equipe_padrao?: string;
   primeiro_acesso: boolean;
   ativo: boolean;
+  status_aprovacao?: 'APROVADO' | 'PENDENTE' | 'REJEITADO';
+  aprovado_por?: string;
+  aprovado_em?: string;
   created_at: string;
+}
+
+export interface RegistrationInviteToken {
+  id: string;
+  token: string;
+  role: UserRole;
+  equipe_padrao?: string;
+  graduacao_sugerida?: string;
+  nome_sugerido?: string;
+  numero_pm_sugerido?: string;
+  criado_por: string;
+  criado_em: string;
+  expira_em: string;
+  usado: boolean;
+  usado_por?: string;
 }
 
 export interface OperationNaturezaItem {

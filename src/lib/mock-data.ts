@@ -344,6 +344,7 @@ export const INITIAL_USERS: UserProfile[] = [
     equipe_padrao: '',
     primeiro_acesso: false,
     ativo: true,
+    status_aprovacao: 'APROVADO',
     created_at: new Date().toISOString()
   }
 ];

@@ -14,7 +14,9 @@ import {
   TeamOperationMissionTarget,
   ShiftNotice,
   ShiftNoticeReadConfirmation,
-  EgressoFiscalizacao
+  EgressoFiscalizacao,
+  RegistrationInviteToken,
+  UserRole
 } from './types';
 import { 
   INITIAL_USERS, 
@@ -44,7 +46,8 @@ const STORAGE_KEYS = {
   TEAMS: 'sgp_salinas_teams_v1',
   CURRENT_USER: 'sgp_salinas_current_user_v1',
   SHIFT_NOTICES: 'sgp_salinas_shift_notices_v1',
-  EGRESSOS: 'sgp_salinas_egressos_v1'
+  EGRESSOS: 'sgp_salinas_egressos_v1',
+  INVITE_TOKENS: 'sgp_salinas_invite_tokens_v1'
 };
 
 class StorageService {
@@ -64,6 +67,11 @@ class StorageService {
       const users: UserProfile[] = JSON.parse(data);
       let updated = false;
       users.forEach(u => {
+        // Garantir retrocompatibilidade com status_aprovacao
+        if (!u.status_aprovacao) {
+          u.status_aprovacao = 'APROVADO';
+          updated = true;
+        }
         const pmClean = (u.numero_pm || '').replace(/\D/g, '');
         if (pmClean === '1578426' && u.equipe_padrao === 'ADM') {
           u.equipe_padrao = '';
@@ -89,6 +97,7 @@ class StorageService {
     const newUser: UserProfile = {
       ...user,
       id: `usr-${Date.now()}`,
+      status_aprovacao: user.status_aprovacao || 'APROVADO',
       created_at: new Date().toISOString()
     };
     users.push(newUser);
@@ -105,11 +114,106 @@ class StorageService {
     return users[idx];
   }
 
+  approveUser(userId: string, adminUser: UserProfile, newRole?: UserRole, equipe?: string): UserProfile | null {
+    const updates: Partial<UserProfile> = {
+      status_aprovacao: 'APROVADO',
+      ativo: true,
+      aprovado_por: adminUser.nome_guerra,
+      aprovado_em: new Date().toISOString()
+    };
+    if (newRole) updates.role = newRole;
+    if (equipe !== undefined) updates.equipe_padrao = equipe;
+    return this.updateUser(userId, updates);
+  }
+
+  rejectUser(userId: string): boolean {
+    return this.deleteUser(userId);
+  }
+
   deleteUser(id: string): boolean {
     const users = this.getUsers();
     const filtered = users.filter(u => u.id !== id);
     if (filtered.length === users.length) return false;
     this.saveUsers(filtered);
+    return true;
+  }
+
+  // --- TOKENS DE CONVITE DE CADASTRO ---
+  getInviteTokens(): RegistrationInviteToken[] {
+    if (!this.isBrowser()) return [];
+    const data = localStorage.getItem(STORAGE_KEYS.INVITE_TOKENS);
+    if (!data) return [];
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  }
+
+  saveInviteTokens(tokens: RegistrationInviteToken[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.INVITE_TOKENS, JSON.stringify(tokens));
+  }
+
+  createInviteToken(data: {
+    role: UserRole;
+    equipe_padrao?: string;
+    graduacao_sugerida?: string;
+    nome_sugerido?: string;
+    numero_pm_sugerido?: string;
+    criado_por: string;
+    dias_validade?: number;
+  }): RegistrationInviteToken {
+    const tokens = this.getInviteTokens();
+    const dias = data.dias_validade || 7;
+    const expDate = new Date();
+    expDate.setDate(expDate.getDate() + dias);
+
+    // Gerar token alfanumérico limpo
+    const randPart = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const tokenStr = `CAD-${randPart}`;
+
+    const newToken: RegistrationInviteToken = {
+      id: `tok-${Date.now()}`,
+      token: tokenStr,
+      role: data.role,
+      equipe_padrao: data.equipe_padrao,
+      graduacao_sugerida: data.graduacao_sugerida,
+      nome_sugerido: data.nome_sugerido,
+      numero_pm_sugerido: data.numero_pm_sugerido,
+      criado_por: data.criado_por,
+      criado_em: new Date().toISOString(),
+      expira_em: expDate.toISOString(),
+      usado: false
+    };
+
+    tokens.push(newToken);
+    this.saveInviteTokens(tokens);
+    return newToken;
+  }
+
+  getInviteToken(token: string): RegistrationInviteToken | null {
+    if (!token) return null;
+    const cleanToken = token.trim().toUpperCase();
+    const tokens = this.getInviteTokens();
+    const found = tokens.find(t => t.token.toUpperCase() === cleanToken);
+    if (!found) return null;
+
+    // Verificar expiração
+    if (new Date(found.expira_em) < new Date()) {
+      return null;
+    }
+    return found;
+  }
+
+  consumeInviteToken(token: string, userId: string): boolean {
+    const tokens = this.getInviteTokens();
+    const cleanToken = token.trim().toUpperCase();
+    const idx = tokens.findIndex(t => t.token.toUpperCase() === cleanToken);
+    if (idx === -1) return false;
+    tokens[idx].usado = true;
+    tokens[idx].usado_por = userId;
+    this.saveInviteTokens(tokens);
     return true;
   }
 
