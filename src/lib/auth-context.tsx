@@ -110,6 +110,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userData: Omit<UserProfile, 'id' | 'created_at'>, 
     inviteTokenStr?: string
   ): Promise<{ success: boolean; message?: string; pendingApproval?: boolean }> => {
+    try {
+      await syncStorageWithSupabase();
+    } catch (e) {
+      console.error('Erro na sincronizacao previa do cadastro:', e);
+    }
+
     const cleanNum = userData.numero_pm.trim();
     const allUsers = storage.getUsers();
 
@@ -151,6 +157,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         storage.consumeInviteToken(inviteTokenStr, newUser.id);
       }
 
+      try {
+        await syncStorageWithSupabase();
+      } catch (e) {
+        console.error('Erro ao sincronizar novo usuario aprovado:', e);
+      }
+
       setUser(newUser);
       localStorage.setItem('sgp_salinas_current_user_v1', JSON.stringify(newUser));
       router.push('/dashboard');
@@ -165,6 +177,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ativo: false,
         status_aprovacao: 'PENDENTE'
       });
+
+      try {
+        await syncStorageWithSupabase();
+      } catch (e) {
+        console.error('Erro ao sincronizar usuario pendente:', e);
+      }
 
       return { 
         success: true, 

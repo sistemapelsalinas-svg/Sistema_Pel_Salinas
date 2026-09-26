@@ -24,7 +24,8 @@ import {
   Check,
   Clock,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 export default function GestaoUsuariosPage() {
@@ -60,6 +61,7 @@ export default function GestaoUsuariosPage() {
   const [approveEquipe, setApproveEquipe] = useState<string>('ALFA 1');
 
   const [notification, setNotification] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [formData, setFormData] = useState({
     numero_pm: '',
@@ -82,11 +84,22 @@ export default function GestaoUsuariosPage() {
     }
   };
 
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncStorageWithSupabase();
+      loadData();
+      showToast('Dados sincronizados com a nuvem.');
+    } catch {
+      showToast('Erro ao sincronizar com a nuvem.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
-    syncStorageWithSupabase().then(() => {
-      loadData();
-    });
+    handleSync();
   }, []);
 
   const showToast = (msg: string) => {
@@ -228,6 +241,16 @@ export default function GestaoUsuariosPage() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="btn-secondary"
+            title="Sincronizar dados em tempo real com a nuvem"
+          >
+            <RefreshCw className={`w-4 h-4 text-brand-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Nuvem'}</span>
+          </button>
+
+          <button
             onClick={() => {
               setGeneratedInviteUrl(null);
               setIsInviteLinkModalOpen(true);
@@ -253,7 +276,10 @@ export default function GestaoUsuariosPage() {
         <div className="inline-flex p-1 bg-gray-100 dark:bg-[#1E2636] rounded-xl">
           <button
             type="button"
-            onClick={() => setActiveTab('ATIVOS')}
+            onClick={() => {
+              setActiveTab('ATIVOS');
+              handleSync();
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'ATIVOS'
                 ? 'bg-white dark:bg-[#151A23] text-gray-900 dark:text-white shadow-xs'
@@ -265,7 +291,10 @@ export default function GestaoUsuariosPage() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('PENDENTES')}
+            onClick={() => {
+              setActiveTab('PENDENTES');
+              handleSync();
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'PENDENTES'
                 ? 'bg-white dark:bg-[#151A23] text-gray-900 dark:text-white shadow-xs'

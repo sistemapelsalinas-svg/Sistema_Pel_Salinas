@@ -6,31 +6,38 @@ export async function syncStorageWithSupabase() {
   if (!supabase) return false;
   
   try {
-    // 1. Sincronizar Usuários
+    // 1. Sincronizar Usuários com Merge Bidirecional
     const { data: remoteUsers, error: usersErr } = await supabase.from('users').select('*');
-    if (!usersErr && remoteUsers && remoteUsers.length > 0) {
-      storage.saveUsers(remoteUsers.map(u => ({
-        id: u.id,
-        numero_pm: u.numero_pm,
-        nome_completo: u.nome_completo,
-        nome_guerra: u.nome_guerra,
-        graduacao: u.graduacao,
-        whatsapp: u.whatsapp || '',
-        password_hash: u.password_hash || '',
-        role: u.role,
-        equipe_padrao: u.equipe_padrao || '',
-        primeiro_acesso: u.primeiro_acesso ?? false,
-        ativo: u.ativo ?? true,
-        status_aprovacao: u.status_aprovacao || 'APROVADO',
-        aprovado_por: u.aprovado_por,
-        aprovado_em: u.aprovado_em,
-        created_at: u.created_at || new Date().toISOString()
-      })));
-    } else if (!usersErr && (!remoteUsers || remoteUsers.length === 0)) {
-      // Se a tabela estiver vazia no banco, envia os usuários locais para o Supabase
+    if (!usersErr) {
       const localUsers = storage.getUsers();
-      if (localUsers.length > 0) {
-        await supabase.from('users').upsert(localUsers);
+      const remoteUserMap = new Map((remoteUsers || []).map(u => [u.id, u]));
+      
+      // Enviar ao Supabase quaisquer usuários locais que ainda não estejam no Supabase
+      const missingInRemote = localUsers.filter(l => !remoteUserMap.has(l.id));
+      if (missingInRemote.length > 0) {
+        await supabase.from('users').upsert(missingInRemote);
+      }
+
+      // Buscar lista completa atualizada do Supabase
+      const { data: freshRemote } = await supabase.from('users').select('*');
+      if (freshRemote && freshRemote.length > 0) {
+        storage.saveUsers(freshRemote.map(u => ({
+          id: u.id,
+          numero_pm: u.numero_pm,
+          nome_completo: u.nome_completo,
+          nome_guerra: u.nome_guerra,
+          graduacao: u.graduacao,
+          whatsapp: u.whatsapp || '',
+          password_hash: u.password_hash || '',
+          role: u.role,
+          equipe_padrao: u.equipe_padrao || '',
+          primeiro_acesso: u.primeiro_acesso ?? false,
+          ativo: u.ativo ?? true,
+          status_aprovacao: u.status_aprovacao || 'APROVADO',
+          aprovado_por: u.aprovado_por,
+          aprovado_em: u.aprovado_em,
+          created_at: u.created_at || new Date().toISOString()
+        })));
       }
     }
 
