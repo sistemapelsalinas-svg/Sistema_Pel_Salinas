@@ -1,0 +1,1518 @@
+import { 
+  UserProfile, 
+  OperationType, 
+  OperationGroupDef,
+  MonthlyTarget, 
+  OperationExecutionLog, 
+  HomicideAlert, 
+  MonthlySchedule, 
+  ScheduleLegend,
+  DailyMissionData,
+  EscalaMilitar,
+  ScheduleItem,
+  GuarnicaoMilitar,
+  TeamOperationMissionTarget,
+  ShiftNotice,
+  ShiftNoticeReadConfirmation,
+  EgressoFiscalizacao,
+  RegistrationInviteToken,
+  UserRole
+} from './types';
+import { 
+  INITIAL_USERS, 
+  INITIAL_OPERATIONS, 
+  DEFAULT_OPERATION_GROUPS,
+  INITIAL_MONTHLY_TARGETS, 
+  INITIAL_LOGS, 
+  INITIAL_ALERTS, 
+  DEFAULT_LEGENDS, 
+  DEFAULT_TEAMS,
+  INITIAL_ESCALA_MILITARES,
+  generateSampleSchedule,
+  INITIAL_SHIFT_NOTICES,
+  INITIAL_EGRESSOS
+} from './mock-data';
+import { supabase } from './supabase';
+
+const STORAGE_KEYS = {
+  USERS: 'sgp_salinas_users_v1',
+  OPERATIONS: 'sgp_salinas_operations_v1',
+  OPERATION_GROUPS: 'sgp_salinas_operation_groups_v1',
+  TARGETS: 'sgp_salinas_targets_v1',
+  LOGS: 'sgp_salinas_logs_v1',
+  ALERTS: 'sgp_salinas_alerts_v1',
+  LEGENDS: 'sgp_salinas_legends_v1',
+  SCHEDULE: 'sgp_salinas_schedule_v1',
+  ESCALA_MILITARES: 'sgp_salinas_escala_militares_v1',
+  TEAMS: 'sgp_salinas_teams_v1',
+  CURRENT_USER: 'sgp_salinas_current_user_v1',
+  SHIFT_NOTICES: 'sgp_salinas_shift_notices_v1',
+  EGRESSOS: 'sgp_salinas_egressos_v1',
+  INVITE_TOKENS: 'sgp_salinas_invite_tokens_v1'
+};
+
+class StorageService {
+  private isBrowser(): boolean {
+    return typeof window !== 'undefined';
+  }
+
+  // --- USUÁRIOS ---
+  getUsers(): UserProfile[] {
+    if (!this.isBrowser()) return INITIAL_USERS;
+    const data = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
+      return INITIAL_USERS;
+    }
+    try {
+      const users: UserProfile[] = JSON.parse(data);
+      let updated = false;
+      users.forEach(u => {
+        // Garantir retrocompatibilidade com status_aprovacao
+        if (!u.status_aprovacao) {
+          u.status_aprovacao = 'APROVADO';
+          updated = true;
+        }
+        const pmClean = (u.numero_pm || '').replace(/\D/g, '');
+        if (pmClean === '1578426' && u.equipe_padrao === 'ADM') {
+          u.equipe_padrao = '';
+          updated = true;
+        }
+      });
+      if (updated) {
+        this.saveUsers(users);
+      }
+      return users;
+    } catch {
+      return INITIAL_USERS;
+    }
+  }
+
+  saveUsers(users: UserProfile[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    if (supabase) {
+      Promise.resolve(supabase.from('users').upsert(users.map(u => ({
+        id: u.id,
+        numero_pm: u.numero_pm,
+        nome_completo: u.nome_completo,
+        nome_guerra: u.nome_guerra,
+        graduacao: u.graduacao,
+        whatsapp: u.whatsapp || '',
+        password_hash: u.password_hash || '',
+        role: u.role,
+        equipe_padrao: u.equipe_padrao || '',
+        primeiro_acesso: u.primeiro_acesso ?? false,
+        ativo: u.ativo ?? true,
+        status_aprovacao: u.status_aprovacao || 'APROVADO',
+        aprovado_por: u.aprovado_por || null,
+        aprovado_em: u.aprovado_em || null,
+        created_at: u.created_at || new Date().toISOString()
+      })))).catch(console.error);
+    }
+  }
+
+  addUser(user: Omit<UserProfile, 'id' | 'created_at'>): UserProfile {
+    const users = this.getUsers();
+    const newUser: UserProfile = {
+      ...user,
+      id: `usr-${Date.now()}`,
+      status_aprovacao: user.status_aprovacao || 'APROVADO',
+      created_at: new Date().toISOString()
+    };
+    users.push(newUser);
+    this.saveUsers(users);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('users').upsert([newUser])).catch(console.error);
+    }
+
+    return newUser;
+  }
+
+  updateUser(id: string, updates: Partial<UserProfile>): UserProfile | null {
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === id);
+    if (idx === -1) return null;
+    users[idx] = { ...users[idx], ...updates };
+    this.saveUsers(users);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('users').upsert([users[idx]])).catch(console.error);
+    }
+
+    return users[idx];
+  }
+
+  approveUser(userId: string, adminUser: UserProfile, newRole?: UserRole, equipe?: string): UserProfile | null {
+    const updates: Partial<UserProfile> = {
+      status_aprovacao: 'APROVADO',
+      ativo: true,
+      aprovado_por: adminUser.nome_guerra,
+      aprovado_em: new Date().toISOString()
+    };
+    if (newRole) updates.role = newRole;
+    if (equipe !== undefined) updates.equipe_padrao = equipe;
+    return this.updateUser(userId, updates);
+  }
+
+  rejectUser(userId: string): boolean {
+    return this.deleteUser(userId);
+  }
+
+  deleteUser(id: string): boolean {
+    const users = this.getUsers();
+    const filtered = users.filter(u => u.id !== id);
+    if (filtered.length === users.length) return false;
+    this.saveUsers(filtered);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('users').delete().eq('id', id)).catch(console.error);
+    }
+
+    return true;
+  }
+
+  // --- TOKENS DE CONVITE DE CADASTRO ---
+  getInviteTokens(): RegistrationInviteToken[] {
+    if (!this.isBrowser()) return [];
+    const data = localStorage.getItem(STORAGE_KEYS.INVITE_TOKENS);
+    if (!data) return [];
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  }
+
+  saveInviteTokens(tokens: RegistrationInviteToken[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.INVITE_TOKENS, JSON.stringify(tokens));
+  }
+
+  createInviteToken(data: {
+    role: UserRole;
+    equipe_padrao?: string;
+    graduacao_sugerida?: string;
+    nome_sugerido?: string;
+    numero_pm_sugerido?: string;
+    criado_por: string;
+    dias_validade?: number;
+  }): RegistrationInviteToken {
+    const tokens = this.getInviteTokens();
+    const dias = data.dias_validade || 7;
+    const expDate = new Date();
+    expDate.setDate(expDate.getDate() + dias);
+
+    // Gerar token alfanumérico limpo
+    const randPart = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const tokenStr = `CAD-${randPart}`;
+
+    const newToken: RegistrationInviteToken = {
+      id: `tok-${Date.now()}`,
+      token: tokenStr,
+      role: data.role,
+      equipe_padrao: data.equipe_padrao,
+      graduacao_sugerida: data.graduacao_sugerida,
+      nome_sugerido: data.nome_sugerido,
+      numero_pm_sugerido: data.numero_pm_sugerido,
+      criado_por: data.criado_por,
+      criado_em: new Date().toISOString(),
+      expira_em: expDate.toISOString(),
+      usado: false
+    };
+
+    tokens.push(newToken);
+    this.saveInviteTokens(tokens);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('invite_tokens').upsert([newToken])).catch(console.error);
+    }
+
+    return newToken;
+  }
+
+  getInviteToken(token: string): RegistrationInviteToken | null {
+    if (!token) return null;
+    const cleanToken = token.trim().toUpperCase();
+    const tokens = this.getInviteTokens();
+    const found = tokens.find(t => t.token.toUpperCase() === cleanToken);
+    if (!found) return null;
+
+    // Verificar expiração
+    if (new Date(found.expira_em) < new Date()) {
+      return null;
+    }
+    return found;
+  }
+
+  consumeInviteToken(token: string, userId: string): boolean {
+    const tokens = this.getInviteTokens();
+    const cleanToken = token.trim().toUpperCase();
+    const idx = tokens.findIndex(t => t.token.toUpperCase() === cleanToken);
+    if (idx === -1) return false;
+    tokens[idx].usado = true;
+    tokens[idx].usado_por = userId;
+    this.saveInviteTokens(tokens);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('invite_tokens').upsert([tokens[idx]])).catch(console.error);
+    }
+
+    return true;
+  }
+
+  // --- OPERAÇÕES ---
+  getOperations(): OperationType[] {
+    if (!this.isBrowser()) return INITIAL_OPERATIONS;
+    const data = localStorage.getItem(STORAGE_KEYS.OPERATIONS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(INITIAL_OPERATIONS));
+      return INITIAL_OPERATIONS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_OPERATIONS;
+    }
+  }
+
+  saveOperations(ops: OperationType[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(ops));
+    if (supabase) {
+      Promise.resolve(supabase.from('operations').upsert(ops)).catch(console.error);
+    }
+  }
+
+  addOperation(op: Omit<OperationType, 'id'>): OperationType {
+    const ops = this.getOperations();
+    const newOp: OperationType = {
+      ...op,
+      id: `op-${Date.now()}`
+    };
+    ops.push(newOp);
+    this.saveOperations(ops);
+    return newOp;
+  }
+
+  updateOperation(id: string, updates: Partial<OperationType>): OperationType | null {
+    const ops = this.getOperations();
+    const idx = ops.findIndex(o => o.id === id);
+    if (idx === -1) return null;
+    ops[idx] = { ...ops[idx], ...updates };
+    this.saveOperations(ops);
+    return ops[idx];
+  }
+
+  deleteOperation(id: string): boolean {
+    const ops = this.getOperations();
+    const filtered = ops.filter(o => o.id !== id);
+    if (filtered.length === ops.length) return false;
+    this.saveOperations(filtered);
+    if (supabase) {
+      Promise.resolve(supabase.from('operations').delete().eq('id', id)).catch(console.error);
+    }
+    return true;
+  }
+
+  // --- GRUPOS DE OPERAÇÕES ---
+  getOperationGroups(): OperationGroupDef[] {
+    if (!this.isBrowser()) return DEFAULT_OPERATION_GROUPS;
+    const data = localStorage.getItem(STORAGE_KEYS.OPERATION_GROUPS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.OPERATION_GROUPS, JSON.stringify(DEFAULT_OPERATION_GROUPS));
+      return DEFAULT_OPERATION_GROUPS;
+    }
+    try {
+      const groups: OperationGroupDef[] = JSON.parse(data);
+      // Garante que os 4 grupos essenciais existam
+      let missing = false;
+      DEFAULT_OPERATION_GROUPS.forEach(def => {
+        if (!groups.some(g => g.id === def.id)) {
+          groups.push(def);
+          missing = true;
+        }
+      });
+      if (missing) {
+        this.saveOperationGroups(groups);
+      }
+      return groups;
+    } catch {
+      return DEFAULT_OPERATION_GROUPS;
+    }
+  }
+
+  saveOperationGroups(groups: OperationGroupDef[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.OPERATION_GROUPS, JSON.stringify(groups));
+    if (supabase) {
+      Promise.resolve(supabase.from('operation_groups').upsert(groups)).catch(console.error);
+    }
+  }
+
+  addOperationGroup(group: Omit<OperationGroupDef, 'id'> & { id?: string }): OperationGroupDef {
+    const groups = this.getOperationGroups();
+    const id = group.id && group.id.trim() 
+      ? group.id.trim().toUpperCase().replace(/\s+/g, '_')
+      : `GRP_${Date.now()}`;
+    
+    // Se já existe com mesmo ID, retorna o existente
+    const exists = groups.find(g => g.id === id);
+    if (exists) {
+      return exists;
+    }
+
+    const newGroup: OperationGroupDef = {
+      ...group,
+      id,
+      is_default: false
+    };
+    groups.push(newGroup);
+    this.saveOperationGroups(groups);
+    return newGroup;
+  }
+
+  updateOperationGroup(id: string, updates: Partial<OperationGroupDef>): OperationGroupDef | null {
+    const groups = this.getOperationGroups();
+    const idx = groups.findIndex(g => g.id === id);
+    if (idx === -1) return null;
+    groups[idx] = { ...groups[idx], ...updates };
+    this.saveOperationGroups(groups);
+    return groups[idx];
+  }
+
+  deleteOperationGroup(id: string): { success: boolean; message?: string } {
+    const ops = this.getOperations();
+    const linkedOps = ops.filter(o => o.grupo === id);
+    if (linkedOps.length > 0) {
+      return {
+        success: false,
+        message: `Não é possível excluir este grupo pois existem ${linkedOps.length} operação(ões) vinculada(s) a ele. Remova ou altere o grupo dessas operações primeiro.`
+      };
+    }
+
+    const groups = this.getOperationGroups();
+    const filtered = groups.filter(g => g.id !== id);
+    if (filtered.length === groups.length) {
+      return { success: false, message: 'Grupo não encontrado.' };
+    }
+    this.saveOperationGroups(filtered);
+    return { success: true };
+  }
+
+  // --- METAS MENSAIS ---
+  getTargets(mes?: number, ano?: number): MonthlyTarget[] {
+    const targetMes = mes !== undefined ? mes : (new Date().getMonth() + 1);
+    const targetAno = ano !== undefined ? ano : (new Date().getFullYear());
+    if (!this.isBrowser()) return INITIAL_MONTHLY_TARGETS;
+    const data = localStorage.getItem(STORAGE_KEYS.TARGETS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.TARGETS, JSON.stringify(INITIAL_MONTHLY_TARGETS));
+      return INITIAL_MONTHLY_TARGETS;
+    }
+    try {
+      const targets: MonthlyTarget[] = JSON.parse(data);
+      return targets.filter(t => t.mes === targetMes && t.ano === targetAno);
+    } catch {
+      return INITIAL_MONTHLY_TARGETS;
+    }
+  }
+
+  getAllTargets(): MonthlyTarget[] {
+    if (!this.isBrowser()) return INITIAL_MONTHLY_TARGETS;
+    const data = localStorage.getItem(STORAGE_KEYS.TARGETS);
+    if (!data) return INITIAL_MONTHLY_TARGETS;
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_MONTHLY_TARGETS;
+    }
+  }
+
+  saveTargets(targets: MonthlyTarget[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.TARGETS, JSON.stringify(targets));
+    if (supabase) {
+      Promise.resolve(supabase.from('monthly_targets').upsert(targets.map(t => ({
+        id: t.id,
+        mes: t.mes,
+        ano: t.ano,
+        tipo_operacao_id: t.tipo_operacao_id,
+        meta_total: t.meta_total,
+        distribuicao_equipes: t.distribuicoes || [],
+        regras_agendamento: {
+          regra: t.regra_agendamento,
+          dias_especificos: t.dias_especificos,
+          naturezas_selecionadas: t.naturezas_selecionadas
+        }
+      })))).catch(console.error);
+    }
+  }
+
+  copyTargetsFromPreviousMonth(targetMonth: number, targetYear: number): { success: boolean; count: number } {
+    const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+    const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
+
+    const all = this.getAllTargets();
+    const prevTargets = all.filter(t => t.mes === prevMonth && t.ano === prevYear);
+
+    if (prevTargets.length === 0) {
+      return { success: false, count: 0 };
+    }
+
+    // Remove metas já existentes no mês de destino se houver
+    const withoutTargetMonth = all.filter(t => !(t.mes === targetMonth && t.ano === targetYear));
+
+    // Clona as do mês anterior com novos IDs
+    const cloned = prevTargets.map(t => ({
+      ...t,
+      id: `tgt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      mes: targetMonth,
+      ano: targetYear,
+      distribuicoes: t.distribuicoes?.map(d => ({
+        ...d,
+        id: `dst-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+      }))
+    }));
+
+    this.saveTargets([...withoutTargetMonth, ...cloned]);
+    return { success: true, count: cloned.length };
+  }
+
+  // --- REGISTRO DE EXECUÇÃO DE OPERAÇÕES ---
+  getLogs(): OperationExecutionLog[] {
+    if (!this.isBrowser()) return INITIAL_LOGS;
+    const data = localStorage.getItem(STORAGE_KEYS.LOGS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(INITIAL_LOGS));
+      return INITIAL_LOGS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_LOGS;
+    }
+  }
+
+  saveLogs(logs: OperationExecutionLog[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
+    if (supabase) {
+      Promise.resolve(supabase.from('operation_logs').upsert(logs.map(l => ({
+        id: l.id,
+        tipo_operacao_id: l.tipo_operacao_id,
+        data_hora: l.data_execucao,
+        equipe: l.equipe,
+        reds_numero: l.reds_numero || null,
+        reds_origem: l.reds_origem || null,
+        quantidade_envolvidos: l.quantidade_envolvidos || 0,
+        area_rural: l.area_rural || false,
+        observacoes: l.observacoes || null,
+        detalhes_interacao: l.detalhes_interacao || {}
+      })))).catch(console.error);
+    }
+  }
+
+  addLog(log: Omit<OperationExecutionLog, 'id' | 'created_at'>): OperationExecutionLog {
+    const logs = this.getLogs();
+    const newLog: OperationExecutionLog = {
+      ...log,
+      id: `log-${Date.now()}`,
+      created_at: new Date().toISOString()
+    };
+    logs.unshift(newLog);
+    this.saveLogs(logs);
+    return newLog;
+  }
+
+  deleteLog(id: string): boolean {
+    const logs = this.getLogs();
+    const filtered = logs.filter(l => l.id !== id);
+    if (filtered.length === logs.length) return false;
+    this.saveLogs(filtered);
+    if (supabase) {
+      Promise.resolve(supabase.from('operation_logs').delete().eq('id', id)).catch(console.error);
+    }
+    return true;
+  }
+
+  // --- ALERTAS DE HOMICÍDIO ---
+  getAlerts(): HomicideAlert[] {
+    if (!this.isBrowser()) return INITIAL_ALERTS;
+    const data = localStorage.getItem(STORAGE_KEYS.ALERTS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(INITIAL_ALERTS));
+      return INITIAL_ALERTS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_ALERTS;
+    }
+  }
+
+  saveAlerts(alerts: HomicideAlert[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts));
+    if (supabase) {
+      Promise.resolve(supabase.from('homicide_alerts').upsert(alerts.map(a => ({
+        id: a.id,
+        reds_numero: a.reds_numero || '',
+        natureza_ocorrencia: a.natureza_ocorrencia || '',
+        data_fato: a.data_fato || new Date().toISOString(),
+        municipio: a.municipio || 'Salinas',
+        bairro: a.bairro || '',
+        endereco_completo: a.endereco_completo || '',
+        autores: a.autores || '',
+        vitimas: a.vitimas || '',
+        grau_risco: a.grau_risco || 'MEDIO',
+        nivel_risco: a.grau_risco || 'MEDIO',
+        avaliacao_cenario: a.avaliacao_cenario || '',
+        acoes_preventivas_adotadas: a.acoes_preventivas_adotadas || '',
+        status: a.status || 'ATIVO',
+        created_by: a.created_by || null,
+        created_at: a.created_at || new Date().toISOString(),
+        updated_at: a.updated_at || new Date().toISOString()
+      })))).catch(console.error);
+    }
+  }
+
+  addAlert(alert: Omit<HomicideAlert, 'id' | 'created_at' | 'updated_at'>): HomicideAlert {
+    const alerts = this.getAlerts();
+    const newAlert: HomicideAlert = {
+      ...alert,
+      id: `alt-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    alerts.unshift(newAlert);
+    this.saveAlerts(alerts);
+    return newAlert;
+  }
+
+  updateAlert(id: string, updates: Partial<HomicideAlert>): HomicideAlert | null {
+    const alerts = this.getAlerts();
+    const idx = alerts.findIndex(a => a.id === id);
+    if (idx === -1) return null;
+    alerts[idx] = { 
+      ...alerts[idx], 
+      ...updates, 
+      updated_at: new Date().toISOString() 
+    };
+    this.saveAlerts(alerts);
+    return alerts[idx];
+  }
+
+  // --- EFETIVO DA ESCALA (43 MILITARES) ---
+  getMilitaresEscala(): EscalaMilitar[] {
+    if (!this.isBrowser()) return INITIAL_ESCALA_MILITARES;
+    const data = localStorage.getItem(STORAGE_KEYS.ESCALA_MILITARES);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.ESCALA_MILITARES, JSON.stringify(INITIAL_ESCALA_MILITARES));
+      return INITIAL_ESCALA_MILITARES;
+    }
+    try {
+      const list: EscalaMilitar[] = JSON.parse(data);
+      let updated = false;
+      list.forEach(m => {
+        const pmClean = (m.numero_pm || '').replace(/\D/g, '');
+        if (pmClean === '1578426' && m.equipe_padrao === 'ADM') {
+          m.equipe_padrao = '';
+          updated = true;
+        }
+      });
+      if (updated) {
+        this.saveMilitaresEscala(list);
+      }
+      return list.sort((a, b) => a.ordem - b.ordem);
+    } catch {
+      return INITIAL_ESCALA_MILITARES;
+    }
+  }
+
+  saveMilitaresEscala(militares: EscalaMilitar[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.ESCALA_MILITARES, JSON.stringify(militares));
+    if (supabase) {
+      Promise.resolve(supabase.from('escala_militares').upsert(militares.map(m => ({
+        id: m.id,
+        numero_pm: m.numero_pm,
+        nome_guerra: m.nome_guerra,
+        graduacao: m.graduacao,
+        equipe: m.equipe_padrao || '',
+        equipe_padrao: m.equipe_padrao || '',
+        ativo: m.ativo ?? true
+      })))).catch(console.error);
+    }
+  }
+
+  addMilitarEscala(militar: Omit<EscalaMilitar, 'id' | 'ordem'>): EscalaMilitar {
+    const list = this.getMilitaresEscala();
+    const maxOrdem = list.reduce((acc, m) => Math.max(acc, m.ordem || 0), 0);
+    const newMilitar: EscalaMilitar = {
+      ...militar,
+      id: `mil-${Date.now()}`,
+      ordem: maxOrdem + 1,
+      ativo: true
+    };
+    list.push(newMilitar);
+    this.saveMilitaresEscala(list);
+    return newMilitar;
+  }
+
+  updateMilitarEscala(id: string, updates: Partial<EscalaMilitar>): EscalaMilitar | null {
+    const list = this.getMilitaresEscala();
+    const idx = list.findIndex(m => m.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveMilitaresEscala(list);
+    return list[idx];
+  }
+
+  deleteMilitarEscala(id: string): boolean {
+    const list = this.getMilitaresEscala();
+    const filtered = list.filter(m => m.id !== id);
+    if (filtered.length === list.length) return false;
+    this.saveMilitaresEscala(filtered);
+    return true;
+  }
+
+  // --- ESCALAS E LEGENDAS ---
+  getLegends(): ScheduleLegend[] {
+    if (!this.isBrowser()) return DEFAULT_LEGENDS;
+    const data = localStorage.getItem(STORAGE_KEYS.LEGENDS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(DEFAULT_LEGENDS));
+      return DEFAULT_LEGENDS;
+    }
+    try {
+      const parsed: ScheduleLegend[] = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+      return DEFAULT_LEGENDS;
+    } catch {
+      return DEFAULT_LEGENDS;
+    }
+  }
+
+  saveLegends(legends: ScheduleLegend[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.LEGENDS, JSON.stringify(legends));
+  }
+
+  addLegend(legend: ScheduleLegend): ScheduleLegend {
+    const list = this.getLegends();
+    const cleanCode = legend.codigo.trim().toUpperCase();
+    const existingIdx = list.findIndex(l => l.codigo === cleanCode);
+    const newLegend = { ...legend, codigo: cleanCode };
+    if (existingIdx >= 0) {
+      list[existingIdx] = newLegend;
+    } else {
+      list.push(newLegend);
+    }
+    this.saveLegends(list);
+    return newLegend;
+  }
+
+  updateLegend(codigo: string, updates: Partial<ScheduleLegend>): ScheduleLegend | null {
+    const list = this.getLegends();
+    const idx = list.findIndex(l => l.codigo === codigo);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveLegends(list);
+    return list[idx];
+  }
+
+  deleteLegend(codigo: string): boolean {
+    const list = this.getLegends();
+    const filtered = list.filter(l => l.codigo !== codigo);
+    this.saveLegends(filtered);
+    return true;
+  }
+
+  // --- EQUIPES OPERACIONAIS (CRUD) ---
+  getTeams(): string[] {
+    if (!this.isBrowser()) return DEFAULT_TEAMS;
+    const data = localStorage.getItem(STORAGE_KEYS.TEAMS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(DEFAULT_TEAMS));
+      return DEFAULT_TEAMS;
+    }
+    try {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      return DEFAULT_TEAMS;
+    } catch {
+      return DEFAULT_TEAMS;
+    }
+  }
+
+  saveTeams(teams: string[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(teams));
+  }
+
+  addTeam(teamName: string): boolean {
+    const clean = teamName.trim().toUpperCase();
+    if (!clean) return false;
+    const teams = this.getTeams();
+    if (teams.includes(clean)) return false;
+    teams.push(clean);
+    this.saveTeams(teams);
+    return true;
+  }
+
+  updateTeam(oldName: string, newName: string): boolean {
+    const cleanNew = newName.trim().toUpperCase();
+    if (!cleanNew) return false;
+    const teams = this.getTeams();
+    const idx = teams.indexOf(oldName);
+    if (idx === -1) return false;
+    teams[idx] = cleanNew;
+    this.saveTeams(teams);
+
+    // 1. Atualiza militares da escala que usam essa equipe
+    const militares = this.getMilitaresEscala();
+    let updatedMilitares = false;
+    militares.forEach(m => {
+      if (m.equipe_padrao === oldName) {
+        m.equipe_padrao = cleanNew;
+        updatedMilitares = true;
+      }
+    });
+    if (updatedMilitares) {
+      this.saveMilitaresEscala(militares);
+    }
+
+    // 2. Atualiza itens de escalas existentes
+    const schedules = this.getSchedules();
+    let updatedSchedules = false;
+    schedules.forEach(sch => {
+      sch.itens?.forEach(it => {
+        if (it.equipe === oldName) {
+          it.equipe = cleanNew;
+          updatedSchedules = true;
+        }
+      });
+    });
+    if (updatedSchedules) {
+      this.saveSchedules(schedules);
+    }
+
+    // 3. Atualiza distribuições de metas em todas as metas cadastradas
+    const allTargets = this.getAllTargets();
+    let updatedTargets = false;
+    allTargets.forEach(t => {
+      t.distribuicoes?.forEach(d => {
+        if (d.equipe === oldName) {
+          d.equipe = cleanNew;
+          updatedTargets = true;
+        }
+      });
+    });
+    if (updatedTargets) {
+      this.saveTargets(allTargets);
+    }
+
+    // 4. Atualiza usuários cadastrados
+    const users = this.getUsers();
+    let updatedUsers = false;
+    users.forEach(u => {
+      if (u.equipe_padrao === oldName) {
+        u.equipe_padrao = cleanNew;
+        updatedUsers = true;
+      }
+    });
+    if (updatedUsers) {
+      this.saveUsers(users);
+    }
+
+    // 5. Atualiza registros de operações executadas
+    const logs = this.getLogs();
+    let updatedLogs = false;
+    logs.forEach(l => {
+      if (l.equipe === oldName) {
+        l.equipe = cleanNew;
+        updatedLogs = true;
+      }
+    });
+    if (updatedLogs) {
+      this.saveLogs(logs);
+    }
+
+    return true;
+  }
+
+  deleteTeam(teamName: string): boolean {
+    const teams = this.getTeams();
+    const filtered = teams.filter(t => t !== teamName);
+    if (filtered.length === teams.length) return false;
+    this.saveTeams(filtered);
+
+    // 1. Atualiza militares da escala
+    const militares = this.getMilitaresEscala();
+    let updatedMilitares = false;
+    militares.forEach(m => {
+      if (m.equipe_padrao === teamName) {
+        m.equipe_padrao = '';
+        updatedMilitares = true;
+      }
+    });
+    if (updatedMilitares) {
+      this.saveMilitaresEscala(militares);
+    }
+
+    // 2. Atualiza itens de escalas
+    const schedules = this.getSchedules();
+    let updatedSchedules = false;
+    schedules.forEach(sch => {
+      sch.itens?.forEach(it => {
+        if (it.equipe === teamName) {
+          it.equipe = '';
+          updatedSchedules = true;
+        }
+      });
+    });
+    if (updatedSchedules) {
+      this.saveSchedules(schedules);
+    }
+
+    // 3. Remove das distribuições de metas
+    const allTargets = this.getAllTargets();
+    let updatedTargets = false;
+    allTargets.forEach(t => {
+      if (t.distribuicoes && t.distribuicoes.some(d => d.equipe === teamName)) {
+        t.distribuicoes = t.distribuicoes.filter(d => d.equipe !== teamName);
+        updatedTargets = true;
+      }
+    });
+    if (updatedTargets) {
+      this.saveTargets(allTargets);
+    }
+
+    // 4. Atualiza usuários
+    const users = this.getUsers();
+    let updatedUsers = false;
+    users.forEach(u => {
+      if (u.equipe_padrao === teamName) {
+        u.equipe_padrao = '';
+        updatedUsers = true;
+      }
+    });
+    if (updatedUsers) {
+      this.saveUsers(users);
+    }
+
+    return true;
+  }
+
+  // --- ESCALAS MENSAIS (ISOLADAS POR MÊS E ANO) ---
+  getSchedules(): MonthlySchedule[] {
+    if (!this.isBrowser()) return [];
+    const data = localStorage.getItem(STORAGE_KEYS.SCHEDULE);
+    if (!data) return [];
+    try {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && parsed.mes && parsed.ano) return [parsed];
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  saveSchedules(schedules: MonthlySchedule[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedules));
+    if (supabase) {
+      Promise.resolve(supabase.from('monthly_schedules').upsert(schedules)).catch(console.error);
+    }
+  }
+
+  getSchedule(mes?: number, ano?: number): MonthlySchedule | null {
+    const targetMes = mes !== undefined ? mes : (new Date().getMonth() + 1);
+    const targetAno = ano !== undefined ? ano : (new Date().getFullYear());
+    if (!this.isBrowser()) return null;
+    const schedules = this.getSchedules();
+    const sch = schedules.find(s => s.mes === targetMes && s.ano === targetAno);
+    if (!sch) return null;
+
+    const militares = this.getMilitaresEscala();
+    const daysInMonth = new Date(targetAno, targetMes, 0).getDate();
+
+    // Garante que a escala contenha EXCLUSIVAMENTE os militares cadastrados no efetivo
+    const validMilitarIds = new Set(militares.map(m => m.id));
+    const initialItemCount = sch.itens.length;
+    sch.itens = sch.itens.filter(i => validMilitarIds.has(i.militar_id));
+    let hasNewItems = sch.itens.length !== initialItemCount;
+
+    const existingMilitarIds = new Set(sch.itens.map(i => i.militar_id));
+
+    for (const mil of militares) {
+      if (!existingMilitarIds.has(mil.id)) {
+        hasNewItems = true;
+        for (let d = 1; d <= daysInMonth; d++) {
+          sch.itens.push({
+            id: `item-${mil.id}-${d}-${Date.now()}`,
+            escala_id: sch.id,
+            equipe: '',
+            militar_id: mil.id,
+            militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
+            militar_numero_pm: mil.numero_pm,
+            dia_mes: d,
+            legenda_codigo: 'F'
+          });
+        }
+      }
+    }
+
+    if (hasNewItems) {
+      this.saveSchedule(sch);
+    }
+
+    return sch;
+  }
+
+  createSchedule(mes: number, ano: number): MonthlySchedule {
+    const militares = this.getMilitaresEscala();
+    const daysInMonth = new Date(ano, mes, 0).getDate();
+    const items: ScheduleItem[] = [];
+
+    // Ao criar nova escala, os vínculos com equipes vêm ZERADOS (vazios)
+    for (const mil of militares) {
+      for (let d = 1; d <= daysInMonth; d++) {
+        items.push({
+          id: `item-${mil.id}-${d}-${Date.now()}`,
+          escala_id: `sch-${mes}-${ano}`,
+          equipe: '',
+          militar_id: mil.id,
+          militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
+          militar_numero_pm: mil.numero_pm,
+          dia_mes: d,
+          legenda_codigo: 'F'
+        });
+      }
+    }
+
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const newSchedule: MonthlySchedule = {
+      id: `sch-${mes}-${ano}`,
+      mes,
+      ano,
+      titulo: `Escala Mensal — ${monthNames[mes - 1]} / ${ano}`,
+      status: 'PUBLICADA',
+      itens: items,
+      created_at: new Date().toISOString()
+    };
+
+    this.saveSchedule(newSchedule);
+    return newSchedule;
+  }
+
+  copyScheduleFromPreviousMonth(mes: number, ano: number): { success: boolean, schedule?: MonthlySchedule } {
+    const prevMes = mes === 1 ? 12 : mes - 1;
+    const prevAno = mes === 1 ? ano - 1 : ano;
+    const prevSchedule = this.getSchedule(prevMes, prevAno);
+
+    if (!prevSchedule) {
+      return { success: false };
+    }
+
+    const militares = this.getMilitaresEscala();
+    const daysInMonth = new Date(ano, mes, 0).getDate();
+    const items: ScheduleItem[] = [];
+
+    // Na cópia do mês anterior, MANTÉM as equipes que estavam vinculadas na escala anterior
+    for (const mil of militares) {
+      const prevMilItem = prevSchedule.itens.find(i => i.militar_id === mil.id);
+      const equipe = prevMilItem?.equipe || '';
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        items.push({
+          id: `item-${mil.id}-${d}-${Date.now()}`,
+          escala_id: `sch-${mes}-${ano}`,
+          equipe: equipe,
+          militar_id: mil.id,
+          militar_nome: `${mil.graduacao} ${mil.nome_guerra}`,
+          militar_numero_pm: mil.numero_pm,
+          dia_mes: d,
+          legenda_codigo: 'F'
+        });
+      }
+    }
+
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const newSchedule: MonthlySchedule = {
+      id: `sch-${mes}-${ano}`,
+      mes,
+      ano,
+      titulo: `Escala Mensal — ${monthNames[mes - 1]} / ${ano}`,
+      status: 'PUBLICADA',
+      itens: items,
+      created_at: new Date().toISOString()
+    };
+
+    this.saveSchedule(newSchedule);
+    return { success: true, schedule: newSchedule };
+  }
+
+  deleteSchedule(mes: number, ano: number): boolean {
+    const schedules = this.getSchedules();
+    const filtered = schedules.filter(s => !(s.mes === mes && s.ano === ano));
+    if (filtered.length === schedules.length) return false;
+    this.saveSchedules(filtered);
+    return true;
+  }
+
+  saveSchedule(schedule: MonthlySchedule): void {
+    if (!this.isBrowser()) return;
+    const schedules = this.getSchedules();
+    const idx = schedules.findIndex(s => s.mes === schedule.mes && s.ano === schedule.ano);
+    if (idx >= 0) {
+      schedules[idx] = schedule;
+    } else {
+      schedules.push(schedule);
+    }
+    this.saveSchedules(schedules);
+  }
+
+  // --- CÁLCULO DA "MINHA MISSÃO DO DIA" (DOSSIER OPERACIONAL) ---
+  getDailyMission(user: UserProfile, date: Date = new Date(), teamOverride?: string): DailyMissionData {
+    const day = date.getDate();
+    const mes = date.getMonth() + 1;
+    const ano = date.getFullYear();
+    const daysInMonth = new Date(ano, mes, 0).getDate();
+
+    const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const diaSemana = dayNames[date.getDay()];
+
+    const schedule = this.getSchedule(mes, ano);
+    const legends = this.getLegends();
+    const operations = this.getOperations();
+    const targets = this.getTargets(mes, ano);
+    const logs = this.getLogs();
+    const alerts = this.getAlerts();
+    const militares = this.getMilitaresEscala();
+
+    // 1. Normalização e Localização do Militar
+    const userPmClean = (user.numero_pm || '').replace(/\D/g, '');
+    const milRoster = militares.find(m => {
+      const mPmClean = (m.numero_pm || '').replace(/\D/g, '');
+      return (userPmClean && mPmClean === userPmClean) || m.id === user.id;
+    });
+
+    const militarIdToFind = milRoster ? milRoster.id : user.id;
+
+    // 2. Localização do Item da Escala de Hoje
+    const userItemToday = schedule?.itens.find(i => {
+      const iPmClean = (i.militar_numero_pm || '').replace(/\D/g, '');
+      const matchPm = userPmClean && iPmClean && iPmClean === userPmClean;
+      const matchId = i.militar_id === militarIdToFind || i.militar_id === user.id;
+      return (matchPm || matchId) && i.dia_mes === day;
+    });
+
+    const currentLegendCode = userItemToday ? userItemToday.legenda_codigo : 'F';
+    const legendObj = legends.find(l => l.codigo === currentLegendCode);
+    const deServicoHoje = legendObj ? legendObj.conta_como_servico : false;
+    const legendaDescricao = legendObj ? legendObj.descricao : 'Folga';
+    
+    // Determina a equipe ativa para o briefing: override > escala de hoje > equipe padrão
+    const equipeHoje = teamOverride !== undefined 
+      ? teamOverride 
+      : (userItemToday?.equipe || milRoster?.equipe_padrao || user.equipe_padrao || '');
+
+    // 3. Contagem de Plantões do Mês (Total, Atual e Restantes)
+    let totalPlantaoMes = 0;
+    let plantaoAtualIndex = 0;
+    let servicosRestantesMes = 0;
+
+    if (schedule) {
+      for (let d = 1; d <= daysInMonth; d++) {
+        const it = schedule.itens.find(i => {
+          const iPmClean = (i.militar_numero_pm || '').replace(/\D/g, '');
+          const matchPm = userPmClean && iPmClean && iPmClean === userPmClean;
+          return (matchPm || i.militar_id === militarIdToFind || i.militar_id === user.id) && i.dia_mes === d;
+        });
+
+        if (it) {
+          const leg = legends.find(l => l.codigo === it.legenda_codigo);
+          if (leg && leg.conta_como_servico) {
+            totalPlantaoMes++;
+            if (d <= day) {
+              plantaoAtualIndex++;
+            }
+            if (d >= day) {
+              servicosRestantesMes++;
+            }
+          }
+        }
+      }
+    }
+
+    if (totalPlantaoMes === 0 && deServicoHoje) {
+      totalPlantaoMes = 1;
+      plantaoAtualIndex = 1;
+      servicosRestantesMes = 1;
+    }
+
+    // 4. Identificação da Guarnição do Dia (Colegas escalados na mesma equipe hoje)
+    const guarnicaoHoje: GuarnicaoMilitar[] = [];
+    if (schedule && equipeHoje) {
+      schedule.itens
+        .filter(i => i.dia_mes === day && i.equipe.toUpperCase() === equipeHoje.toUpperCase())
+        .forEach(i => {
+          const iPmClean = (i.militar_numero_pm || '').replace(/\D/g, '');
+          const isMe = (userPmClean && iPmClean === userPmClean) || i.militar_id === militarIdToFind || i.militar_id === user.id;
+          guarnicaoHoje.push({
+            id: i.militar_id,
+            militar_nome: i.militar_nome || 'Militar',
+            militar_numero_pm: i.militar_numero_pm || '',
+            equipe: i.equipe,
+            legenda_codigo: i.legenda_codigo,
+            isCurrentUser: isMe
+          });
+        });
+    }
+
+    // 5. Cálculo das Metas da Equipe (ou Consolidadas da Fração quando sem equipe específica)
+    const metasCalculadas: TeamOperationMissionTarget[] = targets.map(t => {
+      const op = operations.find(o => o.id === t.tipo_operacao_id) || {
+        id: t.tipo_operacao_id,
+        grupo: 'POG' as const,
+        codigo_natureza: 'OP',
+        titulo: 'Operação',
+        descricao: '',
+        ativo: true
+      };
+
+      let metaMensal = 0;
+      if (equipeHoje) {
+        const dist = t.distribuicoes?.find(d => 
+          d.equipe.toUpperCase() === equipeHoje.toUpperCase() ||
+          d.equipe.toUpperCase().includes(equipeHoje.toUpperCase())
+        );
+        metaMensal = dist ? dist.meta_quantitativa : 0;
+      } else {
+        // Sem equipe definida (Visão Geral / Admin): meta total da fração
+        metaMensal = t.meta_total;
+      }
+
+      // Executadas pela equipe (ou total da fração) neste mês
+      const executadas = logs.filter(l => {
+        if (!l.data_execucao) return false;
+        const logDate = new Date(l.data_execucao);
+        const isThisMonth = (logDate.getMonth() + 1) === mes && logDate.getFullYear() === ano;
+        const isThisOp = l.tipo_operacao_id === t.tipo_operacao_id;
+        const isThisTeam = equipeHoje 
+          ? (l.equipe.toUpperCase() === equipeHoje.toUpperCase() || l.equipe.toUpperCase().includes(equipeHoje.toUpperCase()))
+          : true;
+        return isThisMonth && isThisOp && isThisTeam;
+      }).length;
+
+      const restantes = Math.max(0, metaMensal - executadas);
+      const remainingDaysInMonth = Math.max(1, daysInMonth - day + 1);
+      const divisor = servicosRestantesMes > 0 ? servicosRestantesMes : remainingDaysInMonth;
+      const mediaNecessariaPorPlantao = Number((restantes / divisor).toFixed(1));
+      const sugestaoHoje = (deServicoHoje || !equipeHoje) && restantes > 0 ? Math.max(1, Math.ceil(restantes / divisor)) : 0;
+      const percentual = metaMensal > 0 ? Math.min(100, Math.round((executadas / metaMensal) * 100)) : (executadas > 0 ? 100 : 0);
+
+      let statusMeta: 'ATINGIDA' | 'NO_RITMO' | 'ATENCAO' | 'CRITICA' = 'NO_RITMO';
+      if (percentual >= 100) {
+        statusMeta = 'ATINGIDA';
+      } else if (mediaNecessariaPorPlantao <= 1.0) {
+        statusMeta = 'NO_RITMO';
+      } else if (mediaNecessariaPorPlantao <= 2.5) {
+        statusMeta = 'ATENCAO';
+      } else {
+        statusMeta = 'CRITICA';
+      }
+
+      return {
+        operacao: op,
+        metaMensal,
+        executadas,
+        restantes,
+        mediaNecessariaPorPlantao,
+        sugestaoHoje,
+        percentual,
+        statusMeta
+      };
+    });
+
+    // Se houver operações ativas sem meta explícita, inclui se houver execução
+    const metasEquipe = metasCalculadas.filter(m => m.metaMensal > 0 || m.executadas > 0);
+
+    const totalMetasEquipe = metasEquipe.reduce((acc, m) => acc + m.metaMensal, 0);
+    const totalRealizadasEquipe = metasEquipe.reduce((acc, m) => acc + m.executadas, 0);
+    const totalRestantesEquipe = Math.max(0, totalMetasEquipe - totalRealizadasEquipe);
+    const percentualGeralEquipe = totalMetasEquipe > 0 ? Math.min(100, Math.round((totalRealizadasEquipe / totalMetasEquipe) * 100)) : 0;
+
+    // 6. Pendências e Avisos de Ordens de Serviço (OS)
+    const pendenciasUltimoServico: string[] = [];
+    const osOperations = operations.filter(o => o.grupo === 'ORDENS_SERVICO' && o.ativo);
+    osOperations.forEach(osOp => {
+      const hasRecentLog = logs.some(l => {
+        const logDate = new Date(l.data_execucao);
+        const isThisMonth = (logDate.getMonth() + 1) === mes && logDate.getFullYear() === ano;
+        const isThisTeam = equipeHoje ? (l.equipe.toUpperCase() === equipeHoje.toUpperCase()) : true;
+        return l.tipo_operacao_id === osOp.id && isThisMonth && isThisTeam;
+      });
+      if (!hasRecentLog) {
+        pendenciasUltimoServico.push(`Atenção: A ${osOp.titulo} (${osOp.codigo_natureza}) ainda não possui registros executados pela sua equipe neste mês. Priorizar abordagem e registro no turno de hoje!`);
+      }
+    });
+
+    // 7. Alertas Ativos de Risco Alto ou Crítico
+    const alertasSetor = alerts.filter(a => a.status === 'ATIVO' && (a.grau_risco === 'CRITICO' || a.grau_risco === 'ALTO'));
+
+    // 8. Egressos do Setor
+    const egressosSetor = this.getEgressos();
+
+    // 9. Recados Ativos direcionados para o usuário/equipe
+    const nowIso = new Date().toISOString();
+    const allNotices = this.getShiftNotices();
+    const recadosAtivos = allNotices.filter(n => {
+      if (!n.ativo) return false;
+      if (n.prazo_exibicao) {
+        const prazoDate = new Date(n.prazo_exibicao);
+        if (prazoDate.getTime() < new Date().getTime()) {
+          return false;
+        }
+      }
+      if (n.destinatario_tipo === 'TODAS') return true;
+      if (equipeHoje && n.equipes_destinatarias.some(eq => eq.toUpperCase() === equipeHoje.toUpperCase() || equipeHoje.toUpperCase().includes(eq.toUpperCase()))) {
+        return true;
+      }
+      return false;
+    });
+
+    return {
+      militar: user,
+      equipeHoje,
+      deServicoHoje,
+      legendaHoje: currentLegendCode,
+      legendaDescricao,
+      dia: day,
+      mes,
+      ano,
+      diaSemana,
+      totalPlantaoMes,
+      plantaoAtualIndex,
+      servicosRestantesMes,
+      guarnicaoHoje,
+      totalMetasEquipe,
+      totalRealizadasEquipe,
+      totalRestantesEquipe,
+      percentualGeralEquipe,
+      metasEquipe,
+      pendenciasUltimoServico,
+      alertasSetor,
+      egressosSetor,
+      recadosAtivos
+    };
+  }
+
+  // --- RECADOS DO TURNO (SHIFT NOTICES) ---
+  getShiftNotices(): ShiftNotice[] {
+    if (!this.isBrowser()) return INITIAL_SHIFT_NOTICES;
+    const data = localStorage.getItem(STORAGE_KEYS.SHIFT_NOTICES);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.SHIFT_NOTICES, JSON.stringify(INITIAL_SHIFT_NOTICES));
+      return INITIAL_SHIFT_NOTICES;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_SHIFT_NOTICES;
+    }
+  }
+
+  saveShiftNotices(notices: ShiftNotice[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.SHIFT_NOTICES, JSON.stringify(notices));
+    if (supabase) {
+      Promise.resolve(supabase.from('shift_notices').upsert(notices.map(n => ({
+        id: n.id,
+        titulo: n.titulo,
+        mensagem: n.mensagem,
+        destinatario_tipo: n.destinatario_tipo,
+        equipes_destinatarias: n.equipes_destinatarias,
+        prazo_exibicao: n.prazo_exibicao,
+        prioridade: n.prioridade,
+        created_by: n.created_by,
+        created_by_nome: n.created_by_nome,
+        created_at: n.created_at,
+        ativo: n.ativo ?? true,
+        leituras_confirmadas: n.leituras_confirmadas || []
+      })))).catch(console.error);
+    }
+  }
+
+  addShiftNotice(notice: Omit<ShiftNotice, 'id' | 'created_at' | 'leituras_confirmadas'>): ShiftNotice {
+    const list = this.getShiftNotices();
+    const newNotice: ShiftNotice = {
+      ...notice,
+      id: `not-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      leituras_confirmadas: []
+    };
+    list.unshift(newNotice);
+    this.saveShiftNotices(list);
+    return newNotice;
+  }
+
+  updateShiftNotice(id: string, updates: Partial<ShiftNotice>): ShiftNotice | null {
+    const list = this.getShiftNotices();
+    const idx = list.findIndex(n => n.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveShiftNotices(list);
+    return list[idx];
+  }
+
+  deleteShiftNotice(id: string): boolean {
+    const list = this.getShiftNotices();
+    const filtered = list.filter(n => n.id !== id);
+    if (filtered.length !== list.length) {
+      this.saveShiftNotices(filtered);
+      if (supabase) {
+        Promise.resolve(supabase.from('shift_notices').delete().eq('id', id)).catch(console.error);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  confirmShiftNoticeRead(noticeId: string, user: UserProfile, equipe?: string): boolean {
+    const list = this.getShiftNotices();
+    const idx = list.findIndex(n => n.id === noticeId);
+    if (idx === -1) return false;
+
+    const notice = list[idx];
+    const userPmClean = (user.numero_pm || '').replace(/\D/g, '');
+    const alreadyRead = notice.leituras_confirmadas?.some(
+      l => l.usuario_id === user.id || (userPmClean && (l.numero_pm || '').replace(/\D/g, '') === userPmClean)
+    );
+
+    if (!alreadyRead) {
+      const confirmation: ShiftNoticeReadConfirmation = {
+        usuario_id: user.id,
+        usuario_nome: `${user.graduacao || ''} ${user.nome_guerra || user.nome_completo}`.trim(),
+        numero_pm: user.numero_pm,
+        equipe: equipe || user.equipe_padrao || 'Geral',
+        data_hora: new Date().toISOString()
+      };
+      notice.leituras_confirmadas = [...(notice.leituras_confirmadas || []), confirmation];
+      this.saveShiftNotices(list);
+      return true;
+    }
+    return false;
+  }
+
+  // --- FISCALIZAÇÃO DE EGRESSOS ---
+  getEgressos(): EgressoFiscalizacao[] {
+    if (!this.isBrowser()) return INITIAL_EGRESSOS;
+    const data = localStorage.getItem(STORAGE_KEYS.EGRESSOS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.EGRESSOS, JSON.stringify(INITIAL_EGRESSOS));
+      return INITIAL_EGRESSOS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_EGRESSOS;
+    }
+  }
+
+  saveEgressos(egressos: EgressoFiscalizacao[]): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem(STORAGE_KEYS.EGRESSOS, JSON.stringify(egressos));
+    if (supabase) {
+      Promise.resolve(supabase.from('egressos').upsert(egressos.map(e => ({
+        id: e.id,
+        nome_completo: e.nome_completo,
+        alcunha: e.alcunha || null,
+        artigo_crime: e.artigo_crime || null,
+        beneficio: e.beneficio || 'PRISAO_DOMICILIAR',
+        bairro: e.bairro || null,
+        endereco_completo: e.endereco_completo || null,
+        regras_condicoes: e.regras_condicoes || [],
+        foto_url: e.foto_url || null,
+        status_turno: e.status_turno || 'PENDENTE',
+        visitas_realizadas_mes: e.visitas_realizadas_mes || 0,
+        visitas_meta_mes: e.visitas_meta_mes || 4,
+        ultima_fiscalizacao: e.ultima_fiscalizacao || null
+      })))).catch(console.error);
+    }
+  }
+
+  addEgresso(egresso: Omit<EgressoFiscalizacao, 'id'>): EgressoFiscalizacao {
+    const list = this.getEgressos();
+    const newEgresso: EgressoFiscalizacao = {
+      ...egresso,
+      id: `egr-${Date.now()}`
+    };
+    list.unshift(newEgresso);
+    this.saveEgressos(list);
+    return newEgresso;
+  }
+
+  updateEgresso(id: string, updates: Partial<EgressoFiscalizacao>): EgressoFiscalizacao | null {
+    const list = this.getEgressos();
+    const idx = list.findIndex(e => e.id === id);
+    if (idx === -1) return null;
+    list[idx] = { ...list[idx], ...updates };
+    this.saveEgressos(list);
+    return list[idx];
+  }
+
+  deleteEgresso(id: string): boolean {
+    const list = this.getEgressos();
+    const filtered = list.filter(e => e.id !== id);
+    if (filtered.length !== list.length) {
+      this.saveEgressos(filtered);
+      if (supabase) {
+        Promise.resolve(supabase.from('egressos').delete().eq('id', id)).catch(console.error);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  registerEgressoFiscalizacao(
+    egressoId: string, 
+    resultado: 'SEM_DESCUMPRIMENTO' | 'COM_DESCUMPRIMENTO', 
+    detalhes: string, 
+    user: UserProfile, 
+    equipe: string
+  ): boolean {
+    const list = this.getEgressos();
+    const idx = list.findIndex(e => e.id === egressoId);
+    if (idx === -1) return false;
+
+    const egresso = list[idx];
+    const militarNome = `${user.graduacao || ''} ${user.nome_guerra || user.nome_completo}`.trim();
+    const now = new Date();
+    const dataHoraStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    egresso.visitas_realizadas_mes = (egresso.visitas_realizadas_mes || 0) + 1;
+    egresso.status_turno = resultado === 'SEM_DESCUMPRIMENTO' ? 'SEM_DESCUMPRIMENTO' : 'COM_DESCUMPRIMENTO';
+    egresso.ultima_fiscalizacao = {
+      data_hora: dataHoraStr,
+      militar_nome: militarNome,
+      equipe: equipe || 'Geral',
+      resultado: resultado === 'SEM_DESCUMPRIMENTO' ? `Sem Descumprimento - ${detalhes || 'Em conformidade com as regras judiciais'}` : `Com Descumprimento - ${detalhes || 'Descumprimento das regras judiciais constatado'}`
+    };
+
+    this.saveEgressos(list);
+    return true;
+  }
+}
+
+export const storage = new StorageService();

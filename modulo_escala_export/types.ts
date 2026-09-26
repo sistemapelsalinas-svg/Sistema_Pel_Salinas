@@ -1,0 +1,280 @@
+export type UserRole = 'ADMIN' | 'SOF' | 'ALERTA_HOMICIDIO' | 'EQUIPE';
+
+export type OperationGroup = string;
+
+export interface OperationGroupDef {
+  id: string;
+  nome: string;
+  descricao?: string;
+  icone?: string;
+  cor?: string;
+  is_default?: boolean;
+}
+
+export type RiskLevel = 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO';
+
+export type AlertStatus = 'ATIVO' | 'CONTROLADO' | 'EVOLUIDO' | 'ARQUIVADO';
+
+export interface UserProfile {
+  id: string;
+  numero_pm: string;
+  nome_completo: string;
+  nome_guerra: string;
+  graduacao: string;
+  whatsapp: string;
+  password_hash?: string;
+  role: UserRole;
+  equipe_padrao?: string;
+  primeiro_acesso: boolean;
+  ativo: boolean;
+  status_aprovacao?: 'APROVADO' | 'PENDENTE' | 'REJEITADO';
+  aprovado_por?: string;
+  aprovado_em?: string;
+  created_at: string;
+}
+
+export interface RegistrationInviteToken {
+  id: string;
+  token: string;
+  role: UserRole;
+  equipe_padrao?: string;
+  graduacao_sugerida?: string;
+  nome_sugerido?: string;
+  numero_pm_sugerido?: string;
+  criado_por: string;
+  criado_em: string;
+  expira_em: string;
+  usado: boolean;
+  usado_por?: string;
+}
+
+export interface OperationNaturezaItem {
+  id: string;
+  codigo: string;
+  titulo: string;
+}
+
+export interface OperationType {
+  id: string;
+  grupo: OperationGroup;
+  codigo_natureza: string;
+  titulo: string;
+  descricao: string;
+  link_google_drive?: string;
+  requer_reds_origem?: boolean;
+  min_envolvidos?: number;
+  area_rural_obrigatoria?: boolean;
+  naturezas_vinculadas?: OperationNaturezaItem[];
+  ativo: boolean;
+}
+
+export type TargetScheduleRule = 'qualquer_dia' | 'dias_semana' | 'finais_semana' | 'dias_especificos';
+
+export interface MonthlyTarget {
+  id: string;
+  mes: number;
+  ano: number;
+  tipo_operacao_id: string;
+  meta_total: number;
+  regra_agendamento?: TargetScheduleRule;
+  dias_especificos?: number[];
+  naturezas_selecionadas?: string[];
+  tipo_operacao?: OperationType;
+  distribuicoes?: TeamTargetAllocation[];
+}
+
+export interface TeamTargetAllocation {
+  id: string;
+  meta_mensal_id: string;
+  equipe: string;
+  percentual_alocado: number;
+  meta_quantitativa: number;
+}
+
+export interface OperationExecutionLog {
+  id: string;
+  tipo_operacao_id: string;
+  tipo_operacao?: OperationType;
+  natureza_executada?: string;
+  data_execucao: string;
+  equipe: string;
+  militar_responsavel_id?: string;
+  militar_responsavel_nome?: string;
+  reds_numero?: string;
+  reds_origem?: string;
+  local_fato?: string;
+  bairro?: string;
+  area_rural?: boolean;
+  quantidade_envolvidos?: number;
+  detalhes_interacao?: {
+    entidade_comunidade?: string;
+    pauta?: string;
+    encaminhamentos?: string;
+    orientacoes?: string;
+    demanda_identificada?: string;
+    rede_atendida?: string;
+    providencias?: string;
+    pessoa_atendida?: string;
+    vitima_atendida?: string;
+    envolvidos_confirmados?: string;
+    [key: string]: string | undefined;
+  };
+  observacoes?: string;
+  created_by?: string;
+  created_by_nome?: string;
+  created_by_pm?: string;
+  created_at: string;
+}
+
+export interface HomicideAlert {
+  id: string;
+  reds_numero: string;
+  natureza_ocorrencia: string;
+  data_fato: string;
+  municipio: string;
+  bairro: string;
+  endereco_completo: string;
+  autores: string;
+  vitimas: string;
+  grau_risco: RiskLevel;
+  avaliacao_cenario: string;
+  acoes_preventivas_adotadas: string;
+  status: AlertStatus;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleLegend {
+  codigo: string;
+  descricao: string;
+  conta_como_servico: boolean;
+  cor_badge: string;
+}
+
+export interface EscalaMilitar {
+  id: string;
+  ordem: number;
+  graduacao: string;
+  nome_guerra: string;
+  numero_pm: string;
+  equipe_padrao?: string;
+  ativo: boolean;
+}
+
+export interface ScheduleItem {
+  id: string;
+  escala_id: string;
+  equipe: string;
+  militar_id: string;
+  militar_nome?: string;
+  militar_numero_pm?: string;
+  dia_mes: number;
+  legenda_codigo: string;
+  conferido?: boolean;
+}
+
+export interface MonthlySchedule {
+  id: string;
+  mes: number;
+  ano: number;
+  titulo: string;
+  status: 'RASCUNHO' | 'PUBLICADA';
+  itens: ScheduleItem[];
+  dias_conferidos?: number[];
+  created_at: string;
+}
+
+export interface GuarnicaoMilitar {
+  id: string;
+  militar_nome: string;
+  militar_numero_pm: string;
+  equipe: string;
+  legenda_codigo: string;
+  isCurrentUser: boolean;
+}
+
+export interface TeamOperationMissionTarget {
+  operacao: OperationType;
+  metaMensal: number;
+  executadas: number;
+  restantes: number;
+  mediaNecessariaPorPlantao: number;
+  sugestaoHoje: number;
+  percentual: number;
+  statusMeta: 'ATINGIDA' | 'NO_RITMO' | 'ATENCAO' | 'CRITICA';
+}
+
+export interface ShiftNoticeReadConfirmation {
+  usuario_id: string;
+  usuario_nome: string;
+  numero_pm: string;
+  equipe?: string;
+  data_hora: string;
+}
+
+export interface ShiftNotice {
+  id: string;
+  titulo: string;
+  mensagem: string;
+  destinatario_tipo: 'TODAS' | 'EQUIPES_ESPECIFICAS';
+  equipes_destinatarias: string[];
+  prazo_exibicao: string; // ISO date / YYYY-MM-DDTHH:mm
+  prioridade: 'NORMAL' | 'IMPORTANTE' | 'URGENTE';
+  ativo: boolean;
+  created_by?: string;
+  created_by_nome?: string;
+  created_at: string;
+  leituras_confirmadas: ShiftNoticeReadConfirmation[];
+}
+
+export interface EgressoFiscalizacao {
+  id: string;
+  nome_completo: string;
+  alcunha?: string;
+  foto_url?: string;
+  data_nascimento?: string;
+  numero_processo?: string;
+  beneficio: 'PRISAO_DOMICILIAR' | 'LIVRAMENTO_CONDICIONAL' | 'MONITORAMENTO_ELETRONICO' | 'MEDIDA_CAUTELAR';
+  artigo_crime?: string;
+  bairro: string;
+  endereco_completo: string;
+  horario_recolhimento?: string;
+  visitas_meta_mes: number;
+  visitas_realizadas_mes: number;
+  status_turno: 'PENDENTE' | 'SEM_DESCUMPRIMENTO' | 'COM_DESCUMPRIMENTO';
+  regras_condicoes: string[];
+  ultima_fiscalizacao?: {
+    data_hora: string;
+    militar_nome: string;
+    equipe: string;
+    resultado: string;
+  };
+  observacoes?: string;
+}
+
+export interface DailyMissionData {
+  militar: UserProfile;
+  equipeHoje: string;
+  deServicoHoje: boolean;
+  legendaHoje: string;
+  legendaDescricao: string;
+  dia: number;
+  mes: number;
+  ano: number;
+  diaSemana: string;
+  totalPlantaoMes: number;
+  plantaoAtualIndex: number;
+  servicosRestantesMes: number;
+  guarnicaoHoje: GuarnicaoMilitar[];
+  totalMetasEquipe: number;
+  totalRealizadasEquipe: number;
+  totalRestantesEquipe: number;
+  percentualGeralEquipe: number;
+  metasEquipe: TeamOperationMissionTarget[];
+  pendenciasUltimoServico: string[];
+  alertasSetor: HomicideAlert[];
+  egressosSetor?: EgressoFiscalizacao[];
+  recadosAtivos?: ShiftNotice[];
+}
+
