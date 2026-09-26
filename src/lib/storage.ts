@@ -91,6 +91,25 @@ class StorageService {
   saveUsers(users: UserProfile[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    if (supabase) {
+      Promise.resolve(supabase.from('users').upsert(users.map(u => ({
+        id: u.id,
+        numero_pm: u.numero_pm,
+        nome_completo: u.nome_completo,
+        nome_guerra: u.nome_guerra,
+        graduacao: u.graduacao,
+        whatsapp: u.whatsapp || '',
+        password_hash: u.password_hash || '',
+        role: u.role,
+        equipe_padrao: u.equipe_padrao || '',
+        primeiro_acesso: u.primeiro_acesso ?? false,
+        ativo: u.ativo ?? true,
+        status_aprovacao: u.status_aprovacao || 'APROVADO',
+        aprovado_por: u.aprovado_por || null,
+        aprovado_em: u.aprovado_em || null,
+        created_at: u.created_at || new Date().toISOString()
+      })))).catch(console.error);
+    }
   }
 
   addUser(user: Omit<UserProfile, 'id' | 'created_at'>): UserProfile {
@@ -261,6 +280,9 @@ class StorageService {
   saveOperations(ops: OperationType[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.OPERATIONS, JSON.stringify(ops));
+    if (supabase) {
+      Promise.resolve(supabase.from('operations').upsert(ops)).catch(console.error);
+    }
   }
 
   addOperation(op: Omit<OperationType, 'id'>): OperationType {
@@ -288,6 +310,9 @@ class StorageService {
     const filtered = ops.filter(o => o.id !== id);
     if (filtered.length === ops.length) return false;
     this.saveOperations(filtered);
+    if (supabase) {
+      Promise.resolve(supabase.from('operations').delete().eq('id', id)).catch(console.error);
+    }
     return true;
   }
 
@@ -321,6 +346,9 @@ class StorageService {
   saveOperationGroups(groups: OperationGroupDef[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.OPERATION_GROUPS, JSON.stringify(groups));
+    if (supabase) {
+      Promise.resolve(supabase.from('operation_groups').upsert(groups)).catch(console.error);
+    }
   }
 
   addOperationGroup(group: Omit<OperationGroupDef, 'id'> & { id?: string }): OperationGroupDef {
@@ -405,6 +433,21 @@ class StorageService {
   saveTargets(targets: MonthlyTarget[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.TARGETS, JSON.stringify(targets));
+    if (supabase) {
+      Promise.resolve(supabase.from('monthly_targets').upsert(targets.map(t => ({
+        id: t.id,
+        mes: t.mes,
+        ano: t.ano,
+        tipo_operacao_id: t.tipo_operacao_id,
+        meta_total: t.meta_total,
+        distribuicao_equipes: t.distribuicoes || [],
+        regras_agendamento: {
+          regra: t.regra_agendamento,
+          dias_especificos: t.dias_especificos,
+          naturezas_selecionadas: t.naturezas_selecionadas
+        }
+      })))).catch(console.error);
+    }
   }
 
   copyTargetsFromPreviousMonth(targetMonth: number, targetYear: number): { success: boolean; count: number } {
@@ -455,6 +498,20 @@ class StorageService {
   saveLogs(logs: OperationExecutionLog[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
+    if (supabase) {
+      Promise.resolve(supabase.from('operation_logs').upsert(logs.map(l => ({
+        id: l.id,
+        tipo_operacao_id: l.tipo_operacao_id,
+        data_hora: l.data_execucao,
+        equipe: l.equipe,
+        reds_numero: l.reds_numero || null,
+        reds_origem: l.reds_origem || null,
+        quantidade_envolvidos: l.quantidade_envolvidos || 0,
+        area_rural: l.area_rural || false,
+        observacoes: l.observacoes || null,
+        detalhes_interacao: l.detalhes_interacao || {}
+      })))).catch(console.error);
+    }
   }
 
   addLog(log: Omit<OperationExecutionLog, 'id' | 'created_at'>): OperationExecutionLog {
@@ -474,6 +531,9 @@ class StorageService {
     const filtered = logs.filter(l => l.id !== id);
     if (filtered.length === logs.length) return false;
     this.saveLogs(filtered);
+    if (supabase) {
+      Promise.resolve(supabase.from('operation_logs').delete().eq('id', id)).catch(console.error);
+    }
     return true;
   }
 
@@ -495,6 +555,27 @@ class StorageService {
   saveAlerts(alerts: HomicideAlert[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts));
+    if (supabase) {
+      Promise.resolve(supabase.from('homicide_alerts').upsert(alerts.map(a => ({
+        id: a.id,
+        reds_numero: a.reds_numero || '',
+        natureza_ocorrencia: a.natureza_ocorrencia || '',
+        data_fato: a.data_fato || new Date().toISOString(),
+        municipio: a.municipio || 'Salinas',
+        bairro: a.bairro || '',
+        endereco_completo: a.endereco_completo || '',
+        autores: a.autores || '',
+        vitimas: a.vitimas || '',
+        grau_risco: a.grau_risco || 'MEDIO',
+        nivel_risco: a.grau_risco || 'MEDIO',
+        avaliacao_cenario: a.avaliacao_cenario || '',
+        acoes_preventivas_adotadas: a.acoes_preventivas_adotadas || '',
+        status: a.status || 'ATIVO',
+        created_by: a.created_by || null,
+        created_at: a.created_at || new Date().toISOString(),
+        updated_at: a.updated_at || new Date().toISOString()
+      })))).catch(console.error);
+    }
   }
 
   addAlert(alert: Omit<HomicideAlert, 'id' | 'created_at' | 'updated_at'>): HomicideAlert {
@@ -553,6 +634,17 @@ class StorageService {
   saveMilitaresEscala(militares: EscalaMilitar[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.ESCALA_MILITARES, JSON.stringify(militares));
+    if (supabase) {
+      Promise.resolve(supabase.from('escala_militares').upsert(militares.map(m => ({
+        id: m.id,
+        numero_pm: m.numero_pm,
+        nome_guerra: m.nome_guerra,
+        graduacao: m.graduacao,
+        equipe: m.equipe_padrao || '',
+        equipe_padrao: m.equipe_padrao || '',
+        ativo: m.ativo ?? true
+      })))).catch(console.error);
+    }
   }
 
   addMilitarEscala(militar: Omit<EscalaMilitar, 'id' | 'ordem'>): EscalaMilitar {
@@ -832,6 +924,9 @@ class StorageService {
   saveSchedules(schedules: MonthlySchedule[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(schedules));
+    if (supabase) {
+      Promise.resolve(supabase.from('monthly_schedules').upsert(schedules)).catch(console.error);
+    }
   }
 
   getSchedule(mes?: number, ano?: number): MonthlySchedule | null {
@@ -1241,6 +1336,22 @@ class StorageService {
   saveShiftNotices(notices: ShiftNotice[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.SHIFT_NOTICES, JSON.stringify(notices));
+    if (supabase) {
+      Promise.resolve(supabase.from('shift_notices').upsert(notices.map(n => ({
+        id: n.id,
+        titulo: n.titulo,
+        mensagem: n.mensagem,
+        destinatario_tipo: n.destinatario_tipo,
+        equipes_destinatarias: n.equipes_destinatarias,
+        prazo_exibicao: n.prazo_exibicao,
+        prioridade: n.prioridade,
+        created_by: n.created_by,
+        created_by_nome: n.created_by_nome,
+        created_at: n.created_at,
+        ativo: n.ativo ?? true,
+        leituras_confirmadas: n.leituras_confirmadas || []
+      })))).catch(console.error);
+    }
   }
 
   addShiftNotice(notice: Omit<ShiftNotice, 'id' | 'created_at' | 'leituras_confirmadas'>): ShiftNotice {
@@ -1270,6 +1381,9 @@ class StorageService {
     const filtered = list.filter(n => n.id !== id);
     if (filtered.length !== list.length) {
       this.saveShiftNotices(filtered);
+      if (supabase) {
+        Promise.resolve(supabase.from('shift_notices').delete().eq('id', id)).catch(console.error);
+      }
       return true;
     }
     return false;
@@ -1319,6 +1433,23 @@ class StorageService {
   saveEgressos(egressos: EgressoFiscalizacao[]): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.EGRESSOS, JSON.stringify(egressos));
+    if (supabase) {
+      Promise.resolve(supabase.from('egressos').upsert(egressos.map(e => ({
+        id: e.id,
+        nome_completo: e.nome_completo,
+        alcunha: e.alcunha || null,
+        artigo_crime: e.artigo_crime || null,
+        beneficio: e.beneficio || 'PRISAO_DOMICILIAR',
+        bairro: e.bairro || null,
+        endereco_completo: e.endereco_completo || null,
+        regras_condicoes: e.regras_condicoes || [],
+        foto_url: e.foto_url || null,
+        status_turno: e.status_turno || 'PENDENTE',
+        visitas_realizadas_mes: e.visitas_realizadas_mes || 0,
+        visitas_meta_mes: e.visitas_meta_mes || 4,
+        ultima_fiscalizacao: e.ultima_fiscalizacao || null
+      })))).catch(console.error);
+    }
   }
 
   addEgresso(egresso: Omit<EgressoFiscalizacao, 'id'>): EgressoFiscalizacao {
@@ -1346,6 +1477,9 @@ class StorageService {
     const filtered = list.filter(e => e.id !== id);
     if (filtered.length !== list.length) {
       this.saveEgressos(filtered);
+      if (supabase) {
+        Promise.resolve(supabase.from('egressos').delete().eq('id', id)).catch(console.error);
+      }
       return true;
     }
     return false;
