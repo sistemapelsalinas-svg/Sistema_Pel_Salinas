@@ -1,5 +1,45 @@
 import { OperationType, UserRole } from './types';
 
+// Máscara e formatação para Número de PM (exatamente 7 dígitos numéricos)
+export function formatNumeroPm(val: string): string {
+  if (!val) return '';
+  return val.replace(/\D/g, '').slice(0, 7);
+}
+
+export function isValidNumeroPm(val: string): boolean {
+  if (!val) return false;
+  const clean = val.replace(/\D/g, '');
+  return clean.length === 7;
+}
+
+// Máscara e formatação para WhatsApp / Celular brasileiro: (XX) XXXXX-XXXX
+export function formatWhatsApp(val: string): string {
+  if (!val) return '';
+  const clean = val.replace(/\D/g, '').slice(0, 11);
+  if (clean.length === 0) return '';
+  if (clean.length <= 2) {
+    return `(${clean}`;
+  }
+  if (clean.length <= 6) {
+    return `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
+  }
+  if (clean.length <= 10) {
+    return `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`;
+  }
+  return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
+}
+
+export function cleanDigits(val: string): string {
+  if (!val) return '';
+  return val.replace(/\D/g, '');
+}
+
+export function isValidWhatsApp(val: string): boolean {
+  if (!val) return false;
+  const clean = val.replace(/\D/g, '');
+  return clean.length >= 10 && clean.length <= 11;
+}
+
 // Validação do padrão REDS de Minas Gerais: AAAA-XXXXXXXXX-001 (ou similar)
 export function isValidRedsFormat(reds: string): boolean {
   if (!reds) return false;

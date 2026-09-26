@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { UserProfile } from '@/lib/types';
-import { generateWhatsAppInviteUrl } from '@/lib/validation';
+import { generateWhatsAppInviteUrl, formatWhatsApp } from '@/lib/validation';
 import { X, Send, Copy, Check, MessageSquareCode, Shield } from 'lucide-react';
 
 interface WhatsAppInviteModalProps {
@@ -80,7 +80,7 @@ export function WhatsAppInviteModal({
             </div>
             <div>
               <span className="text-gray-500 block font-medium">WhatsApp:</span>
-              <span className="text-gray-700 dark:text-gray-300 font-mono">({cleanPhone.slice(0, 2)}) {cleanPhone.slice(2, 7)}-{cleanPhone.slice(7)}</span>
+              <span className="text-gray-700 dark:text-gray-300 font-mono">{formatWhatsApp(user.whatsapp)}</span>
             </div>
             <div>
               <span className="text-gray-500 block font-medium">Senha Provisória:</span>

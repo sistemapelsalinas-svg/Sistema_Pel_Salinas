@@ -7,6 +7,7 @@ import { Shield, ArrowRight, AlertCircle, UserPlus, CheckCircle2, Link2, Sparkle
 import { ThemeToggle } from '@/components/theme-toggle';
 import { UserRole, RegistrationInviteToken } from '@/lib/types';
 import { useSearchParams } from 'next/navigation';
+import { formatNumeroPm, isValidNumeroPm, formatWhatsApp, isValidWhatsApp } from '@/lib/validation';
 
 function LoginFormContent() {
   const { login, register } = useAuth();
@@ -52,15 +53,20 @@ function LoginFormContent() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!numeroPm.trim()) {
-      setError('Por favor, informe seu Número de Polícia.');
+    const cleanNum = formatNumeroPm(numeroPm);
+    if (!cleanNum) {
+      setError('Por favor, informe seu Número de Polícia (7 dígitos numéricos).');
+      return;
+    }
+    if (cleanNum.length !== 7) {
+      setError('O Número de Polícia deve conter exatamente 7 dígitos numéricos.');
       return;
     }
 
     setLoading(true);
     setError('');
 
-    const res = await login(numeroPm, password);
+    const res = await login(cleanNum, password);
     if (!res.success) {
       setError(res.message || 'Erro ao realizar login.');
       setLoading(false);
@@ -69,8 +75,19 @@ function LoginFormContent() {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cadNumeroPm.trim() || !cadNomeGuerra.trim() || !cadPassword.trim()) {
+    const cleanNum = formatNumeroPm(cadNumeroPm);
+    if (!cleanNum || !cadNomeGuerra.trim() || !cadPassword.trim()) {
       setError('Preencha os campos obrigatórios.');
+      return;
+    }
+
+    if (cleanNum.length !== 7) {
+      setError('O Número de Polícia deve conter exatamente 7 dígitos numéricos (apenas números).');
+      return;
+    }
+
+    if (cadWhatsapp && !isValidWhatsApp(cadWhatsapp)) {
+      setError('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
       return;
     }
 
@@ -80,7 +97,7 @@ function LoginFormContent() {
 
     const res = await register(
       {
-        numero_pm: cadNumeroPm.trim(),
+        numero_pm: cleanNum,
         nome_guerra: `${cadGraduacao} ${cadNomeGuerra.trim()}`,
         nome_completo: cadNomeCompleto.trim() || `${cadGraduacao} ${cadNomeGuerra.trim()}`,
         graduacao: cadGraduacao,
@@ -101,7 +118,7 @@ function LoginFormContent() {
     } else if (res.pendingApproval) {
       setPendingSuccessMsg(res.message || 'Cadastro realizado com sucesso! Aguarde a liberação de um Administrador.');
       setActiveTab('LOGIN');
-      setNumeroPm(cadNumeroPm.trim());
+      setNumeroPm(cleanNum);
       setPassword('');
     }
   };
@@ -199,14 +216,15 @@ function LoginFormContent() {
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Número de Polícia (Nº PM)
+                  Número de Polícia (Nº PM — 7 dígitos)
                 </label>
                 <input
                   type="text"
-                  placeholder="Digite seu Nº de PM"
+                  placeholder="Ex: 1234567"
                   value={numeroPm}
-                  onChange={(e) => setNumeroPm(e.target.value)}
-                  className="untitled-input font-mono"
+                  maxLength={7}
+                  onChange={(e) => setNumeroPm(formatNumeroPm(e.target.value))}
+                  className="untitled-input font-mono font-medium"
                   required
                   autoComplete="username"
                 />
@@ -288,12 +306,13 @@ function LoginFormContent() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Nº de Polícia *</label>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">Nº de PM (7 dígitos) *</label>
                   <input
                     type="text"
-                    placeholder="Ex: 165432-1"
+                    placeholder="Ex: 1234567"
                     value={cadNumeroPm}
-                    onChange={(e) => setCadNumeroPm(e.target.value)}
+                    maxLength={7}
+                    onChange={(e) => setCadNumeroPm(formatNumeroPm(e.target.value))}
                     className="untitled-input font-mono font-medium"
                     required
                   />
@@ -302,9 +321,10 @@ function LoginFormContent() {
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp</label>
                   <input
                     type="text"
-                    placeholder="38999990000"
+                    placeholder="(38) 99999-9999"
                     value={cadWhatsapp}
-                    onChange={(e) => setCadWhatsapp(e.target.value)}
+                    maxLength={15}
+                    onChange={(e) => setCadWhatsapp(formatWhatsApp(e.target.value))}
                     className="untitled-input font-mono"
                   />
                 </div>

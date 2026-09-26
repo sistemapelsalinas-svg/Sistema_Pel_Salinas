@@ -6,7 +6,13 @@ import { UserProfile, UserRole, RegistrationInviteToken } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { RoleBadge } from '@/components/role-badge';
 import { WhatsAppInviteModal } from '@/components/whatsapp-invite-modal';
-import { generateWhatsAppDirectInviteLink } from '@/lib/validation';
+import { 
+  generateWhatsAppDirectInviteLink,
+  formatNumeroPm,
+  isValidNumeroPm,
+  formatWhatsApp,
+  isValidWhatsApp
+} from '@/lib/validation';
 import { syncStorageWithSupabase } from '@/lib/supabase-sync';
 import { 
   Users, 
@@ -127,12 +133,28 @@ export default function GestaoUsuariosPage() {
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.numero_pm || !formData.nome_completo || !formData.whatsapp) return;
+    const cleanNum = formatNumeroPm(formData.numero_pm);
+    if (!cleanNum || !formData.nome_completo || !formData.whatsapp) {
+      alert('Preencha os campos obrigatórios.');
+      return;
+    }
+
+    if (cleanNum.length !== 7) {
+      alert('O Número de PM deve conter exatamente 7 dígitos numéricos.');
+      return;
+    }
+
+    if (!isValidWhatsApp(formData.whatsapp)) {
+      alert('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
+      return;
+    }
 
     const randomTempPassword = 'pmmg' + Math.floor(1000 + Math.random() * 9000);
 
     const newUser = storage.addUser({
       ...formData,
+      numero_pm: cleanNum,
+      whatsapp: formData.whatsapp.trim(),
       password_hash: randomTempPassword,
       primeiro_acesso: true,
       ativo: true,
@@ -151,7 +173,7 @@ export default function GestaoUsuariosPage() {
       nome_completo: '',
       nome_guerra: '',
       graduacao: 'Sd',
-      whatsapp: '38999991234',
+      whatsapp: '(38) 99999-1234',
       role: 'EQUIPE',
       equipe_padrao: teams[0] || 'ALFA 1'
     });
@@ -162,12 +184,18 @@ export default function GestaoUsuariosPage() {
     e.preventDefault();
     if (!loggedUser) return;
 
+    const cleanNumSugerido = formatNumeroPm(inviteLinkData.numero_pm_sugerido);
+    if (inviteLinkData.numero_pm_sugerido.trim() && cleanNumSugerido.length !== 7) {
+      alert('O Número de PM sugerido deve conter exatamente 7 dígitos numéricos.');
+      return;
+    }
+
     const createdToken = storage.createInviteToken({
       role: inviteLinkData.role,
       equipe_padrao: inviteLinkData.equipe_padrao,
       graduacao_sugerida: inviteLinkData.graduacao_sugerida,
       nome_sugerido: inviteLinkData.nome_sugerido.trim() || undefined,
-      numero_pm_sugerido: inviteLinkData.numero_pm_sugerido.trim() || undefined,
+      numero_pm_sugerido: cleanNumSugerido || undefined,
       criado_por: loggedUser.nome_guerra,
       dias_validade: 7
     });
@@ -200,11 +228,11 @@ export default function GestaoUsuariosPage() {
     const rawGuerra = u.nome_guerra || '';
     const cleanGuerra = rawGuerra.replace(new RegExp(`^${u.graduacao}\\s*`, 'i'), '');
     setEditFormData({
-      numero_pm: u.numero_pm || '',
+      numero_pm: formatNumeroPm(u.numero_pm || ''),
       nome_completo: u.nome_completo || '',
       nome_guerra: cleanGuerra || rawGuerra,
       graduacao: u.graduacao || 'Sd',
-      whatsapp: u.whatsapp || '',
+      whatsapp: formatWhatsApp(u.whatsapp || ''),
       role: u.role || 'EQUIPE',
       equipe_padrao: u.equipe_padrao || (teams[0] || 'ALFA 1'),
       ativo: u.ativo ?? true,
@@ -215,8 +243,19 @@ export default function GestaoUsuariosPage() {
   const handleSaveEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
-    if (!editFormData.numero_pm.trim() || !editFormData.nome_guerra.trim()) {
+    const cleanNum = formatNumeroPm(editFormData.numero_pm);
+    if (!cleanNum || !editFormData.nome_guerra.trim()) {
       alert('Preencha os campos obrigatórios.');
+      return;
+    }
+
+    if (cleanNum.length !== 7) {
+      alert('O Número de PM deve conter exatamente 7 dígitos numéricos.');
+      return;
+    }
+
+    if (editFormData.whatsapp && !isValidWhatsApp(editFormData.whatsapp)) {
+      alert('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
       return;
     }
 
@@ -225,7 +264,7 @@ export default function GestaoUsuariosPage() {
       graduacao: editFormData.graduacao,
       nome_guerra: fullNomeGuerra,
       nome_completo: editFormData.nome_completo.trim() || fullNomeGuerra,
-      numero_pm: editFormData.numero_pm.trim(),
+      numero_pm: cleanNum,
       whatsapp: editFormData.whatsapp.trim(),
       role: editFormData.role,
       equipe_padrao: editFormData.equipe_padrao,
@@ -441,7 +480,7 @@ export default function GestaoUsuariosPage() {
                       </td>
 
                       <td className="p-3.5 text-gray-600 dark:text-gray-300 font-mono">
-                        {u.whatsapp}
+                        {formatWhatsApp(u.whatsapp)}
                       </td>
 
                       <td className="p-3.5">
@@ -544,7 +583,7 @@ export default function GestaoUsuariosPage() {
 
                     {/* WhatsApp */}
                     <td className="p-3.5 text-gray-600 dark:text-gray-300 font-mono">
-                      {u.whatsapp}
+                      {formatWhatsApp(u.whatsapp)}
                     </td>
 
                     {/* Equipe Padrão */}
@@ -694,13 +733,14 @@ export default function GestaoUsuariosPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Número de PM (Login) *
+                    Número de PM (7 dígitos) *
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: 165432-1"
+                    placeholder="Ex: 1234567"
                     value={formData.numero_pm}
-                    onChange={(e) => setFormData({ ...formData, numero_pm: e.target.value })}
+                    maxLength={7}
+                    onChange={(e) => setFormData({ ...formData, numero_pm: formatNumeroPm(e.target.value) })}
                     className="untitled-input font-mono font-medium"
                     required
                   />
@@ -708,13 +748,14 @@ export default function GestaoUsuariosPage() {
 
                 <div>
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    WhatsApp (DDD + Número) *
+                    WhatsApp (com DDD) *
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: 38999991234"
+                    placeholder="Ex: (38) 99999-9999"
                     value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    maxLength={15}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: formatWhatsApp(e.target.value) })}
                     className="untitled-input font-mono"
                     required
                   />
@@ -885,13 +926,14 @@ export default function GestaoUsuariosPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Nº PM (Opcional)
+                      Nº PM Sugerido (7 dígitos - Opcional)
                     </label>
                     <input
                       type="text"
-                      placeholder="Ex: 175.432-1"
+                      placeholder="Ex: 1234567"
                       value={inviteLinkData.numero_pm_sugerido}
-                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, numero_pm_sugerido: e.target.value })}
+                      maxLength={7}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, numero_pm_sugerido: formatNumeroPm(e.target.value) })}
                       className="untitled-input font-mono"
                     />
                   </div>
@@ -901,9 +943,10 @@ export default function GestaoUsuariosPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="38999991234"
+                      placeholder="(38) 99999-9999"
                       value={inviteLinkData.whatsapp}
-                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, whatsapp: e.target.value })}
+                      maxLength={15}
+                      onChange={(e) => setInviteLinkData({ ...inviteLinkData, whatsapp: formatWhatsApp(e.target.value) })}
                       className="untitled-input font-mono"
                     />
                   </div>
@@ -1181,13 +1224,14 @@ export default function GestaoUsuariosPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Número de PM (Login) *
+                    Número de PM (7 dígitos) *
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: 165432-1"
+                    placeholder="Ex: 1234567"
                     value={editFormData.numero_pm}
-                    onChange={(e) => setEditFormData({ ...editFormData, numero_pm: e.target.value })}
+                    maxLength={7}
+                    onChange={(e) => setEditFormData({ ...editFormData, numero_pm: formatNumeroPm(e.target.value) })}
                     className="untitled-input font-mono font-medium"
                     required
                   />
@@ -1195,13 +1239,14 @@ export default function GestaoUsuariosPage() {
 
                 <div>
                   <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    WhatsApp *
+                    WhatsApp (com DDD) *
                   </label>
                   <input
                     type="text"
-                    placeholder="Ex: 38999991234"
+                    placeholder="Ex: (38) 99999-9999"
                     value={editFormData.whatsapp}
-                    onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
+                    maxLength={15}
+                    onChange={(e) => setEditFormData({ ...editFormData, whatsapp: formatWhatsApp(e.target.value) })}
                     className="untitled-input font-mono"
                     required
                   />

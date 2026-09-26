@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Lock
 } from 'lucide-react';
+import { formatNumeroPm, isValidNumeroPm, formatWhatsApp, isValidWhatsApp } from '@/lib/validation';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -41,8 +42,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       const cleanGuerra = rawGuerra.replace(new RegExp(`^${user.graduacao}\\s*`, 'i'), '');
       setNomeGuerra(cleanGuerra || rawGuerra);
       setNomeCompleto(user.nome_completo || '');
-      setNumeroPm(user.numero_pm || '');
-      setWhatsapp(user.whatsapp || '');
+      setNumeroPm(formatNumeroPm(user.numero_pm || ''));
+      setWhatsapp(formatWhatsApp(user.whatsapp || ''));
       setNovaSenha('');
       setConfirmarSenha('');
       setError(null);
@@ -57,8 +58,19 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     setError(null);
     setSuccess(null);
 
-    if (!nomeGuerra.trim() || !numeroPm.trim()) {
+    const cleanNum = formatNumeroPm(numeroPm);
+    if (!nomeGuerra.trim() || !cleanNum) {
       setError('Nome de Guerra e Número de PM são obrigatórios.');
+      return;
+    }
+
+    if (cleanNum.length !== 7) {
+      setError('O Número de PM deve conter exatamente 7 dígitos numéricos.');
+      return;
+    }
+
+    if (whatsapp && !isValidWhatsApp(whatsapp)) {
+      setError('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
       return;
     }
 
@@ -81,7 +93,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         graduacao,
         nome_guerra: fullNomeGuerra,
         nome_completo: nomeCompleto.trim() || fullNomeGuerra,
-        numero_pm: numeroPm.trim(),
+        numero_pm: cleanNum,
         whatsapp: whatsapp.trim()
       },
       novaSenha ? novaSenha.trim() : undefined
@@ -201,14 +213,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Número de Polícia (Login)
+                Número de Polícia (7 dígitos) *
               </label>
               <input
                 type="text"
                 placeholder="Ex: 1578426"
                 value={numeroPm}
-                onChange={(e) => setNumeroPm(e.target.value)}
-                className="untitled-input text-xs font-mono"
+                maxLength={7}
+                onChange={(e) => setNumeroPm(formatNumeroPm(e.target.value))}
+                className="untitled-input text-xs font-mono font-medium"
                 required
               />
             </div>
@@ -219,9 +232,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </label>
               <input
                 type="text"
-                placeholder="Ex: 38999991234"
+                placeholder="Ex: (38) 99999-1234"
                 value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
+                maxLength={15}
+                onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))}
                 className="untitled-input text-xs font-mono"
               />
             </div>
