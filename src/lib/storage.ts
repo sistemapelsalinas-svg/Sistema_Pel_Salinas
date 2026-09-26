@@ -32,6 +32,7 @@ import {
   INITIAL_SHIFT_NOTICES,
   INITIAL_EGRESSOS
 } from './mock-data';
+import { supabase } from './supabase';
 
 const STORAGE_KEYS = {
   USERS: 'sgp_salinas_users_v1',
@@ -102,6 +103,11 @@ class StorageService {
     };
     users.push(newUser);
     this.saveUsers(users);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('users').upsert([newUser])).catch(console.error);
+    }
+
     return newUser;
   }
 
@@ -111,6 +117,11 @@ class StorageService {
     if (idx === -1) return null;
     users[idx] = { ...users[idx], ...updates };
     this.saveUsers(users);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('users').upsert([users[idx]])).catch(console.error);
+    }
+
     return users[idx];
   }
 
@@ -135,6 +146,11 @@ class StorageService {
     const filtered = users.filter(u => u.id !== id);
     if (filtered.length === users.length) return false;
     this.saveUsers(filtered);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('users').delete().eq('id', id)).catch(console.error);
+    }
+
     return true;
   }
 
@@ -189,6 +205,11 @@ class StorageService {
 
     tokens.push(newToken);
     this.saveInviteTokens(tokens);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('invite_tokens').upsert([newToken])).catch(console.error);
+    }
+
     return newToken;
   }
 
@@ -214,6 +235,11 @@ class StorageService {
     tokens[idx].usado = true;
     tokens[idx].usado_por = userId;
     this.saveInviteTokens(tokens);
+
+    if (supabase) {
+      Promise.resolve(supabase.from('invite_tokens').upsert([tokens[idx]])).catch(console.error);
+    }
+
     return true;
   }
 

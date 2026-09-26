@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { RoleBadge } from '@/components/role-badge';
 import { WhatsAppInviteModal } from '@/components/whatsapp-invite-modal';
 import { generateWhatsAppDirectInviteLink } from '@/lib/validation';
+import { syncStorageWithSupabase } from '@/lib/supabase-sync';
 import { 
   Users, 
   UserPlus, 
@@ -83,6 +84,9 @@ export default function GestaoUsuariosPage() {
 
   useEffect(() => {
     loadData();
+    syncStorageWithSupabase().then(() => {
+      loadData();
+    });
   }, []);
 
   const showToast = (msg: string) => {

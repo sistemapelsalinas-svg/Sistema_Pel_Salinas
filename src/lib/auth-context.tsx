@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole } from './types';
 import { storage } from './storage';
+import { syncStorageWithSupabase } from './supabase-sync';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -24,31 +25,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Carrega usuário salvo na sessão do navegador
-    const savedUserJson = localStorage.getItem('sgp_salinas_current_user_v1');
-    if (savedUserJson) {
-      try {
-        const parsed = JSON.parse(savedUserJson);
-        const allUsers = storage.getUsers();
-        const fresh = allUsers.find(u => u.id === parsed.id);
-        if (fresh && fresh.ativo) {
-          setUser(fresh);
-        } else {
+    // Sincroniza dados com o Supabase ao carregar
+    syncStorageWithSupabase().finally(() => {
+      // Carrega usuário salvo na sessão do navegador
+      const savedUserJson = localStorage.getItem('sgp_salinas_current_user_v1');
+      if (savedUserJson) {
+        try {
+          const parsed = JSON.parse(savedUserJson);
+          const allUsers = storage.getUsers();
+          const fresh = allUsers.find(u => u.id === parsed.id);
+          if (fresh && fresh.ativo) {
+            setUser(fresh);
+          } else {
+            localStorage.removeItem('sgp_salinas_current_user_v1');
+            setUser(null);
+          }
+        } catch {
           localStorage.removeItem('sgp_salinas_current_user_v1');
           setUser(null);
         }
-      } catch {
-        localStorage.removeItem('sgp_salinas_current_user_v1');
+      } else {
+        // Bloqueio rigoroso: Sem sessão salva = NÃO LOGADO (redireciona para /login)
         setUser(null);
       }
-    } else {
-      // Bloqueio rigoroso: Sem sessão salva = NÃO LOGADO (redireciona para /login)
-      setUser(null);
-    }
-    setLoading(false);
+      setLoading(false);
+    });
   }, []);
 
   const login = async (numero_pm: string, password?: string): Promise<{ success: boolean; message?: string }> => {
+    // Garante sincronia antes de validar
+    await syncStorageWithSupabase();
+
     const cleanNum = numero_pm.trim();
     const allUsers = storage.getUsers();
     
