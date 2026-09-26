@@ -35,7 +35,8 @@ import {
   Edit,
   Pencil,
   Lock,
-  KeyRound
+  KeyRound,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function GestaoUsuariosPage() {
@@ -46,6 +47,15 @@ export default function GestaoUsuariosPage() {
   
   // Abas de visualização: Ativos x Pendentes de Autorização
   const [activeTab, setActiveTab] = useState<'ATIVOS' | 'PENDENTES'>('ATIVOS');
+
+  // Modal de Exclusão de Militar (Substitui popup do navegador)
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+
+  // Modal de Recusa de Cadastro Pendente (Substitui popup do navegador)
+  const [userToReject, setUserToReject] = useState<UserProfile | null>(null);
+
+  // Modal de Alerta de Ação Não Permitida (Substitui popup alert do navegador)
+  const [actionErrorAlert, setActionErrorAlert] = useState<string | null>(null);
 
   // Modal de Cadastro Manual com Senha Provisória
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
@@ -135,17 +145,17 @@ export default function GestaoUsuariosPage() {
     e.preventDefault();
     const cleanNum = formatNumeroPm(formData.numero_pm);
     if (!cleanNum || !formData.nome_completo || !formData.whatsapp) {
-      alert('Preencha os campos obrigatórios.');
+      setActionErrorAlert('Preencha todos os campos obrigatórios (*).');
       return;
     }
 
     if (cleanNum.length !== 7) {
-      alert('O Número de PM deve conter exatamente 7 dígitos numéricos.');
+      setActionErrorAlert('O Número de PM deve conter exatamente 7 dígitos numéricos.');
       return;
     }
 
     if (!isValidWhatsApp(formData.whatsapp)) {
-      alert('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
+      setActionErrorAlert('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
       return;
     }
 
@@ -186,7 +196,7 @@ export default function GestaoUsuariosPage() {
 
     const cleanNumSugerido = formatNumeroPm(inviteLinkData.numero_pm_sugerido);
     if (inviteLinkData.numero_pm_sugerido.trim() && cleanNumSugerido.length !== 7) {
-      alert('O Número de PM sugerido deve conter exatamente 7 dígitos numéricos.');
+      setActionErrorAlert('O Número de PM sugerido deve conter exatamente 7 dígitos numéricos.');
       return;
     }
 
@@ -214,13 +224,17 @@ export default function GestaoUsuariosPage() {
     showToast(`Cadastro de ${approvingUser.nome_guerra} autorizado com sucesso como ${approveRole}.`);
   };
 
-  // Recusar/Rejeitar usuário pendente
-  const handleRejectPendingUser = (userId: string, nome: string) => {
-    if (confirm(`Deseja realmente recusar e remover o pedido de cadastro de ${nome}?`)) {
-      storage.rejectUser(userId);
-      loadData();
-      showToast(`Pedido de cadastro de ${nome} recusado.`);
-    }
+  // Recusar/Rejeitar usuário pendente com Modal
+  const handleRequestRejectPending = (u: UserProfile) => {
+    setUserToReject(u);
+  };
+
+  const handleConfirmRejectPending = () => {
+    if (!userToReject) return;
+    storage.rejectUser(userToReject.id);
+    loadData();
+    showToast(`Pedido de cadastro de ${userToReject.nome_guerra} recusado.`);
+    setUserToReject(null);
   };
 
   const handleOpenEditUser = (u: UserProfile) => {
@@ -245,17 +259,17 @@ export default function GestaoUsuariosPage() {
     if (!editingUser) return;
     const cleanNum = formatNumeroPm(editFormData.numero_pm);
     if (!cleanNum || !editFormData.nome_guerra.trim()) {
-      alert('Preencha os campos obrigatórios.');
+      setActionErrorAlert('Preencha os campos obrigatórios.');
       return;
     }
 
     if (cleanNum.length !== 7) {
-      alert('O Número de PM deve conter exatamente 7 dígitos numéricos.');
+      setActionErrorAlert('O Número de PM deve conter exatamente 7 dígitos numéricos.');
       return;
     }
 
     if (editFormData.whatsapp && !isValidWhatsApp(editFormData.whatsapp)) {
-      alert('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
+      setActionErrorAlert('Informe um número de WhatsApp válido com DDD no formato (XX) XXXXX-XXXX.');
       return;
     }
 
@@ -288,16 +302,21 @@ export default function GestaoUsuariosPage() {
     showToast('Perfil de acesso atualizado.');
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (userId === loggedUser?.id) {
-      alert('Você não pode excluir o seu próprio usuário logado.');
+  // Excluir militar com Modal (sem popup do navegador)
+  const handleRequestDeleteUser = (u: UserProfile) => {
+    if (u.id === loggedUser?.id) {
+      setActionErrorAlert('Você não pode excluir o seu próprio usuário logado no sistema.');
       return;
     }
-    if (confirm('Tem certeza que deseja excluir o acesso deste militar do sistema?')) {
-      storage.deleteUser(userId);
-      setUsers(storage.getUsers());
-      showToast('Usuário removido.');
-    }
+    setUserToDelete(u);
+  };
+
+  const handleConfirmDeleteUser = () => {
+    if (!userToDelete) return;
+    storage.deleteUser(userToDelete.id);
+    setUsers(storage.getUsers());
+    showToast(`Militar ${userToDelete.nome_guerra} excluído com sucesso.`);
+    setUserToDelete(null);
   };
 
   const handleOpenInvite = (u: UserProfile) => {
@@ -508,7 +527,7 @@ export default function GestaoUsuariosPage() {
                             <span>Autorizar</span>
                           </button>
                           <button
-                            onClick={() => handleRejectPendingUser(u.id, u.nome_guerra)}
+                            onClick={() => handleRequestRejectPending(u)}
                             className="btn-secondary py-1 px-2.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                             title="Recusar cadastro"
                           >
@@ -643,7 +662,7 @@ export default function GestaoUsuariosPage() {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteUser(u.id)}
+                          onClick={() => handleRequestDeleteUser(u)}
                           className="p-1.5 text-gray-400 hover:text-error-600 rounded-lg hover:bg-error-50 dark:hover:bg-error-950/40 transition-colors"
                           title="Excluir militar"
                         >
@@ -1335,6 +1354,177 @@ export default function GestaoUsuariosPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão de Militar */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#161B26] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-white">Excluir Militar</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Remover acesso e cadastro do sistema</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setUserToDelete(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-4 bg-gray-50 dark:bg-[#0C111D] rounded-xl border border-gray-200 dark:border-gray-800 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950/80 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center justify-center font-bold text-xs">
+                    {userToDelete.graduacao}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-sm text-gray-900 dark:text-white block">{userToDelete.nome_guerra}</span>
+                    <span className="text-gray-500 text-[11px] block">{userToDelete.nome_completo}</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-gray-200/60 dark:border-gray-800/60 grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-gray-500 block">Nº de PM:</span>
+                    <span className="font-mono font-medium text-brand-600 dark:text-brand-400">{userToDelete.numero_pm}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">WhatsApp:</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-300">{formatWhatsApp(userToDelete.whatsapp)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 rounded-xl flex items-start gap-2.5 text-rose-800 dark:text-rose-300">
+                <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  Tem certeza que deseja excluir este militar? O acesso será revogado e os dados deste usuário serão excluídos do sistema.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUserToDelete(null)}
+                  className="btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteUser}
+                  className="btn-primary bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Sim, Excluir Militar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Recusa de Cadastro Pendente */}
+      {userToReject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#161B26] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center justify-center">
+                  <UserX className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-white">Recusar Solicitação</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Rejeitar e remover pedido de cadastro</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setUserToReject(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-4 bg-gray-50 dark:bg-[#0C111D] rounded-xl border border-gray-200 dark:border-gray-800 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center justify-center font-bold text-xs">
+                    {userToReject.graduacao}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-sm text-gray-900 dark:text-white block">{userToReject.nome_guerra}</span>
+                    <span className="text-gray-500 text-[11px] block">{userToReject.nome_completo}</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-gray-200/60 dark:border-gray-800/60 grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-gray-500 block">Nº de PM:</span>
+                    <span className="font-mono font-medium text-brand-600 dark:text-brand-400">{userToReject.numero_pm}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">WhatsApp:</span>
+                    <span className="font-mono text-gray-700 dark:text-gray-300">{formatWhatsApp(userToReject.whatsapp)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                Deseja realmente recusar e remover a solicitação de acesso de <strong className="text-gray-900 dark:text-white">{userToReject.nome_guerra}</strong>? O militar não poderá acessar até que faça uma nova solicitação.
+              </p>
+
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUserToReject(null)}
+                  className="btn-secondary"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmRejectPending}
+                  className="btn-primary bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  <UserX className="w-4 h-4" />
+                  <span>Recusar Cadastro</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Alerta de Ação Não Permitida */}
+      {actionErrorAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-white dark:bg-[#161B26] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95">
+            <div className="p-6 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="font-semibold text-base text-gray-900 dark:text-white">Atenção</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                {actionErrorAlert}
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActionErrorAlert(null)}
+                  className="btn-primary w-full py-2"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
