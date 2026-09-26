@@ -25,7 +25,11 @@ import {
   Clock,
   ShieldCheck,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Edit,
+  Pencil,
+  Lock,
+  KeyRound
 } from 'lucide-react';
 
 export default function GestaoUsuariosPage() {
@@ -62,6 +66,20 @@ export default function GestaoUsuariosPage() {
 
   const [notification, setNotification] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Modal de Edição de Militar pelo Administrador
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    numero_pm: '',
+    nome_completo: '',
+    nome_guerra: '',
+    graduacao: 'Sd',
+    whatsapp: '',
+    role: 'EQUIPE' as UserRole,
+    equipe_padrao: 'ALFA 1',
+    ativo: true,
+    nova_senha: ''
+  });
 
   const [formData, setFormData] = useState({
     numero_pm: '',
@@ -175,6 +193,54 @@ export default function GestaoUsuariosPage() {
       loadData();
       showToast(`Pedido de cadastro de ${nome} recusado.`);
     }
+  };
+
+  const handleOpenEditUser = (u: UserProfile) => {
+    setEditingUser(u);
+    const rawGuerra = u.nome_guerra || '';
+    const cleanGuerra = rawGuerra.replace(new RegExp(`^${u.graduacao}\\s*`, 'i'), '');
+    setEditFormData({
+      numero_pm: u.numero_pm || '',
+      nome_completo: u.nome_completo || '',
+      nome_guerra: cleanGuerra || rawGuerra,
+      graduacao: u.graduacao || 'Sd',
+      whatsapp: u.whatsapp || '',
+      role: u.role || 'EQUIPE',
+      equipe_padrao: u.equipe_padrao || (teams[0] || 'ALFA 1'),
+      ativo: u.ativo ?? true,
+      nova_senha: ''
+    });
+  };
+
+  const handleSaveEditUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    if (!editFormData.numero_pm.trim() || !editFormData.nome_guerra.trim()) {
+      alert('Preencha os campos obrigatórios.');
+      return;
+    }
+
+    const fullNomeGuerra = `${editFormData.graduacao} ${editFormData.nome_guerra.trim()}`;
+    const updates: Partial<UserProfile> = {
+      graduacao: editFormData.graduacao,
+      nome_guerra: fullNomeGuerra,
+      nome_completo: editFormData.nome_completo.trim() || fullNomeGuerra,
+      numero_pm: editFormData.numero_pm.trim(),
+      whatsapp: editFormData.whatsapp.trim(),
+      role: editFormData.role,
+      equipe_padrao: editFormData.equipe_padrao,
+      ativo: editFormData.ativo
+    };
+
+    if (editFormData.nova_senha.trim()) {
+      updates.password_hash = editFormData.nova_senha.trim();
+      updates.primeiro_acesso = false;
+    }
+
+    storage.updateUser(editingUser.id, updates);
+    loadData();
+    setEditingUser(null);
+    showToast(`Militar ${fullNomeGuerra} atualizado com sucesso.`);
   };
 
   const handleRoleChange = (userId: string, newRole: UserRole) => {
@@ -529,13 +595,22 @@ export default function GestaoUsuariosPage() {
 
                     {/* Ação */}
                     <td className="p-3.5 text-center">
-                      <button
-                        onClick={() => handleDeleteUser(u.id)}
-                        className="p-1.5 text-gray-400 hover:text-error-600 rounded-lg hover:bg-error-50 dark:hover:bg-error-950/40 transition-colors"
-                        title="Excluir militar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleOpenEditUser(u)}
+                          className="p-1.5 text-gray-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
+                          title="Editar dados e senha do militar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(u.id)}
+                          className="p-1.5 text-gray-400 hover:text-error-600 rounded-lg hover:bg-error-50 dark:hover:bg-error-950/40 transition-colors"
+                          title="Excluir militar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
 
                   </tr>
@@ -1024,6 +1099,197 @@ export default function GestaoUsuariosPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição de Militar pelo Administrador */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161B26] border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+            
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center justify-center">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-gray-900 dark:text-white">Editar Militar & Acesso</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Atualização cadastral e controle de credenciais</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} className="p-6 space-y-4 text-xs overflow-y-auto">
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Graduação *
+                  </label>
+                  <select
+                    value={editFormData.graduacao}
+                    onChange={(e) => setEditFormData({ ...editFormData, graduacao: e.target.value })}
+                    className="untitled-input font-medium"
+                  >
+                    <option value="Sd">Sd</option>
+                    <option value="Cb">Cb</option>
+                    <option value="3º Sgt">3º Sgt</option>
+                    <option value="2º Sgt">2º Sgt</option>
+                    <option value="1º Sgt">1º Sgt</option>
+                    <option value="Sub Ten">Sub Ten</option>
+                    <option value="Ten">Ten</option>
+                    <option value="Cap">Cap</option>
+                  </select>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Nome de Guerra *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Silva, Moreira"
+                    value={editFormData.nome_guerra}
+                    onChange={(e) => setEditFormData({ ...editFormData, nome_guerra: e.target.value })}
+                    className="untitled-input font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nome Completo *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nome completo do policial militar"
+                  value={editFormData.nome_completo}
+                  onChange={(e) => setEditFormData({ ...editFormData, nome_completo: e.target.value })}
+                  className="untitled-input"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Número de PM (Login) *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 165432-1"
+                    value={editFormData.numero_pm}
+                    onChange={(e) => setEditFormData({ ...editFormData, numero_pm: e.target.value })}
+                    className="untitled-input font-mono font-medium"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    WhatsApp *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 38999991234"
+                    value={editFormData.whatsapp}
+                    onChange={(e) => setEditFormData({ ...editFormData, whatsapp: e.target.value })}
+                    className="untitled-input font-mono"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Perfil de Acesso (Função) *
+                  </label>
+                  <select
+                    value={editFormData.role}
+                    onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as UserRole })}
+                    className="untitled-input font-medium"
+                  >
+                    <option value="EQUIPE">EQUIPE RUA</option>
+                    <option value="SOF">SOF CENTRAL</option>
+                    <option value="ALERTA_HOMICIDIO">ALERTA HOMICÍDIO</option>
+                    <option value="ADMIN">ADMINISTRADOR</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Equipe Padrão
+                  </label>
+                  <select
+                    value={editFormData.equipe_padrao}
+                    onChange={(e) => setEditFormData({ ...editFormData, equipe_padrao: e.target.value })}
+                    className="untitled-input"
+                  >
+                    {teams.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Status Ativo */}
+              <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-[#0C111D] rounded-xl border border-gray-200 dark:border-gray-800">
+                <input
+                  type="checkbox"
+                  id="edit_ativo"
+                  checked={editFormData.ativo}
+                  onChange={(e) => setEditFormData({ ...editFormData, ativo: e.target.checked })}
+                  className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 w-4 h-4"
+                />
+                <label htmlFor="edit_ativo" className="font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                  Militar Ativo (Permitir acesso ao sistema)
+                </label>
+              </div>
+
+              {/* Redefinir Senha */}
+              <div className="p-3.5 bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200/60 dark:border-brand-800/40 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-brand-800 dark:text-brand-300 font-semibold">
+                  <KeyRound className="w-4 h-4" />
+                  <span>Redefinir Senha de Acesso (Opcional)</span>
+                </div>
+                <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                  Preencha apenas se desejar alterar a senha do militar manualmente agora. Caso deixe em branco, a senha atual será mantida.
+                </p>
+                <input
+                  type="text"
+                  placeholder="Deixe em branco para manter a senha atual ou digite a nova"
+                  value={editFormData.nova_senha}
+                  onChange={(e) => setEditFormData({ ...editFormData, nova_senha: e.target.value })}
+                  className="untitled-input bg-white dark:bg-[#0C111D] font-mono"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Salvar Alterações</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

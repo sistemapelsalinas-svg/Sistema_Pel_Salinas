@@ -25,6 +25,7 @@ import {
   Bell
 } from 'lucide-react';
 import { EgressosModal } from './egressos-modal';
+import { ProfileModal } from './profile-modal';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -32,6 +33,7 @@ export function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [isHovered, setIsHovered] = useState(false);
   const [showEgressosModal, setShowEgressosModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (!user) return null;
 
@@ -187,9 +189,14 @@ export function Sidebar() {
 
         {/* User Profile Footer */}
         <div className={`p-3 border-t border-gray-100 dark:border-[#222938] flex items-center ${!isExpanded ? 'justify-center' : 'justify-between'}`}>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center justify-center font-bold text-xs border border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowProfileModal(true)}
+            title="Editar meu perfil e senha"
+            className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity p-1 -m-1 rounded-lg hover:bg-gray-50 dark:hover:bg-[#1E2636]"
+          >
+            <div className="relative flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 flex items-center justify-center font-bold text-xs border border-emerald-200 dark:border-emerald-800">
                 {user.nome_guerra.slice(0, 2).toUpperCase()}
               </div>
               <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#151A23] absolute bottom-0 right-0" />
@@ -199,10 +206,10 @@ export function Sidebar() {
                 <p className="text-xs font-semibold text-gray-900 dark:text-white truncate leading-none">
                   {user.nome_guerra}
                 </p>
-                <p className="text-[10px] text-gray-400 font-mono mt-0.5 truncate">PM {user.numero_pm}</p>
+                <p className="text-[10px] text-gray-400 font-mono mt-0.5 truncate">PM {user.numero_pm} · Editar</p>
               </div>
             )}
-          </div>
+          </button>
           {isExpanded && (
             <button
               onClick={logout}
@@ -219,6 +226,11 @@ export function Sidebar() {
       <EgressosModal
         isOpen={showEgressosModal}
         onClose={() => setShowEgressosModal(false)}
+      />
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
       />
     </>
   );

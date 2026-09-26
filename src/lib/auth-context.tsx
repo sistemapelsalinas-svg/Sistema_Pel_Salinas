@@ -13,6 +13,7 @@ interface AuthContextType {
   register: (userData: Omit<UserProfile, 'id' | 'created_at'>, inviteTokenStr?: string) => Promise<{ success: boolean; message?: string; pendingApproval?: boolean }>;
   logout: () => void;
   updatePassword: (newPassword: string) => Promise<{ success: boolean }>;
+  updateProfile: (updates: Partial<UserProfile>, newPassword?: string) => Promise<{ success: boolean; message?: string }>;
   switchUserRole: (role: UserRole) => void;
   switchActiveUser: (userId: string) => void;
 }
@@ -212,6 +213,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: false };
   };
 
+  const updateProfile = async (updates: Partial<UserProfile>, newPassword?: string): Promise<{ success: boolean; message?: string }> => {
+    if (!user) return { success: false, message: 'Usuário não autenticado.' };
+    
+    // Se estiver alterando o número de PM, validar duplicidade
+    if (updates.numero_pm && updates.numero_pm.trim() !== user.numero_pm.trim()) {
+      const allUsers = storage.getUsers();
+      const cleanNum = updates.numero_pm.trim().replace(/\D/g, '');
+      const conflict = allUsers.find(u => u.id !== user.id && u.numero_pm.replace(/\D/g, '') === cleanNum);
+      if (conflict) {
+        return { success: false, message: 'Este Número de PM já pertence a outro militar.' };
+      }
+    }
+
+    const payload: Partial<UserProfile> = { ...updates };
+    if (newPassword && newPassword.trim()) {
+      payload.password_hash = newPassword.trim();
+      payload.primeiro_acesso = false;
+    }
+
+    const updated = storage.updateUser(user.id, payload);
+    if (updated) {
+      setUser(updated);
+      localStorage.setItem('sgp_salinas_current_user_v1', JSON.stringify(updated));
+      try {
+        await syncStorageWithSupabase();
+      } catch (e) {
+        console.error('Erro ao sincronizar perfil atualizado:', e);
+      }
+      return { success: true };
+    }
+    return { success: false, message: 'Erro ao salvar alterações no perfil.' };
+  };
+
   const switchUserRole = (role: UserRole) => {
     if (!user) return;
     const updated = storage.updateUser(user.id, { role });
@@ -238,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       updatePassword,
+      updateProfile,
       switchUserRole,
       switchActiveUser
     }}>

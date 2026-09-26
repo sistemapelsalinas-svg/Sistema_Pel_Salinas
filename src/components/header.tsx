@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useSidebar } from '@/lib/sidebar-context';
 import { ThemeToggle } from './theme-toggle';
-import { Compass, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ProfileModal } from './profile-modal';
+import { Compass, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -17,6 +18,7 @@ export function Header() {
   const today = new Date();
   const formattedDate = format(today, "EEE, dd 'de' MMM", { locale: ptBR });
   const [period, setPeriod] = useState<'dia' | 'semana' | 'mes'>('mes');
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (!user) return null;
 
@@ -112,6 +114,19 @@ export function Header() {
             </Link>
           </div>
 
+          {/* Botão Meu Perfil */}
+          <button
+            type="button"
+            onClick={() => setShowProfileModal(true)}
+            title="Meu Perfil & Alterar Senha"
+            className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#1E2636] border border-gray-200/80 dark:border-[#222938] transition-all"
+          >
+            <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 flex items-center justify-center font-bold text-[10px] border border-emerald-200 dark:border-emerald-800">
+              {user.nome_guerra.slice(0, 2).toUpperCase()}
+            </div>
+            <span className="hidden sm:inline truncate max-w-[120px]">{user.nome_guerra}</span>
+          </button>
+
           {/* Theme Switcher (Sempre Visível no Topo Direito, tanto mobile quanto desktop) */}
           <ThemeToggle />
 
@@ -158,6 +173,11 @@ export function Header() {
           </div>
         </div>
       )}
+
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
 
     </header>
   );
